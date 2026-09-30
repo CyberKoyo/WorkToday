@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Workday Filler — Setup</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
+    .row { display: grid; grid-template-columns: 260px 1fr; gap: 8px; margin: 6px 0; align-items: center; }
+    .entry { border: 1px solid #ddd; padding: 8px; margin: 8px 0; border-radius: 6px; }
+    #status { min-height: 1.4em; font-weight: 600; }
+    .notice { background: #fff7e6; padding: 8px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Workday Filler setup</h1>
+  <section>
+    <h2>1. Gemini API key</h2>
+    <input id="apiKey" type="password" size="50" placeholder="Paste key from aistudio.google.com" />
+    <button id="saveKey" type="button">Save key</button>
+  </section>
+  <section>
+    <h2>2. Resume</h2>
+    <p class="notice">Resumes are parsed with Google Gemini using your API key. On Google's free tier, submitted content may be used to improve Google products.</p>
+    <input id="resume" type="file" accept=".pdf,.txt,application/pdf,text/plain" />
+    <button id="parse" type="button">Parse resume</button>
+    <p id="resumeName"></p>
+  </section>
+  <section>
+    <h2>3. Review your profile</h2>
+    <p>Check every field. Fill in the questions Gemini leaves blank (work authorization, EEO, etc.).</p>
+    <div id="form"></div>
+    <button id="save" type="button">Save &amp; mark reviewed</button>
+  </section>
+  <p id="status" role="status"></p>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
