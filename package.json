@@ -1,0 +1,6 @@
+{
+  "name": "workday-filler",
+  "private": true,
+  "workspaces": ["shared", "extension"],
+  "scripts": { "test": "npm test --workspaces --if-present" }
+}

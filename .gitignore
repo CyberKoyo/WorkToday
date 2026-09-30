@@ -1,2 +1,8 @@
 # Planning/Spec documents
 docs/
+
+node_modules/
+.output/
+.wxt/
+.wrangler/
+.dev.vars
