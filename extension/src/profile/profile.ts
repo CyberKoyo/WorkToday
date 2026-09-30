@@ -30,12 +30,12 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 export function normalizeMonth(s: string): string {
   const t = s.trim().toLowerCase();
   let m: RegExpMatchArray | null;
-  if ((m = t.match(/^(\d{4})-(\d{2})$/))) return `${m[1]}-${m[2]}`;
-  if ((m = t.match(/^(\d{4})$/))) return m[1];
-  if ((m = t.match(/^(\d{1,2})\/(\d{4})$/))) return `${m[2]}-${m[1].padStart(2, '0')}`;
+  if ((m = t.match(/^(\d{4})-(\d{2})$/))) return `${m[1]!}-${m[2]!}`;
+  if ((m = t.match(/^(\d{4})$/))) return m[1]!;
+  if ((m = t.match(/^(\d{1,2})\/(\d{4})$/))) return `${m[2]!}-${m[1]!.padStart(2, '0')}`;
   if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{4})$/))) {
-    const i = MONTHS.indexOf(m[1]);
-    if (i >= 0) return `${m[2]}-${String(i + 1).padStart(2, '0')}`;
+    const i = MONTHS.indexOf(m[1]!);
+    if (i >= 0) return `${m[2]!}-${String(i + 1).padStart(2, '0')}`;
   }
   return '';
 }

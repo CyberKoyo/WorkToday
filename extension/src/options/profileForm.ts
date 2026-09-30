@@ -24,8 +24,9 @@ const WORK_FIELDS: Array<keyof WorkEntry> = ['title', 'company', 'location', 'st
 const EDU_FIELDS: Array<keyof EduEntry> = ['school', 'degree', 'fieldOfStudy', 'startDate', 'endDate', 'gpa'];
 type Entry = Record<string, string | boolean>;
 
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...kids: Node[]) {
-  const e = Object.assign(document.createElement(tag), props);
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...kids: Node[]): HTMLElementTagNameMap[K] {
+  const e = document.createElement(tag);
+  Object.assign(e, props);
   e.append(...kids);
   return e;
 }
@@ -35,7 +36,7 @@ const row = (labelText: string, control: HTMLElement) =>
 
 function scalarControl(key: ScalarKey, value: string): HTMLElement {
   const choices = CHOICES[key];
-  const c = choices ? el('select') : el('input', { type: 'text' });
+  const c: HTMLInputElement | HTMLSelectElement = choices ? el('select') : el('input', { type: 'text' });
   if (choices) for (const v of choices) c.append(el('option', { value: v, textContent: v || '— not set —' }));
   c.value = value;
   c.dataset.key = key;
@@ -46,7 +47,7 @@ function entryBlock(fields: string[], entry: Entry): HTMLElement {
   const box = el('div', { className: 'entry' });
   for (const f of fields) {
     const v = entry[f];
-    const c = typeof v === 'boolean'
+    const c: HTMLElement = typeof v === 'boolean'
       ? el('input', { type: 'checkbox', checked: v })
       : f === 'description' ? el('textarea', { value: String(v ?? '') }) : el('input', { type: 'text', value: String(v ?? '') });
     c.dataset.entryKey = f;
