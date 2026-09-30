@@ -7,6 +7,7 @@ import { emptyProfile } from '@/src/profile/profile';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (msg: string) => { $('status').textContent = msg; };
+const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 async function init() {
   $<HTMLInputElement>('apiKey').value = await getApiKey();
@@ -17,11 +18,19 @@ async function init() {
   if (profile && !profile.reviewed) status('Profile not reviewed yet — review and save.');
 }
 
-$('saveKey').onclick = async () => { await saveApiKey($<HTMLInputElement>('apiKey').value); status('Key saved.'); };
+$('saveKey').onclick = async () => {
+  try {
+    await saveApiKey($<HTMLInputElement>('apiKey').value);
+    status('Key saved.');
+  } catch (e) {
+    status(`Could not save: ${errorMessage(e)}`);
+  }
+};
 
 $('parse').onclick = async () => {
   const file = $<HTMLInputElement>('resume').files?.[0];
   if (!file) return status('Choose a resume file first.');
+  $<HTMLButtonElement>('parse').disabled = true;
   status('Parsing with Gemini…');
   try {
     const typedKey = $<HTMLInputElement>('apiKey').value.trim();
@@ -33,15 +42,38 @@ $('parse').onclick = async () => {
     await saveResume(stored);                    // only persist after a successful parse
     $('resumeName').textContent = `Stored: ${stored.name}`;
     renderProfileForm($('form'), keepManualAnswers(parsed, readProfileForm($('form'))));
-    status('Parsed. Review below, then Save.');  // profile not saved until the user clicks Save
+    if (!parsed.firstName && !parsed.email && parsed.work.length === 0) {
+      status('Gemini found almost nothing in this file — is it a scanned image or not a resume? Review carefully.');
+    } else {
+      status('Parsed. Review below, then Save.');  // profile not saved until the user clicks Save
+    }
   } catch (e) {
     status(e instanceof ResumeParseError ? e.message : 'Unexpected error while parsing.');
+  } finally {
+    $<HTMLButtonElement>('parse').disabled = false;
   }
 };
 
 $('save').onclick = async () => {
-  await saveProfile({ ...readProfileForm($('form')), reviewed: true });
-  status('Saved. Auto-fill is ready on Workday.');
+  const data = readProfileForm($('form'));
+  if (!data.firstName && !data.lastName && !data.email) {
+    return status('Add at least your name or email before saving.');
+  }
+  try {
+    await saveProfile({ ...data, reviewed: true });
+    status('Saved. Auto-fill is ready on Workday.');
+  } catch (e) {
+    status(`Could not save: ${errorMessage(e)}`);
+  }
 };
 
-init();
+$<HTMLButtonElement>('save').disabled = true;
+$<HTMLButtonElement>('parse').disabled = true;
+init()
+  .then(() => {
+    $<HTMLButtonElement>('save').disabled = false;
+    $<HTMLButtonElement>('parse').disabled = false;
+  })
+  .catch((e) => {
+    status(`Could not load saved data: ${errorMessage(e)}`);
+  });
