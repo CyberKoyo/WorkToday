@@ -1,0 +1,8 @@
+{
+  "name": "server",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "wrangler dev --remote", "deploy": "wrangler deploy", "test": "vitest run" },
+  "dependencies": { "@wf/shared": "*" },
+  "devDependencies": { "wrangler": "*", "vitest": "*", "typescript": "*", "@cloudflare/workers-types": "*" }
+}
