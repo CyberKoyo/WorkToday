@@ -30,7 +30,7 @@ function candidatesFor(value: string): string[] {
 
 function uniqueIndex(opts: string[], pred: (o: string) => boolean): number {
   const hits = opts.flatMap((o, i) => (pred(o) ? [i] : []));
-  return hits.length === 1 ? hits[0] : -1;
+  return hits.length === 1 ? hits[0]! : -1;
 }
 
 export function matchOption(value: string, options: string[]): number {
@@ -44,7 +44,7 @@ export function matchOption(value: string, options: string[]): number {
     const i = uniqueIndex(opts, (o) => ` ${o} `.includes(` ${c} `));
     if (i !== -1) return i;
   }
-  const vt = new Set(cands[0].split(' '));
+  const vt = new Set(cands[0]!.split(' '));
   let best = -1, bestScore = 0, tie = false;
   opts.forEach((o, i) => {
     const ot = new Set(o.split(' '));
