@@ -48,11 +48,13 @@ async function fillSelect(c: HTMLElement, value: string, timeoutMs: number): Pro
   const btn = c.querySelector<HTMLButtonElement>(SEL.dropdownButton)!;
   const current = clean(btn.textContent);
   if (current && current !== SEL.dropdownPlaceholder) return 'skipped_nonempty';
-  btn.click();
   const doc = c.ownerDocument;
+  // Other listboxes (e.g. multiselect chips) may already be on the page; only options this click opens count.
+  const before = new Set(doc.querySelectorAll(SEL.listboxOption));
+  btn.click();
   const opts = await waitFor(() => {
-    const l = doc.querySelectorAll<HTMLElement>(SEL.listboxOption);
-    return l.length ? [...l] : null;
+    const l = [...doc.querySelectorAll<HTMLElement>(SEL.listboxOption)].filter((o) => !before.has(o));
+    return l.length ? l : null;
   }, timeoutMs);
   if (!opts) return 'error';
   const i = matchOption(value, opts.map((o) => o.textContent ?? ''));
@@ -70,6 +72,7 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
     switch (f.kind) {
       case 'text':
       case 'textarea': {
+        if (c.querySelector(SEL.multiSelect)) return 'no_match'; // typing a search term selects nothing
         const el = c.querySelector<HTMLInputElement | HTMLTextAreaElement>(f.kind === 'text' ? SEL.textInput : 'textarea')!;
         if (el.value.trim()) return 'skipped_nonempty';
         setNativeValue(el, typeof value === 'boolean' ? (value ? 'Yes' : 'No') : asText(value));

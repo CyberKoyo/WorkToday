@@ -20,6 +20,17 @@ describe('matchOption', () => {
     ['LinkedIn', ['Job Board', 'Social Media - LinkedIn', 'Referral'], 1],
   ])('%s in %j -> %i', (v, opts, i) => expect(matchOption(v, opts)).toBe(i));
 
+  const DEGREES = ['Select One', 'Degree in Progress (no degree awarded)', 'High School Diploma/GED', 'Attendance (No Degree Awarded)', 'Other',
+    'Non-Degree Program', "Associate's Degree", 'Technical Diploma', 'Higher Degree', "Bachelor's Degree", "Master's Degree", 'M.B.A.',
+    'Doctorate Degree', 'M.D.', 'J.D.'];
+  it.each([
+    ['Bachelors', 9], ["Bachelor's", 9], ['BS', 9], ['B.S.', 9], ['Bachelor of Science', 9], ['BA', 9],
+    ['Masters', 10], ['MS', 10], ['Master of Science', 10], ['MBA', 11], ['PhD', 12], ['Associates', 6],
+  ])('degree %s -> %i (real Workday options)', (v, i) => expect(matchOption(v, DEGREES)).toBe(i));
+  it('exact degree option wins over alias', () => {
+    expect(matchOption('Bachelor of Science', ['Bachelor of Arts', 'Bachelor of Science'])).toBe(1);
+  });
+
   it('never guesses', () => {
     expect(matchOption('Martian', ['Yes', 'No'])).toBe(-1);
     expect(matchOption('engineer', ['Software Engineer', 'Hardware Engineer'])).toBe(-1);

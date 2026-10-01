@@ -67,6 +67,25 @@ describe('fillField', () => {
     expect(onKey).toHaveBeenCalled();
     expect(btn.textContent).toBe('Select One');
   });
+  it('select: ignores options from other listboxes already on the page (multiselect chips)', async () => {
+    document.body.innerHTML = '<ul role="listbox" data-automation-id="selectedItemList"><li role="option">United States of America (+1)</li></ul>'
+      + wrap('<label>State</label><button aria-haspopup="listbox" type="button">Select One</button>');
+    const f = extractFields()[0]!;
+    const btn = f.container.querySelector('button')!;
+    btn.addEventListener('click', () => setTimeout(() => {
+      const lb = document.createElement('div'); lb.setAttribute('role', 'listbox');
+      lb.innerHTML = '<div role="option">Alabama</div><div role="option">New York</div>';
+      lb.querySelectorAll<HTMLElement>('[role="option"]').forEach((o) => o.addEventListener('click', () => { btn.textContent = o.textContent; lb.remove(); }));
+      document.body.append(lb);
+    }, 30));
+    expect(await fillField(f, 'NY')).toBe('filled');
+    expect(btn.textContent).toBe('New York');
+  });
+  it('multiselect search box: not typed into, reported no_match', async () => {
+    const f = setup(wrap('<label>Field of Study</label><div data-automation-id="multiSelectContainer"><input type="text" placeholder="Search"></div>'));
+    expect(await fillField(f, 'Computer Science')).toBe('no_match');
+    expect(f.container.querySelector('input')!.value).toBe('');
+  });
   it('select: already chosen is skipped', async () => {
     const f = setup(wrap('<label>State</label><button aria-haspopup="listbox" type="button">Texas</button>'));
     expect(await fillField(f, 'CA')).toBe('skipped_nonempty');

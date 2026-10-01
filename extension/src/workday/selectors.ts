@@ -5,6 +5,7 @@ export const SEL = {
   dropdownButton: 'button[aria-haspopup="listbox"]',
   dropdownPlaceholder: 'Select One',
   listboxOption: '[role="listbox"] [role="option"]',
+  multiSelect: '[data-automation-id="multiSelectContainer"]', // searchable prompt (Skills, Field of Study): not auto-filled
   dateMonth: '[data-automation-id="dateSectionMonth-input"]',
   dateYear: '[data-automation-id="dateSectionYear-input"]',
   fileInput: 'input[type="file"]',

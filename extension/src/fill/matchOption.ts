@@ -13,8 +13,18 @@ const ALIASES: Record<string, string[]> = {
   uk: ['united kingdom'],
 };
 
+// Degree wordings resumes use → wording Workday degree dropdowns use (normalized, apostrophes dropped).
+const DEGREE_ALIASES: Array<[string[], string[]]> = [
+  [['bachelors', 'bachelor', 'bs', 'b s', 'bsc', 'b sc', 'ba', 'b a', 'bachelor of science', 'bachelor of arts'], ['bachelors degree']],
+  [['masters', 'master', 'ms', 'm s', 'msc', 'm sc', 'ma', 'm a', 'master of science', 'master of arts'], ['masters degree']],
+  [['mba', 'm b a', 'master of business administration'], ['m b a', 'mba']],
+  [['phd', 'ph d', 'doctorate', 'doctor of philosophy'], ['doctorate degree', 'doctorate', 'phd']],
+  [['associates', 'associate', 'aa', 'a a', 'as', 'a s'], ['associates degree']],
+];
+for (const [from, to] of DEGREE_ALIASES) for (const k of from) ALIASES[k] = [...(ALIASES[k] ?? []), ...to];
+
 export function norm(s: string): string {
-  return s.toLowerCase().replace(/[’‘]/g, "'").replace(/[^a-z0-9' ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return s.toLowerCase().replace(/['’‘]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function candidatesFor(value: string): string[] {
