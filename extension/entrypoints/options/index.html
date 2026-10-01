@@ -7,7 +7,9 @@
     body { font: 14px system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
     .row { display: grid; grid-template-columns: 260px 1fr; gap: 8px; margin: 6px 0; align-items: center; }
     .entry { border: 1px solid #ddd; padding: 8px; margin: 8px 0; border-radius: 6px; }
-    #status { min-height: 1.4em; font-weight: 600; }
+    /* Sticky so feedback stays visible below the long profile form. */
+    #status { min-height: 1.4em; font-weight: 600; position: sticky; bottom: 0; background: #fff; padding: 8px 0; margin: 0; border-top: 1px solid #ddd; }
+    #status:empty { display: none; }
     .notice { background: #fff7e6; padding: 8px; border-radius: 6px; }
   </style>
 </head>

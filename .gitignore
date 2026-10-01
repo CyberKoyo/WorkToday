@@ -1,6 +1,8 @@
 # Planning/Spec documents
 docs/
 
+test_resume.pdf
+
 node_modules/
 .output/
 .wxt/

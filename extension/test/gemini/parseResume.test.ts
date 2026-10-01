@@ -9,16 +9,25 @@ describe('parseResume', () => {
     const f = vi.fn().mockResolvedValue(ok({ firstName: 'Ada', gender: 'female', work: [{ title: 'Eng', startDate: '2020-01' }] }));
     const p = await parseResume(pdf, 'KEY', f);
     const [url, init] = f.mock.calls[0]!;
-    expect(url).toContain('models/gemini-2.5-flash:generateContent');
+    expect(url).toContain('models/gemini-3.5-flash-lite:generateContent');
     expect(init.headers['x-goog-api-key']).toBe('KEY');
     const body = JSON.parse(init.body);
     expect(body.contents[0].parts[0].inline_data).toEqual({ mime_type: 'application/pdf', data: 'JVBERi0=' });
     expect(body.generationConfig.responseMimeType).toBe('application/json');
     expect(body.generationConfig.responseSchema.properties.gender).toBeUndefined();
+    // Without `required`, Gemini may silently omit fields like email/phone.
+    expect(body.generationConfig.responseSchema.required).toEqual(
+      expect.arrayContaining(['email', 'phone', 'firstName', 'githubUrl', 'work', 'education', 'skills']));
     expect(p.firstName).toBe('Ada');
     expect(p.gender).toBe('');            // manual-only fields are discarded even if returned
     expect(p.work[0]!.title).toBe('Eng');
     expect(p.reviewed).toBe(false);
+  });
+  it('fills URL fields from PDF link annotations when the model returns link text', async () => {
+    const linked = { ...pdf, dataBase64: Buffer.from('%PDF-1.4 <</S/URI/URI(https://github.com/ada)>>').toString('base64') };
+    const f = vi.fn().mockResolvedValue(ok({ githubUrl: 'Github' }));
+    const p = await parseResume(linked, 'K', f);
+    expect(p.githubUrl).toBe('https://github.com/ada');
   });
   it('rejects docx without calling network', async () => {
     const f = vi.fn();
@@ -56,6 +65,11 @@ describe('parseResume', () => {
       expect(e).toMatchObject({ code: 'bad_response' });
       expect((e as Error).message).toContain('Request contains an invalid argument.');
     }
+  });
+  it('404 model not found -> bad_response with Gemini message', async () => {
+    const body = { error: { message: 'models/x is not found for API version v1beta', status: 'NOT_FOUND' } };
+    const f = vi.fn().mockImplementation(async () => new Response(JSON.stringify(body), { status: 404 }));
+    await expect(parseResume(pdf, 'K', f)).rejects.toMatchObject({ code: 'bad_response', message: expect.stringContaining('is not found') });
   });
   it('oversize resume -> too_large without calling fetch', async () => {
     const f = vi.fn();
