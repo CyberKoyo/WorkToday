@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { handle, type Env } from '../src/index';
+import { handle, type Env } from '../src/handler';
 import type { MapResponse } from '@wf/shared';
 
 const body = { fields: [{ id: 'wf-0', label: 'Email', kind: 'text', required: true }] };
