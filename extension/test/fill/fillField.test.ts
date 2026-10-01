@@ -1,0 +1,99 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { fillField, fillFile } from '../../src/fill/fillField';
+import { extractFields } from '../../src/workday/extractFields';
+
+const setup = (html: string) => { document.body.innerHTML = html; return extractFields()[0]!; };
+const wrap = (inner: string) => `<div data-automation-id="formField-x">${inner}</div>`;
+
+beforeEach(() => { document.body.innerHTML = ''; });
+
+describe('fillField', () => {
+  it('text: sets value and fires input/change', async () => {
+    const f = setup(wrap('<label>First</label><input type="text">'));
+    const input = f.container.querySelector('input')!;
+    const onInput = vi.fn(); input.addEventListener('input', onInput);
+    expect(await fillField(f, 'Ada')).toBe('filled');
+    expect(input.value).toBe('Ada');
+    expect(onInput).toHaveBeenCalled();
+  });
+  it('text: never overwrites existing value', async () => {
+    const f = setup(wrap('<label>First</label><input type="text" value="Typed">'));
+    expect(await fillField(f, 'Ada')).toBe('skipped_nonempty');
+    expect(f.container.querySelector('input')!.value).toBe('Typed');
+  });
+  it('textarea joins lists', async () => {
+    const f = setup(wrap('<label>Skills</label><textarea></textarea>'));
+    await fillField(f, ['TS', 'Go']);
+    expect(f.container.querySelector('textarea')!.value).toBe('TS, Go');
+  });
+  it('radio: matches option; skips if already chosen; no guess', async () => {
+    const html = wrap('<fieldset><legend>Authorized?</legend><input type="radio" id="a"><label for="a">Yes</label><input type="radio" id="b"><label for="b">No</label></fieldset>');
+    let f = setup(html);
+    expect(await fillField(f, 'no')).toBe('filled');
+    expect((document.getElementById('b') as HTMLInputElement).checked).toBe(true);
+    expect(await fillField(f, 'yes')).toBe('skipped_nonempty');
+    f = setup(html);
+    expect(await fillField(f, 'maybe')).toBe('no_match');
+    expect(f.container.querySelectorAll('input:checked')).toHaveLength(0);
+  });
+  it('checkbox', async () => {
+    const f = setup(wrap('<input type="checkbox" id="c"><label for="c">I currently work here</label>'));
+    expect(await fillField(f, true)).toBe('filled');
+    expect((document.getElementById('c') as HTMLInputElement).checked).toBe(true);
+  });
+  it('select: opens listbox and clicks matching option', async () => {
+    const f = setup(wrap('<label>State</label><button aria-haspopup="listbox" type="button">Select One</button>'));
+    const btn = f.container.querySelector('button')!;
+    btn.addEventListener('click', () => {
+      const lb = document.createElement('div');
+      lb.setAttribute('role', 'listbox');
+      lb.innerHTML = '<div role="option">Alabama</div><div role="option">California</div>';
+      lb.querySelectorAll<HTMLElement>('[role="option"]').forEach((o) => o.addEventListener('click', () => { btn.textContent = o.textContent; lb.remove(); }));
+      document.body.append(lb);
+    });
+    expect(await fillField(f, 'CA')).toBe('filled');
+    expect(btn.textContent).toBe('California');
+  });
+  it('select: no match closes with Escape, leaves placeholder', async () => {
+    const f = setup(wrap('<label>State</label><button aria-haspopup="listbox" type="button">Select One</button>'));
+    const btn = f.container.querySelector('button')!;
+    const onKey = vi.fn();
+    btn.addEventListener('keydown', onKey);
+    btn.addEventListener('click', () => {
+      const lb = document.createElement('div'); lb.setAttribute('role', 'listbox');
+      lb.innerHTML = '<div role="option">Alabama</div>'; document.body.append(lb);
+    });
+    expect(await fillField(f, 'Mars')).toBe('no_match');
+    expect(onKey).toHaveBeenCalled();
+    expect(btn.textContent).toBe('Select One');
+  });
+  it('select: already chosen is skipped', async () => {
+    const f = setup(wrap('<label>State</label><button aria-haspopup="listbox" type="button">Texas</button>'));
+    expect(await fillField(f, 'CA')).toBe('skipped_nonempty');
+  });
+  it('select: listbox never appears -> error', async () => {
+    const f = setup(wrap('<label>State</label><button aria-haspopup="listbox" type="button">Select One</button>'));
+    expect(await fillField(f, 'CA', 100)).toBe('error');
+  });
+  it('date: types month and year', async () => {
+    const f = setup(wrap('<label>From</label><input data-automation-id="dateSectionMonth-input"><input data-automation-id="dateSectionYear-input">'));
+    expect(await fillField(f, '2020-03')).toBe('filled');
+    const [m, y] = f.container.querySelectorAll('input');
+    expect([m!.value, y!.value]).toEqual(['03', '2020']);
+  });
+});
+
+describe('fillFile', () => {
+  it('sets files and fires change', async () => {
+    const f = setup(wrap('<label>Resume</label><input type="file">'));
+    const set = vi.fn(); const onChange = vi.fn();
+    f.container.querySelector('input')!.addEventListener('change', onChange);
+    expect(await fillFile(f, new File(['x'], 'r.pdf'), set)).toBe('filled');
+    expect(set).toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalled();
+  });
+  it('skips when a file is already uploaded', async () => {
+    const f = setup(wrap('<label>Resume</label><input type="file"><div data-automation-id="file-upload-successful">r.pdf</div>'));
+    expect(await fillFile(f, new File(['x'], 'r.pdf'), vi.fn())).toBe('skipped_nonempty');
+  });
+});
