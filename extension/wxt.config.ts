@@ -8,7 +8,7 @@ export default defineConfig({
       name: 'Workday Filler',
       description: 'Auto-fill Workday job applications from your reviewed resume profile.',
       permissions: ['storage', 'unlimitedStorage'],
-      host_permissions: [`${env.WXT_API_BASE || 'http://localhost:8787'}/*`, 'https://generativelanguage.googleapis.com/*'],
+      host_permissions: [`${env.WXT_API_BASE || 'https://worktoday.keikoyoter-ui.workers.dev'}/*`, 'https://generativelanguage.googleapis.com/*'],
       ...(browser === 'firefox'
         ? { browser_specific_settings: { gecko: { id: 'workday-filler@local' } } }
         : {}),
