@@ -54,8 +54,6 @@ function pressKey(el: HTMLElement, key: string, keyCode: number) {
   }
 }
 
-const MAX_MULTI = 15;
-
 async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: number): Promise<FillResult> {
   const input = c.querySelector<HTMLInputElement>('input');
   if (!input) return 'error';
@@ -69,7 +67,7 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
   const listKey = () => { const r = results(); return r.length ? `${r[0]!.getAttribute('aria-setsize')}|${labelOf(r[0]!)}` : ''; };
 
   let added = 0;
-  const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))].slice(0, MAX_MULTI);
+  const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
   for (const [n, value] of unique.entries()) {
     input.focus();
     if (n === 0) { input.click(); await waitFor(() => (results().length ? true : null), Math.min(timeoutMs, 1500)); }

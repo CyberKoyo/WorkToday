@@ -36,6 +36,13 @@ describe('matchOption', () => {
     expect(matchOption('Java', ['Java (Programming Language)', 'Java (Island)'])).toBe(-1);
   });
 
+  it('punctuated terms match their joined spelling (TCP/IP -> TCPIP Network), only when unique', () => {
+    expect(matchOption('TCP/IP', ['Internet Protocol Suite', 'TCPIP Network', 'Internet Protocol (IP)'])).toBe(1);
+    expect(matchOption('Node.js', ['Node-RED', 'NodeJS'])).toBe(1);
+    expect(matchOption('CI/CD', ['CICD Pipelines', 'CICD Tools'])).toBe(-1);
+    expect(matchOption('Java', ['JavaScript'])).toBe(-1);
+  });
+
   it('never guesses', () => {
     expect(matchOption('Martian', ['Yes', 'No'])).toBe(-1);
     expect(matchOption('engineer', ['Software Engineer', 'Hardware Engineer'])).toBe(-1);

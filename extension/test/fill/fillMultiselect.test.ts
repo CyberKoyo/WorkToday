@@ -4,7 +4,8 @@ import { extractFields } from '../../src/workday/extractFields';
 
 // Mimics live Workday multiselect prompts (captured 2026-10-01): search runs only on Enter with keyCode 13,
 // results render in activeListContainer, and only a click on promptLeafNode adds a chip.
-const CATALOG = ['Python (Programming Language)', 'Python IDLE', 'Maya Python', 'Rust', 'Computer Science', 'Computer Engineering'];
+const MANY = Array.from({ length: 20 }, (_, i) => `S${String(i + 1).padStart(2, '0')}`);
+const CATALOG = ['Python (Programming Language)', 'Python IDLE', 'Maya Python', 'Rust', 'Computer Science', 'Computer Engineering', ...MANY];
 
 function prompt(label: string, chips: string[] = []) {
   document.body.innerHTML = `<div data-automation-id="formField-x"><label>${label}</label>
@@ -60,6 +61,11 @@ describe('fillField: multiselect prompt', () => {
     const { f, chipTexts } = prompt('Field of Study');
     expect(await fillField(f, 'Computer', 300)).toBe('no_match');
     expect(chipTexts()).toEqual([]);
+  });
+  it('fills every value, no cap', async () => {
+    const { f, chipTexts } = prompt('Skills');
+    expect(await fillField(f, MANY, 300)).toBe('filled');
+    expect(chipTexts()).toEqual(MANY);
   });
   it('existing chips -> skipped, nothing typed', async () => {
     const { f, input, chipTexts } = prompt('Skills', ['Go']);

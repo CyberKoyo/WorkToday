@@ -57,6 +57,16 @@ export function matchOption(value: string, options: string[]): number {
     const i = uniqueIndex(opts, (o) => ` ${o} `.includes(` ${c} `));
     if (i !== -1) return i;
   }
+  // A single punctuated term (TCP/IP, Node.js, CI/CD) may be spelled joined up in the options (TCPIP, NodeJS).
+  const raw = value.trim();
+  if (!/\s/.test(raw) && /[^a-z0-9]/i.test(raw)) {
+    const joined = (s: string) => norm(s).replace(/ /g, '');
+    const v = joined(raw);
+    const js = options.map(joined);
+    let i = uniqueIndex(js, (o) => o === v);
+    if (i === -1 && v.length >= 4) i = uniqueIndex(js, (o) => o.startsWith(v));
+    if (i !== -1) return i;
+  }
   const vt = new Set(cands[0]!.split(' '));
   let best = -1, bestScore = 0, tie = false;
   opts.forEach((o, i) => {
