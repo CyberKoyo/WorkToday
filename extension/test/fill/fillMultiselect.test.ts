@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { fillField } from '../../src/fill/fillField';
 import { extractFields } from '../../src/workday/extractFields';
 
-// Mimics live Workday multiselect prompts (captured 2026-10-01): search runs only on Enter with keyCode 13,
+// Mimics live Workday multiselect prompts (captured 2026-10-01): search runs only on Enter with keyCode 13
+// set at event construction,
 // results render in activeListContainer, and only a click on promptLeafNode adds a chip.
 const MANY = Array.from({ length: 20 }, (_, i) => `S${String(i + 1).padStart(2, '0')}`);
 const CATALOG = ['Python (Programming Language)', 'Python IDLE', 'Maya Python', 'Rust', 'Computer Science', 'Computer Engineering', ...MANY];
@@ -15,7 +16,8 @@ function prompt(label: string, chips: string[] = []) {
   const input = f.container.querySelector('input')!;
   const chipList = f.container.querySelector('[data-automation-id="selectedItemList"]')!;
   input.addEventListener('keydown', (e) => {
-    if (e.keyCode !== 13) return;
+    // The page can't see properties a content script defines on the event (isolated world), only init values.
+    if (e.keyCode !== 13 || Object.getOwnPropertyDescriptor(e, 'keyCode')?.get) return;
     setTimeout(() => {
       document.querySelector('[data-automation-id="activeListContainer"]')?.remove();
       const q = input.value.toLowerCase();

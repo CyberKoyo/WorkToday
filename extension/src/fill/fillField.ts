@@ -44,13 +44,12 @@ export async function waitFor<T>(fn: () => T | null, timeoutMs = 3000): Promise<
   }
 }
 
-// Workday checks keyCode, which browsers drop from the KeyboardEvent init dict, so define it on the event.
+// Workday reads keyCode. Pass it in the init dict (legacy, supported by Chrome and Firefox): a property
+// defined on the event from the content script's isolated world is invisible to the page.
 function pressKey(el: HTMLElement, key: string, keyCode: number) {
   for (const type of ['keydown', 'keypress', 'keyup']) {
-    const e = new KeyboardEvent(type, { key, code: key, bubbles: true, cancelable: true });
-    Object.defineProperty(e, 'keyCode', { get: () => keyCode });
-    Object.defineProperty(e, 'which', { get: () => keyCode });
-    el.dispatchEvent(e);
+    const init = { key, code: key, keyCode, which: keyCode, charCode: type === 'keypress' ? keyCode : 0, bubbles: true, cancelable: true };
+    el.dispatchEvent(new KeyboardEvent(type, init as KeyboardEventInit));
   }
 }
 
