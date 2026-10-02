@@ -81,9 +81,9 @@ describe('fillField', () => {
     expect(await fillField(f, 'NY')).toBe('filled');
     expect(btn.textContent).toBe('New York');
   });
-  it('multiselect search box: not typed into, reported no_match', async () => {
+  it('multiselect search box with no results: no_match, search box cleared', async () => {
     const f = setup(wrap('<label>Field of Study</label><div data-automation-id="multiSelectContainer"><input type="text" placeholder="Search"></div>'));
-    expect(await fillField(f, 'Computer Science')).toBe('no_match');
+    expect(await fillField(f, 'Computer Science', 100)).toBe('no_match');
     expect(f.container.querySelector('input')!.value).toBe('');
   });
   it('select: already chosen is skipped', async () => {

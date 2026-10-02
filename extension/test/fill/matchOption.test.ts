@@ -31,6 +31,11 @@ describe('matchOption', () => {
     expect(matchOption('Bachelor of Science', ['Bachelor of Arts', 'Bachelor of Science'])).toBe(1);
   });
 
+  it('parenthetical qualifiers count as exact, but only when unique', () => {
+    expect(matchOption('Python', ['Python IDLE', 'Python (Programming Language)', 'Maya Python', 'Python Numpy'])).toBe(1);
+    expect(matchOption('Java', ['Java (Programming Language)', 'Java (Island)'])).toBe(-1);
+  });
+
   it('never guesses', () => {
     expect(matchOption('Martian', ['Yes', 'No'])).toBe(-1);
     expect(matchOption('engineer', ['Software Engineer', 'Hardware Engineer'])).toBe(-1);

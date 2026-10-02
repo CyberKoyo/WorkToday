@@ -44,6 +44,54 @@ export async function waitFor<T>(fn: () => T | null, timeoutMs = 3000): Promise<
   }
 }
 
+// Workday checks keyCode, which browsers drop from the KeyboardEvent init dict, so define it on the event.
+function pressKey(el: HTMLElement, key: string, keyCode: number) {
+  for (const type of ['keydown', 'keypress', 'keyup']) {
+    const e = new KeyboardEvent(type, { key, code: key, bubbles: true, cancelable: true });
+    Object.defineProperty(e, 'keyCode', { get: () => keyCode });
+    Object.defineProperty(e, 'which', { get: () => keyCode });
+    el.dispatchEvent(e);
+  }
+}
+
+const MAX_MULTI = 15;
+
+async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: number): Promise<FillResult> {
+  const input = c.querySelector<HTMLInputElement>('input');
+  if (!input) return 'error';
+  const chips = () => c.querySelectorAll(SEL.multiSelectChip).length;
+  if (chips()) return 'skipped_nonempty';
+  const doc = c.ownerDocument;
+  const results = () => [...doc.querySelectorAll<HTMLElement>(SEL.promptResult)];
+  const labelOf = (o: HTMLElement) => o.querySelector<HTMLElement>(SEL.promptLabel)?.dataset.automationLabel ?? clean(o.textContent);
+  // The list is virtualized and keeps rendering rows after opening, so a search is detected by a new
+  // total (aria-setsize) or a new first row, never by the row count alone.
+  const listKey = () => { const r = results(); return r.length ? `${r[0]!.getAttribute('aria-setsize')}|${labelOf(r[0]!)}` : ''; };
+
+  let added = 0;
+  const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))].slice(0, MAX_MULTI);
+  for (const [n, value] of unique.entries()) {
+    input.focus();
+    if (n === 0) { input.click(); await waitFor(() => (results().length ? true : null), Math.min(timeoutMs, 1500)); }
+    const before = listKey();
+    rawSet(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    pressKey(input, 'Enter', 13);
+    const found = await waitFor(() => { const r = results(); return r.length && listKey() !== before ? r : null; }, timeoutMs);
+    if (!found) continue;
+    const i = matchOption(value, found.map(labelOf));
+    if (i === -1) continue;
+    const chipsBefore = chips();
+    const row = found[i]!;
+    (row.querySelector<HTMLElement>(SEL.promptLeaf) ?? row).click();
+    if (await waitFor(() => (chips() > chipsBefore ? true : null), timeoutMs)) added++;
+  }
+  rawSet(input, '');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  pressKey(input, 'Escape', 27);
+  return added ? 'filled' : 'no_match';
+}
+
 async function fillSelect(c: HTMLElement, value: string, timeoutMs: number): Promise<FillResult> {
   const btn = c.querySelector<HTMLButtonElement>(SEL.dropdownButton)!;
   const current = clean(btn.textContent);
@@ -72,7 +120,9 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
     switch (f.kind) {
       case 'text':
       case 'textarea': {
-        if (c.querySelector(SEL.multiSelect)) return 'no_match'; // typing a search term selects nothing
+        if (c.querySelector(SEL.multiSelect)) {
+          return await fillMultiselect(c, Array.isArray(value) ? value : [typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value], timeoutMs);
+        }
         const el = c.querySelector<HTMLInputElement | HTMLTextAreaElement>(f.kind === 'text' ? SEL.textInput : 'textarea')!;
         if (el.value.trim()) return 'skipped_nonempty';
         setNativeValue(el, typeof value === 'boolean' ? (value ? 'Yes' : 'No') : asText(value));

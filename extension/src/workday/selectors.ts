@@ -5,7 +5,11 @@ export const SEL = {
   dropdownButton: 'button[aria-haspopup="listbox"]',
   dropdownPlaceholder: 'Select One',
   listboxOption: '[role="listbox"] [role="option"]',
-  multiSelect: '[data-automation-id="multiSelectContainer"]', // searchable prompt (Skills, Field of Study): not auto-filled
+  multiSelect: '[data-automation-id="multiSelectContainer"]', // searchable prompt (Skills, Field of Study)
+  multiSelectChip: '[data-automation-id="selectedItem"]',
+  promptResult: '[data-automation-id="activeListContainer"] [role="option"]', // virtualized: only visible rows exist
+  promptLeaf: '[data-automation-id="promptLeafNode"]', // the click target that actually selects
+  promptLabel: '[data-automation-id="promptOption"]',
   dateMonth: '[data-automation-id="dateSectionMonth-input"]',
   dateYear: '[data-automation-id="dateSectionYear-input"]',
   fileInput: 'input[type="file"]',

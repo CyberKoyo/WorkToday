@@ -48,6 +48,9 @@ export function matchOption(value: string, options: string[]): number {
   const cands = candidatesFor(value);
   if (!cands.length || !opts.length) return -1;
   for (const c of cands) { const i = opts.indexOf(c); if (i !== -1) return i; }
+  // "Python (Programming Language)" is an exact "Python" — unless two options share that base.
+  const bases = options.map((o) => norm(o.replace(/\([^)]*\)/g, ' ')));
+  for (const c of cands) { const i = uniqueIndex(bases, (b) => b === c); if (i !== -1) return i; }
   for (const c of cands) { const i = uniqueIndex(opts, (o) => o.startsWith(`${c} `)); if (i !== -1) return i; }
   for (const c of cands) {
     if (c.length < 3) continue;
