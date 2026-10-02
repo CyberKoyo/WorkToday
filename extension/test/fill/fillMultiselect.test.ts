@@ -8,7 +8,8 @@ import { extractFields } from '../../src/workday/extractFields';
 const MANY = Array.from({ length: 20 }, (_, i) => `S${String(i + 1).padStart(2, '0')}`);
 const CATALOG = ['Python (Programming Language)', 'Python IDLE', 'Maya Python', 'Rust', 'Computer Science', 'Computer Engineering', ...MANY];
 
-function prompt(label: string, chips: string[] = []) {
+// autoEnter: like the live Skills prompt, Enter on an exact term adds it at once and lists it as checked.
+function prompt(label: string, chips: string[] = [], autoEnter = false) {
   document.body.innerHTML = `<div data-automation-id="formField-x"><label>${label}</label>
     <div data-automation-id="multiSelectContainer"><input type="text" placeholder="Search">
     <ul role="listbox" data-automation-id="selectedItemList">${chips.map((c) => `<li role="option" data-automation-id="selectedItem">${c}</li>`).join('')}</ul></div></div>`;
@@ -23,13 +24,18 @@ function prompt(label: string, chips: string[] = []) {
       const q = input.value.toLowerCase();
       const list = document.createElement('div');
       list.setAttribute('data-automation-id', 'activeListContainer'); list.setAttribute('role', 'listbox');
-      const hits = CATALOG.filter((n) => n.toLowerCase().includes(q));
+      const exact = autoEnter ? CATALOG.find((n) => n.toLowerCase() === q) : undefined;
+      const hits = exact ? [exact] : CATALOG.filter((n) => n.toLowerCase().includes(q));
+      const chipFor = (name: string) => [...chipList.children].find((c) => c.textContent === name);
+      if (exact) chipList.insertAdjacentHTML('beforeend', `<li role="option" data-automation-id="selectedItem">${exact}</li>`);
       for (const name of hits) {
         const opt = document.createElement('div'); opt.setAttribute('role', 'option'); opt.setAttribute('data-automation-id', 'menuItem');
         opt.setAttribute('aria-setsize', String(hits.length));
-        opt.innerHTML = `<div data-automation-id="promptLeafNode"><div data-automation-id="promptOption" data-automation-label="${name}">${name}</div></div>`;
+        opt.innerHTML = `<div data-automation-id="promptLeafNode" data-automation-checked="${chipFor(name) ? 'Checked' : 'Not Checked'}"><div data-automation-id="promptOption" data-automation-label="${name}">${name}</div></div>`;
         opt.querySelector('[data-automation-id="promptLeafNode"]')!.addEventListener('click', () => {
-          chipList.insertAdjacentHTML('beforeend', `<li role="option" data-automation-id="selectedItem">${name}</li>`);
+          const chip = chipFor(name); // clicking a checked row unchecks it, like Workday
+          if (chip) chip.remove();
+          else chipList.insertAdjacentHTML('beforeend', `<li role="option" data-automation-id="selectedItem">${name}</li>`);
         });
         list.append(opt);
       }
@@ -68,6 +74,11 @@ describe('fillField: multiselect prompt', () => {
     const { f, chipTexts } = prompt('Skills');
     expect(await fillField(f, MANY, 300)).toBe('filled');
     expect(chipTexts()).toEqual(MANY);
+  });
+  it('Enter that adds the skill by itself is counted, and the checked row is not clicked off again', async () => {
+    const { f, chipTexts } = prompt('Skills', [], true);
+    expect(await fillField(f, ['Rust', 'Python'], 300)).toBe('filled');
+    expect(chipTexts()).toEqual(['Rust', 'Python (Programming Language)']);
   });
   it('existing chips -> skipped, nothing typed', async () => {
     const { f, input, chipTexts } = prompt('Skills', ['Go']);

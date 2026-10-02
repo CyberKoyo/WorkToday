@@ -71,17 +71,26 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
     input.focus();
     if (n === 0) { input.click(); await waitFor(() => (results().length ? true : null), Math.min(timeoutMs, 1500)); }
     const before = listKey();
+    const chipsBefore = chips();
+    const gained = () => (chips() > chipsBefore ? true : null);
     rawSet(input, value);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     pressKey(input, 'Enter', 13);
-    const found = await waitFor(() => { const r = results(); return r.length && listKey() !== before ? r : null; }, timeoutMs);
-    if (!found) continue;
+    // Workday adds an exact term on Enter by itself; otherwise it lists results to pick from.
+    const outcome = await waitFor(() => (gained() ? 'entered' : results().length && listKey() !== before ? 'listed' : null), timeoutMs);
+    if (outcome === 'entered') { added++; continue; }
+    if (!outcome) continue;
+    const found = results();
     const i = matchOption(value, found.map(labelOf));
     if (i === -1) continue;
-    const chipsBefore = chips();
     const row = found[i]!;
-    (row.querySelector<HTMLElement>(SEL.promptLeaf) ?? row).click();
-    if (await waitFor(() => (chips() > chipsBefore ? true : null), timeoutMs)) added++;
+    const leaf = row.querySelector<HTMLElement>(SEL.promptLeaf);
+    if (leaf?.dataset.automationChecked === 'Checked') { // already selected: clicking would uncheck it
+      if (await waitFor(gained, Math.min(timeoutMs, 1000))) added++;
+      continue;
+    }
+    (leaf ?? row).click();
+    if (await waitFor(gained, timeoutMs)) added++;
   }
   rawSet(input, '');
   input.dispatchEvent(new Event('input', { bubbles: true }));
