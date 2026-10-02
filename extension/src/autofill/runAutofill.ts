@@ -20,9 +20,19 @@ function flag(f: ExtractedField) {
   f.container.style.outlineOffset = '4px';
 }
 
+// A field fixed since the last run (by the user or this run) must not keep its old highlight.
+function unflagAll(doc: Document) {
+  for (const el of doc.querySelectorAll<HTMLElement>('[data-wf-unfilled]')) {
+    delete el.dataset.wfUnfilled;
+    el.style.outline = '';
+    el.style.outlineOffset = '';
+  }
+}
+
 export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   await d.ensureGroups(d.profile);
   const fields = d.extract();
+  if (fields[0]) unflagAll(fields[0].container.ownerDocument);
   const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [] };
   if (!fields.length) return report;
   const mapping = await d.map(fields.map(toDescriptor));

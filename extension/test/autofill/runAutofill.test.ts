@@ -35,6 +35,15 @@ describe('runAutofill', () => {
     expect(r.attention.map((f) => f.label)).toEqual(['Favourite colour']);
     expect(r.attention[0]!.container.dataset.wfUnfilled).toBe('1');
   });
+  it('a rerun clears highlights from earlier runs on fields that are now fine', async () => {
+    const d = deps();
+    const stale = document.querySelector<HTMLElement>('[data-automation-id="formField-a"]')!;
+    stale.dataset.wfUnfilled = '1';
+    stale.style.outline = '2px solid #f59e0b';
+    await runAutofill(d as never);
+    expect(stale.dataset.wfUnfilled).toBeUndefined();
+    expect(stale.style.outline).toBe('');
+  });
   it('no resume stored -> resume field needs attention', async () => {
     const r = await runAutofill(deps({ resume: null }) as never);
     expect(r.attention.map((f) => f.label)).toContain('Resume');

@@ -23,6 +23,8 @@ const DEGREE_ALIASES: Array<[string[], string[]]> = [
 ];
 for (const [from, to] of DEGREE_ALIASES) for (const k of from) ALIASES[k] = [...(ALIASES[k] ?? []), ...to];
 
+const FILLER = new Set(['and', 'of', 'the', 'in', 'for', 'a', 'an']);
+
 export function norm(s: string): string {
   return s.toLowerCase().replace(/['’‘]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -38,8 +40,8 @@ function candidatesFor(value: string): string[] {
   return [...new Set(out)];
 }
 
-function uniqueIndex(opts: string[], pred: (o: string) => boolean): number {
-  const hits = opts.flatMap((o, i) => (pred(o) ? [i] : []));
+function uniqueIndex(opts: string[], pred: (o: string, i: number) => boolean): number {
+  const hits = opts.flatMap((o, i) => (pred(o, i) ? [i] : []));
   return hits.length === 1 ? hits[0]! : -1;
 }
 
@@ -51,9 +53,19 @@ export function matchOption(value: string, options: string[]): number {
   // "Python (Programming Language)" is an exact "Python" — unless two options share that base.
   const bases = options.map((o) => norm(o.replace(/\([^)]*\)/g, ' ')));
   for (const c of cands) { const i = uniqueIndex(bases, (b) => b === c); if (i !== -1) return i; }
+  // "VPNs" is the acronym in "Virtual Private Networks (VPNs)".
+  const parens = options.map((o) => (o.match(/\(([^)]*)\)/g) ?? []).map(norm));
+  for (const c of cands) { const i = uniqueIndex(opts, (_, k) => parens[k]!.includes(c)); if (i !== -1) return i; }
+  // "REST APIs" begins "RESTful APIs" word for word.
+  for (const c of cands) {
+    const vw = c.split(' ');
+    if (vw.length < 2) continue;
+    const i = uniqueIndex(opts, (o) => { const ow = o.split(' '); return ow.length === vw.length && vw.every((w, k) => ow[k]!.startsWith(w)); });
+    if (i !== -1) return i;
+  }
   for (const c of cands) { const i = uniqueIndex(opts, (o) => o.startsWith(`${c} `)); if (i !== -1) return i; }
   for (const c of cands) {
-    if (c.length < 3) continue;
+    if (c.length < 4) continue; // a 3-letter acronym mid-name (Unisys MCP) is too often another thing
     const i = uniqueIndex(opts, (o) => ` ${o} `.includes(` ${c} `));
     if (i !== -1) return i;
   }
@@ -67,10 +79,13 @@ export function matchOption(value: string, options: string[]): number {
     if (i === -1 && v.length >= 4) i = uniqueIndex(js, (o) => o.startsWith(v));
     if (i !== -1) return i;
   }
-  const vt = new Set(cands[0]!.split(' '));
+  // Filler words would sink "Computer Science" vs "Computer and Information Science" below the cutoff.
+  const words = (s: string) => new Set(s.split(' ').filter((t) => !FILLER.has(t)));
+  const vt = words(cands[0]!);
+  if (!vt.size) return -1;
   let best = -1, bestScore = 0, tie = false;
   opts.forEach((o, i) => {
-    const ot = new Set(o.split(' '));
+    const ot = words(o);
     const inter = [...vt].filter((t) => ot.has(t)).length;
     const score = inter / new Set([...vt, ...ot]).size;
     if (score > bestScore) { best = i; bestScore = score; tie = false; }

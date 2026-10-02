@@ -43,6 +43,26 @@ describe('matchOption', () => {
     expect(matchOption('Java', ['JavaScript'])).toBe(-1);
   });
 
+  it('filler words do not count against a word-overlap match (live Field of Study results)', () => {
+    expect(matchOption('Computer Science', ['Business Management Science and Computer System', 'Computer and Information Science'])).toBe(1);
+  });
+
+  it('an acronym matches the option that spells it out in parentheses, only when unique (live skills results)', () => {
+    expect(matchOption('VPNs', ['Virtual Private Networks (VPNs)', 'MPLS VPNs'])).toBe(0);
+    expect(matchOption('SQL', ['Structured Query Language (SQL)', 'U-SQL'])).toBe(0);
+    expect(matchOption('AC', ['Access Control (AC)', 'Alternating Current (AC)'])).toBe(-1);
+  });
+
+  it('multi-word terms match an option whose words they begin, word for word, only when unique', () => {
+    expect(matchOption('REST APIs', ['RESTful APIs', 'RESTful Web Services'])).toBe(0);
+    expect(matchOption('Data Eng', ['Data Engineering', 'Data Engraving'])).toBe(-1);
+  });
+
+  it('a short acronym is not matched inside an unrelated name (live: MCP -> Unisys MCP)', () => {
+    expect(matchOption('MCP', ['Unisys MCP', 'MCing'])).toBe(-1);
+    expect(matchOption('DNS', ['DNS Server', 'DNSSEC'])).toBe(0);
+  });
+
   it('never guesses', () => {
     expect(matchOption('Martian', ['Yes', 'No'])).toBe(-1);
     expect(matchOption('engineer', ['Software Engineer', 'Hardware Engineer'])).toBe(-1);

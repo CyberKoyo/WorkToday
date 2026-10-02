@@ -1,6 +1,6 @@
 import { SEL } from '../workday/selectors';
 import { clean, type ExtractedField } from '../workday/extractFields';
-import { matchOption } from './matchOption';
+import { matchOption, norm } from './matchOption';
 import type { ProfileValue } from '../profile/profile';
 
 export type FillResult = 'filled' | 'skipped_nonempty' | 'no_match' | 'error';
@@ -53,13 +53,24 @@ function pressKey(el: HTMLElement, key: string, keyCode: number) {
   }
 }
 
+// Why a value was not added. The content script's console is not Workday's (which swallows logs), so this shows in the Web Console.
+const warnMissed = (value: string, reason: string, labels?: string[]) =>
+  console.warn('[workday-filler] not added:', JSON.stringify(value), reason, labels ? JSON.stringify(labels) : '');
+
 async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: number, missed: string[]): Promise<FillResult> {
   const input = c.querySelector<HTMLInputElement>('input');
   if (!input) return 'error';
   const chips = () => c.querySelectorAll(SEL.multiSelectChip).length;
   if (chips()) return 'skipped_nonempty';
   const doc = c.ownerDocument;
-  const results = () => [...doc.querySelectorAll<HTMLElement>(SEL.promptResult)];
+  // An earlier prompt's results list (e.g. Field of Study) can stay open; read only lists opened since this
+  // prompt started, or the newest list when Workday reuses one.
+  const stale = new Set(doc.querySelectorAll(SEL.promptList));
+  const ownList = () => {
+    const lists = [...doc.querySelectorAll<HTMLElement>(SEL.promptList)];
+    return lists.filter((l) => !stale.has(l)).at(-1) ?? lists.at(-1);
+  };
+  const results = () => [...(ownList()?.querySelectorAll<HTMLElement>(SEL.promptResult) ?? [])];
   const labelOf = (o: HTMLElement) => o.querySelector<HTMLElement>(SEL.promptLabel)?.dataset.automationLabel ?? clean(o.textContent);
   // The list is virtualized and keeps rendering rows after opening, so a search is detected by a new
   // total (aria-setsize) or a new first row, never by the row count alone.
@@ -76,18 +87,26 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
     rawSet(box, value);
     box.dispatchEvent(new Event('input', { bubbles: true }));
     pressKey(box, 'Enter', 13);
-    // Workday adds an exact term on Enter by itself; otherwise it lists results to pick from.
-    const outcome = await waitFor(() => (gained() ? 'entered' : results().length && listKey() !== before ? 'listed' : null), timeoutMs);
-    if (outcome !== 'listed') return outcome === 'entered';
+    // A slow earlier search can land while this one runs; only a list that mentions this value counts.
+    const stems = [...new Set([...norm(value).split(' '), norm(value).replace(/ /g, '')])].filter((w) => w.length >= 3).map((w) => w.slice(0, 4));
+    const forValue = () => !stems.length || results().some((r) => stems.some((s) => norm(labelOf(r)).replace(/ /g, '').includes(s)));
+    // Workday adds an exact term on Enter by itself; otherwise it lists results to pick from. Searches can be slow.
+    const outcome = await waitFor(() => (gained() ? 'entered' : results().length && listKey() !== before && forValue() ? 'listed' : null), timeoutMs * 2);
+    if (outcome !== 'listed') {
+      if (!outcome) warnMissed(value, 'no results for it');
+      return outcome === 'entered';
+    }
     const found = results();
     const i = matchOption(value, found.map(labelOf));
-    if (i === -1) return false;
+    if (i === -1) { warnMissed(value, 'no single clear match among', found.slice(0, 10).map(labelOf)); return false; }
     const row = found[i]!;
     const leaf = row.querySelector<HTMLElement>(SEL.promptLeaf);
     // Already selected: clicking would uncheck it.
     if (leaf?.dataset.automationChecked === 'Checked') return !!(await waitFor(gained, Math.min(timeoutMs, 1000)));
     (leaf ?? row).click();
-    return !!(await waitFor(gained, timeoutMs));
+    const ok = !!(await waitFor(gained, timeoutMs));
+    if (!ok) warnMissed(value, `clicked "${labelOf(row)}" but Workday did not add it`);
+    return ok;
   };
 
   let added = 0;
@@ -114,9 +133,13 @@ async function fillSelect(c: HTMLElement, value: string, timeoutMs: number): Pro
     const l = [...doc.querySelectorAll<HTMLElement>(SEL.listboxOption)].filter((o) => !before.has(o));
     return l.length ? l : null;
   }, timeoutMs);
-  if (!opts) return 'error';
+  if (!opts) {
+    console.warn('[workday-filler] dropdown did not open:', JSON.stringify(value));
+    return 'error';
+  }
   const i = matchOption(value, opts.map((o) => o.textContent ?? ''));
   if (i === -1) {
+    console.warn('[workday-filler] no dropdown option for', JSON.stringify(value));
     btn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     return 'no_match';
   }
