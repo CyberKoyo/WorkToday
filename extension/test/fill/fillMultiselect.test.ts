@@ -62,12 +62,16 @@ describe('fillField: multiselect prompt', () => {
   });
   it('skips values with no clear result, keeps the rest', async () => {
     const { f, chipTexts } = prompt('Skills');
-    expect(await fillField(f, ['Cobol', 'Rust'], 300)).toBe('filled');
+    const missed: string[] = [];
+    expect(await fillField(f, ['Cobol', 'Rust'], 300, missed)).toBe('filled');
     expect(chipTexts()).toEqual(['Rust']);
+    expect(missed).toEqual(['Cobol']);
   });
   it('never guesses among ambiguous results', async () => {
     const { f, chipTexts } = prompt('Field of Study');
-    expect(await fillField(f, 'Computer', 300)).toBe('no_match');
+    const missed: string[] = [];
+    expect(await fillField(f, 'Computer', 300, missed)).toBe('no_match');
+    expect(missed).toEqual(['Computer']);
     expect(chipTexts()).toEqual([]);
   });
   it('fills every value, no cap', async () => {

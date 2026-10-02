@@ -3,7 +3,7 @@ import { toDescriptor, type ExtractedField } from '../workday/extractFields';
 import { resolveProfileValue, type Profile } from '../profile/profile';
 import type { fillField, FillResult } from '../fill/fillField';
 
-export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[] }
+export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[] }
 export interface AutofillDeps {
   profile: Profile;
   resume: File | null;
@@ -23,7 +23,7 @@ function flag(f: ExtractedField) {
 export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   await d.ensureGroups(d.profile);
   const fields = d.extract();
-  const report: AutofillReport = { filled: 0, skipped: 0, attention: [] };
+  const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [] };
   if (!fields.length) return report;
   const mapping = await d.map(fields.map(toDescriptor));
 
@@ -31,13 +31,16 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
     const key = mapping.get(f.id) ?? null;
     let result: FillResult = 'no_match';
+    const missed: string[] = [];
     if (key === 'resumeFile') {
       if (d.resume) result = await d.fillFile(f, d.resume);
     } else if (key) {
       const value = resolveProfileValue(d.profile, key, f.groupIndex);
-      if (value !== null) result = await d.fill(f, value);
+      if (value !== null) result = await d.fill(f, value, undefined, missed);
     }
-    if (result === 'filled') report.filled++;
+    report.missed.push(...missed);
+    if (result === 'filled' && missed.length) { report.filled++; report.attention.push(f); flag(f); } // partly filled
+    else if (result === 'filled') report.filled++;
     else if (result === 'skipped_nonempty') report.skipped++;
     else if (f.required || key) { report.attention.push(f); flag(f); }
   }
@@ -45,5 +48,6 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
 }
 
 export function formatReport(r: AutofillReport): string {
-  return `Filled ${r.filled} fields. ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted). Review, then continue.`;
+  const missed = r.missed.length ? ` Not added, fill in by hand: ${r.missed.join(', ')}.` : '';
+  return `Filled ${r.filled} fields. ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed} Review, then continue.`;
 }

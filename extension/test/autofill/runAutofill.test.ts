@@ -28,7 +28,7 @@ describe('runAutofill', () => {
     const d = deps();
     const r = await runAutofill(d as never);
     expect(d.ensureGroups).toHaveBeenCalled();
-    expect(d.fill).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-0' }), 'Ada');
+    expect(d.fill).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-0' }), 'Ada', undefined, []);
     expect(d.fillFile).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-3' }), d.resume);
     expect(r.filled).toBe(2);
     expect(r.skipped).toBe(1);
@@ -44,8 +44,22 @@ describe('runAutofill', () => {
     const r = await runAutofill(d as never);
     expect(r.attention).toHaveLength(0);
   });
+  it('values a field could not take are reported and the field is highlighted', async () => {
+    const d = deps({
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'skills']])),
+      profile: { ...emptyProfile(), skills: ['Rust', 'TCP/IP'], reviewed: true },
+      fill: vi.fn(async (_f: unknown, _v: unknown, _t: unknown, missed: string[]) => { missed.push('TCP/IP'); return 'filled'; }),
+    });
+    const r = await runAutofill(d as never);
+    expect(r.filled).toBe(1);
+    expect(r.missed).toEqual(['TCP/IP']);
+    expect(r.attention.map((f) => f.label)).toContain('First Name');
+    expect(r.attention.find((f) => f.label === 'First Name')!.container.dataset.wfUnfilled).toBe('1');
+  });
   it('formatReport', () => {
-    expect(formatReport({ filled: 3, skipped: 1, attention: [{} as never] }))
+    expect(formatReport({ filled: 3, skipped: 1, attention: [{} as never], missed: [] }))
       .toBe('Filled 3 fields. 1 already had values. 1 need your attention (highlighted). Review, then continue.');
+    expect(formatReport({ filled: 3, skipped: 0, attention: [{} as never], missed: ['TCP/IP', 'Cobol'] }))
+      .toBe('Filled 3 fields. 0 already had values. 1 need your attention (highlighted). Not added, fill in by hand: TCP/IP, Cobol. Review, then continue.');
   });
 });

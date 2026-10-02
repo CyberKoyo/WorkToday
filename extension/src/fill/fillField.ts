@@ -53,7 +53,7 @@ function pressKey(el: HTMLElement, key: string, keyCode: number) {
   }
 }
 
-async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: number): Promise<FillResult> {
+async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: number, missed: string[]): Promise<FillResult> {
   const input = c.querySelector<HTMLInputElement>('input');
   if (!input) return 'error';
   const chips = () => c.querySelectorAll(SEL.multiSelectChip).length;
@@ -65,36 +65,40 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
   // total (aria-setsize) or a new first row, never by the row count alone.
   const listKey = () => { const r = results(); return r.length ? `${r[0]!.getAttribute('aria-setsize')}|${labelOf(r[0]!)}` : ''; };
 
-  let added = 0;
-  const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
-  for (const [n, value] of unique.entries()) {
-    input.focus();
-    if (n === 0) { input.click(); await waitFor(() => (results().length ? true : null), Math.min(timeoutMs, 1500)); }
+  const box = input;
+  // One value: search it, then keep what Enter added or pick the unique match. Returns whether a chip was added.
+  const searchAndPick = async (value: string, first: boolean): Promise<boolean> => {
+    box.focus();
+    if (first) { box.click(); await waitFor(() => (results().length ? true : null), Math.min(timeoutMs, 1500)); }
     const before = listKey();
     const chipsBefore = chips();
     const gained = () => (chips() > chipsBefore ? true : null);
-    rawSet(input, value);
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    pressKey(input, 'Enter', 13);
+    rawSet(box, value);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    pressKey(box, 'Enter', 13);
     // Workday adds an exact term on Enter by itself; otherwise it lists results to pick from.
     const outcome = await waitFor(() => (gained() ? 'entered' : results().length && listKey() !== before ? 'listed' : null), timeoutMs);
-    if (outcome === 'entered') { added++; continue; }
-    if (!outcome) continue;
+    if (outcome !== 'listed') return outcome === 'entered';
     const found = results();
     const i = matchOption(value, found.map(labelOf));
-    if (i === -1) continue;
+    if (i === -1) return false;
     const row = found[i]!;
     const leaf = row.querySelector<HTMLElement>(SEL.promptLeaf);
-    if (leaf?.dataset.automationChecked === 'Checked') { // already selected: clicking would uncheck it
-      if (await waitFor(gained, Math.min(timeoutMs, 1000))) added++;
-      continue;
-    }
+    // Already selected: clicking would uncheck it.
+    if (leaf?.dataset.automationChecked === 'Checked') return !!(await waitFor(gained, Math.min(timeoutMs, 1000)));
     (leaf ?? row).click();
-    if (await waitFor(gained, timeoutMs)) added++;
+    return !!(await waitFor(gained, timeoutMs));
+  };
+
+  let added = 0;
+  const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
+  for (const [n, value] of unique.entries()) {
+    if (await searchAndPick(value, n === 0)) added++;
+    else missed.push(value);
   }
-  rawSet(input, '');
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  pressKey(input, 'Escape', 27);
+  rawSet(box, '');
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+  pressKey(box, 'Escape', 27);
   return added ? 'filled' : 'no_match';
 }
 
@@ -120,14 +124,15 @@ async function fillSelect(c: HTMLElement, value: string, timeoutMs: number): Pro
   return 'filled';
 }
 
-export async function fillField(f: ExtractedField, value: ProfileValue, timeoutMs = 3000): Promise<FillResult> {
+/** `missed` collects values a multiselect prompt could not take (reported to the user by name). */
+export async function fillField(f: ExtractedField, value: ProfileValue, timeoutMs = 3000, missed: string[] = []): Promise<FillResult> {
   const c = f.container;
   try {
     switch (f.kind) {
       case 'text':
       case 'textarea': {
         if (c.querySelector(SEL.multiSelect)) {
-          return await fillMultiselect(c, Array.isArray(value) ? value : [typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value], timeoutMs);
+          return await fillMultiselect(c, Array.isArray(value) ? value : [typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value], timeoutMs, missed);
         }
         const el = c.querySelector<HTMLInputElement | HTMLTextAreaElement>(f.kind === 'text' ? SEL.textInput : 'textarea')!;
         if (el.value.trim()) return 'skipped_nonempty';
