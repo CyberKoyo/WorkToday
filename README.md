@@ -8,9 +8,9 @@ Browser extension (Chrome + Firefox) that fills Workday job applications from yo
 
 ## Setup
 
-1. Deploy the server (`npm run deploy -w server`). The extension points at the deployed Worker by default
-   (`extension/src/api/apiBase.ts`); set `WXT_API_BASE` in `extension/.env` to override it, e.g.
-   `http://localhost:8787` for `wrangler dev`.
+You need Node.js and a Gemini API key. No server setup is required.
+
+1. Install: `npm install`.
 2. Build: `npm run build -w extension` (`.output/chrome-mv3`) and `npm run build:firefox -w extension` (`.output/firefox-mv2`).
 3. Load it:
    - Chrome: `chrome://extensions` → Developer mode → Load unpacked → `extension/.output/chrome-mv3`.
@@ -19,6 +19,12 @@ Browser extension (Chrome + Firefox) that fills Workday job applications from yo
 4. Open the extension's options page, add your Gemini API key (https://aistudio.google.com), upload a PDF resume,
    review every field (work authorization, sponsorship and EEO answers are never inferred — enter them yourself), and save.
 5. On a Workday application, press **Auto-fill** in the banner on each step. Review the highlighted fields, then continue yourself.
+
+### Self-hosting the mapping server (optional)
+
+The extension uses the hosted mapping Worker by default (`extension/src/api/apiBase.ts`). To run your own,
+deploy it to your Cloudflare account (`npm run deploy -w server`) and set `WXT_API_BASE` in `extension/.env`
+to its URL (or `http://localhost:8787` for `npm run dev -w server`), then rebuild the extension.
 
 ## Privacy
 

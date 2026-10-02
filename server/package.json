@@ -4,5 +4,5 @@
   "type": "module",
   "scripts": { "dev": "wrangler dev --remote", "deploy": "wrangler deploy", "test": "vitest run" },
   "dependencies": { "@wf/shared": "*" },
-  "devDependencies": { "wrangler": "*", "vitest": "*", "typescript": "*", "@cloudflare/workers-types": "*" }
+  "devDependencies": { "wrangler": "^4.146.0", "vitest": "^5.0.3", "typescript": "^7.0.2", "@cloudflare/workers-types": "^5.20261001.1" }
 }
