@@ -28,6 +28,10 @@ describe('extractFields', () => {
       ['Resume/CV', 'file', undefined, 0],
     ]);
   });
+  it('real Workday capture: Degree dropdown with hidden value input', () => {
+    load('real-education-degree.html');
+    expect(extractFields().map(toDescriptor)).toEqual([{ id: 'wf-0', label: 'Degree', kind: 'select', required: true }]);
+  });
   it('re-extraction reassigns stable ids', () => {
     load('workday-my-info.html');
     extractFields();
