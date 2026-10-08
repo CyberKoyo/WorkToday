@@ -6,8 +6,8 @@ export default defineConfig({
   manifest: ({ browser, mode }) => {
     const env = loadEnv(mode, process.cwd(), 'WXT_');
     return {
-      name: 'Workday Filler',
-      description: 'Auto-fill Workday job applications from your reviewed resume profile.',
+      name: 'Job Application Filler',
+      description: 'Auto-fill Workday, Greenhouse, iCIMS and Oracle job applications from your reviewed resume profile.',
       permissions: ['storage', 'unlimitedStorage'],
       host_permissions: [`${env.WXT_API_BASE || DEFAULT_API_BASE}/*`, 'https://generativelanguage.googleapis.com/*'],
       ...(browser === 'firefox'

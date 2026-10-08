@@ -1,9 +1,10 @@
-export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void }
+export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean }
 
 const CSS = `
   .box { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 300px; padding: 12px 14px;
     background: #fff; color: #1f2937; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18);
     font: 14px system-ui, sans-serif; }
+  .box.framed { position: static; width: auto; margin: 8px 0; }
   .msg { margin: 6px 0 10px; }
   .primary { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
   .primary:disabled { opacity: .6; cursor: default; }
@@ -13,8 +14,8 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
   const host = document.createElement('div');
   host.id = 'wf-banner-host';
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>${CSS}</style><div class="box" role="dialog" aria-label="Workday Filler">
-    <strong>Workday Filler</strong><p class="msg"></p>
+  shadow.innerHTML = `<style>${CSS}</style><div class="box${opts.framed ? ' framed' : ''}" role="dialog" aria-label="Job Application Filler">
+    <strong>Job Application Filler</strong><p class="msg"></p>
     <button class="primary" type="button"></button>
     <button class="close" type="button" aria-label="Dismiss">×</button></div>`;
   const msg = shadow.querySelector('.msg')!;
@@ -36,6 +37,7 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
     };
   }
   shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { host.remove(); opts.onDismiss(); };
-  document.body.append(host);
+  // An iframe sized to its content has no visible bottom edge; put the banner where the form starts.
+  if (opts.framed) document.body.prepend(host); else document.body.append(host);
   return { host, remove: () => host.remove() };
 }

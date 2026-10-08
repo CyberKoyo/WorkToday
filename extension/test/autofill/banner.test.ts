@@ -31,4 +31,11 @@ describe('banner', () => {
     expect(host.isConnected).toBe(false);
     expect(onDismiss).toHaveBeenCalled();
   });
+  it('framed banner is prepended and static', () => {
+    document.body.innerHTML = '<form id="f"></form>';
+    const { host } = showBanner({ needsSetup: false, onFill: vi.fn(), onSetup: vi.fn(), onDismiss: vi.fn(), framed: true });
+    expect(document.body.firstElementChild).toBe(host);
+    expect(host.shadowRoot!.querySelector('.box')!.classList.contains('framed')).toBe(true);
+    expect(host.shadowRoot!.querySelector('strong')!.textContent).toBe('Job Application Filler');
+  });
 });

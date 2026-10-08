@@ -1,0 +1,14 @@
+import { describe, it, expect } from 'vitest';
+import { pickAdapter } from '../../src/ats/registry';
+import { CONTENT_MATCHES } from '../../src/ats/matches';
+
+describe('pickAdapter', () => {
+  it('picks by host', () => {
+    expect(pickAdapter(new URL('https://acme.wd1.myworkdayjobs.com/x'))?.id).toBe('workday');
+    expect(pickAdapter(new URL('https://example.com/'))).toBeNull();
+  });
+  it('content script covers every adapter host', () => {
+    expect(CONTENT_MATCHES).toContain('*://*.myworkdayjobs.com/*');
+    expect(CONTENT_MATCHES).toContain('*://*.myworkday.com/*');
+  });
+});

@@ -1,6 +1,6 @@
-# Workday Filler
+# Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills Workday job applications from your reviewed resume profile.
+Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and Oracle Recruiting Cloud job applications from your reviewed resume profile.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
@@ -18,7 +18,7 @@ You need Node.js and a Gemini API key. No server setup is required.
      (temporary add-ons are removed when Firefox restarts).
 4. Open the extension's options page, add your Gemini API key (https://aistudio.google.com), upload a PDF resume,
    review every field (work authorization, sponsorship and EEO answers are never inferred — enter them yourself), and save.
-5. On a Workday application, press **Auto-fill** in the banner on each step. Review the highlighted fields, then continue yourself.
+5. On a supported application, press **Auto-fill** in the banner on each step. Review the highlighted fields, then continue yourself.
 
 ### Self-hosting the mapping server (optional)
 
