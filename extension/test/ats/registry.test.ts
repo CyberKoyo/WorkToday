@@ -15,4 +15,8 @@ describe('pickAdapter', () => {
     expect(pickAdapter(new URL('https://job-boards.greenhouse.io/acme/jobs/1'))?.id).toBe('greenhouse');
     expect(CONTENT_MATCHES).toContain('*://*.greenhouse.io/*');
   });
+  it('picks iCIMS', () => {
+    expect(pickAdapter(new URL('https://careers-acme.icims.com/jobs/1/x/candidate'))?.id).toBe('icims');
+    expect(CONTENT_MATCHES).toContain('*://*.icims.com/*');
+  });
 });

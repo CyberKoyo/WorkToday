@@ -1,0 +1,16 @@
+<!-- Synthetic: modeled on iCIMS candidate profile markup (label/for rows, native selects, fieldset radios). Pinned to a live capture in Task 9. -->
+<div id="iCIMS_MainColumn">
+<form id="jobSearch" action="/jobs/search" method="get"><label for="kw">Keywords</label><input id="kw" type="text"><label for="loc">Location</label><select id="loc"><option value="">Any</option><option>Remote</option></select></form>
+<form id="cpForm" name="cpForm" method="post">
+  <h2 class="iCIMS_Header">Candidate Profile</h2>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField_Label"><label for="PersonProfileFields.FirstName">First Name <span class="iCIMS_Required">*</span></label></div><div class="iCIMS_InfoField"><input type="text" id="PersonProfileFields.FirstName" name="PersonProfileFields.FirstName"></div></div>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField_Label"><label for="PersonProfileFields.Email">Email <span class="iCIMS_Required">*</span></label></div><div class="iCIMS_InfoField"><input type="email" id="PersonProfileFields.Email" name="PersonProfileFields.Email"></div></div>
+  <div class="iCIMS_TableRow"><div class="iCIMS_InfoField_Label"><label for="PersonProfileFields.State">State</label></div><div class="iCIMS_InfoField"><select id="PersonProfileFields.State"><option value="">— Make a Selection —</option><option value="CA">California</option><option value="NY">New York</option></select></div></div>
+  <fieldset><legend>Are you legally authorized to work in the United States? <span class="iCIMS_Required">*</span></legend><input type="radio" name="rcf3048" id="rcf3048_1" value="Yes"><label for="rcf3048_1">Yes</label><input type="radio" name="rcf3048" id="rcf3048_2" value="No"><label for="rcf3048_2">No</label></fieldset>
+  <h2 class="iCIMS_SubHeader">Education</h2>
+  <div class="iCIMS_TableRow"><div><label for="Education_0_School">School</label></div><div><input type="text" id="Education_0_School"></div></div>
+  <div class="iCIMS_TableRow"><div><label for="Education_1_School">School</label></div><div><input type="text" id="Education_1_School"></div></div>
+  <h2 class="iCIMS_SubHeader">Documents</h2>
+  <div class="iCIMS_TableRow"><div><label for="resume">Resume</label></div><div><input type="file" id="resume"></div></div>
+</form>
+</div>
