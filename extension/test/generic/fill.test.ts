@@ -32,6 +32,11 @@ describe('fillGeneric', () => {
     await fillGeneric(f, '2019-09');
     expect(f.container.querySelector('input')!.value).toBe('09/2019');
   });
+  it('text: month/year label follows the placeholder', async () => {
+    const f = setup('<div><label for="m">From (Month/Year)</label><input id="m" placeholder="MM/YYYY"></div>');
+    expect(await fillGeneric(f, '2019-09')).toBe('filled');
+    expect(f.container.querySelector('input')!.value).toBe('09/2019');
+  });
   it('textarea joins lists; booleans become Yes/No', async () => {
     let f = setup('<div><label for="t">Skills</label><textarea id="t"></textarea></div>');
     await fillGeneric(f, ['TS', 'Go']);

@@ -7,6 +7,7 @@ export function adaptForLabel(label: string, value: string): string {
   const m = value.match(/^(\d{4})(?:-(\d{2}))?$/);
   if (!m) return value;
   const l = norm(label);
+  if (/\bmonth\b/.test(l) && /\byear\b/.test(l)) return value; // MM/YYYY box: the placeholder decides
   if (/\byear\b/.test(l)) return m[1]!;
   if (/\bmonth\b/.test(l) && m[2]) return MONTH_NAMES[Number(m[2]) - 1] ?? value;
   return value;

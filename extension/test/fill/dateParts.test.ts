@@ -9,6 +9,9 @@ describe('adaptForLabel', () => {
     expect(adaptForLabel('End month', '2019')).toBe('2019');
     expect(adaptForLabel('Years of experience', '5')).toBe('5');
   });
+  it('leaves a combined month/year field to the placeholder', () => {
+    expect(adaptForLabel('Start Month/Year', '2019-09')).toBe('2019-09');
+  });
 });
 describe('formatForPlaceholder', () => {
   it('follows the placeholder', () => {
