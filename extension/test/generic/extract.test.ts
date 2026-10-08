@@ -67,4 +67,26 @@ describe('extractGeneric', () => {
     expect(discoverFields(document.getElementById('f')!).map((d) => d.label)).toEqual(['Y']);
     expect(document.querySelector('[data-wf-id]')).toBeNull();
   });
+  it('never shares a container between fields', () => {
+    for (const html of [
+      '<div id="f"><label for="a">A</label><input id="a"><label for="b">B</label><input id="b"></div>',
+      '<form id="f"><input placeholder="Email"><input placeholder="Phone"></form>',
+    ]) {
+      document.body.innerHTML = html;
+      const f = extractGeneric(document.getElementById('f')!);
+      expect(f).toHaveLength(2);
+      expect(f[0]!.container).not.toBe(f[1]!.container);
+      for (const x of f) expect(x.container.matches('input') || x.container.querySelectorAll('input').length === 1).toBe(true);
+      expect(document.querySelectorAll('[data-wf-id]')).toHaveLength(2);
+    }
+  });
+  it('wrapped select label excludes option text', () => {
+    document.body.innerHTML = '<form id="f"><label>State <select><option>Select</option><option>California</option></select></label></form>';
+    expect(discoverFields(document.getElementById('f')!).map((d) => d.label)).toEqual(['State']);
+  });
+  it('radio group with a plain label question is kept', () => {
+    document.body.innerHTML = '<form id="f"><div class="field"><label>Authorized?</label><label><input type="radio" name="a">Yes</label><label><input type="radio" name="a">No</label></div></form>';
+    const d = discoverFields(document.getElementById('f')!);
+    expect(d.map((x) => [x.label, x.options])).toEqual([['Authorized?', ['Yes', 'No']]]);
+  });
 });

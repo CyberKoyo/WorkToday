@@ -34,7 +34,15 @@ function labelFor(el: HTMLElement): HTMLElement | null {
   return el.closest('label');
 }
 
-const choiceLabel = (el: HTMLElement) => clean(labelFor(el)?.textContent) || clean(el.getAttribute('aria-label')) || clean(el.textContent);
+/** Label text without any control nested in it (a wrapped select would leak its options). */
+function textOf(el: Element | null | undefined): string {
+  if (!el) return '';
+  const copy = el.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll('input,select,textarea').forEach((e) => e.remove());
+  return copy.textContent ?? '';
+}
+
+const choiceLabel = (el: HTMLElement) => clean(textOf(labelFor(el))) || clean(el.getAttribute('aria-label')) || clean(el.textContent);
 
 function boxLabel(box: HTMLElement): string {
   const legend = [...box.children].find((e) => e.tagName === 'LEGEND');
@@ -42,9 +50,13 @@ function boxLabel(box: HTMLElement): string {
 }
 
 /** A group's question when it has no legend: the container's text minus the controls and their option labels. */
-function leftoverText(container: HTMLElement): string {
+function leftoverText(container: HTMLElement, members: HTMLElement[]): string {
+  const ids = new Set(members.map((m) => m.id).filter(Boolean));
   const copy = container.cloneNode(true) as HTMLElement;
-  copy.querySelectorAll('input,select,textarea,label,[role="radio"],[role="option"]').forEach((e) => e.remove());
+  copy.querySelectorAll('label').forEach((l) => {
+    if (l.querySelector('input,select,textarea') || ids.has(l.htmlFor)) l.remove();
+  });
+  copy.querySelectorAll('input,select,textarea,[role="radio"],[role="option"]').forEach((e) => e.remove());
   return copy.textContent ?? '';
 }
 
@@ -80,17 +92,19 @@ export function discoverFields(root: ParentNode): Discovered[] {
     let container: HTMLElement | null = ownBox;
     if (!container) {
       let c = first.parentElement ?? first;
-      while (!(covers(c) && (!lab || c.contains(lab)))) {
+      // A parent that is the root or already holds other groups can't be this control's container.
+      if (c === root || (members.length === 1 && groupsIn(c) > 1)) c = first;
+      while (c !== first && !(covers(c) && (!lab || c.contains(lab)))) {
         const p = c.parentElement;
         if (!p || p === root || groupsIn(p) > 1) break;
         c = p;
       }
-      container = c;
+      container = c === root ? first : c;
     }
     const kind = kindOf(first);
     const isGroup = members.length > 1 || kind === 'radio';
-    const rawLabel = (ownBox && boxLabel(ownBox)) || lab?.textContent || first.getAttribute('aria-label')
-      || (isGroup ? leftoverText(container) : '') || first.getAttribute('placeholder') || '';
+    const rawLabel = (ownBox && boxLabel(ownBox)) || textOf(lab) || first.getAttribute('aria-label')
+      || (isGroup ? leftoverText(container, members) : '') || first.getAttribute('placeholder') || '';
     const label = clean(rawLabel);
     if (!label) continue;
     const d: Discovered = {
