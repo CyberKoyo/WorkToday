@@ -1,7 +1,7 @@
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
-import { toDescriptor, type ExtractedField } from '../workday/extractFields';
+import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field';
 import { resolveProfileValue, type Profile } from '../profile/profile';
-import type { fillField, FillResult } from '../fill/fillField';
+import type { AtsAdapter } from '../ats/types';
 
 export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[] }
 export interface AutofillDeps {
@@ -9,7 +9,7 @@ export interface AutofillDeps {
   resume: File | null;
   extract: () => ExtractedField[];
   map: (fields: FieldDescriptor[]) => Promise<Map<string, ProfileKey | null>>;
-  fill: typeof fillField;
+  fill: AtsAdapter['fill'];
   fillFile: (f: ExtractedField, file: File) => Promise<FillResult>;
   ensureGroups: (p: Profile) => Promise<void>;
 }

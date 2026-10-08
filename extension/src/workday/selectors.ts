@@ -1,3 +1,4 @@
+import { TEXT_INPUT } from '../fill/dom';
 // Every Workday-specific selector lives here. Verify against a live page (Task 13) when Workday changes its DOM.
 export const SEL = {
   fieldContainer: '[data-automation-id^="formField-"]',
@@ -19,5 +20,5 @@ export const SEL = {
   educationSection: '[data-automation-id="educationSection"]',
   addButton: 'button[data-automation-id="add-button"]',
   pageHeader: '[data-automation-id="pageHeader"]',
-  textInput: 'input:not([type]),input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="number"]',
+  textInput: TEXT_INPUT,
 } as const;

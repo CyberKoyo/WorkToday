@@ -1,9 +1,8 @@
-import type { FieldDescriptor, FieldKind } from '@wf/shared';
+import type { FieldKind } from '@wf/shared';
 import { SEL } from './selectors';
+import { clean, type ExtractedField } from '../ats/field';
 
-export interface ExtractedField extends FieldDescriptor { groupIndex: number; container: HTMLElement }
-
-export const clean = (s: string | null | undefined) => (s ?? '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();
+export { clean, toDescriptor, type ExtractedField } from '../ats/field';
 
 function detectKind(c: HTMLElement): FieldKind | null {
   if (c.querySelector(SEL.fileInput)) return 'file';
@@ -55,11 +54,4 @@ export function extractFields(root: ParentNode = document): ExtractedField[] {
     out.push(field);
   });
   return out;
-}
-
-export function toDescriptor({ id, label, kind, options, section, required }: ExtractedField): FieldDescriptor {
-  const d: FieldDescriptor = { id, label, kind, required };
-  if (options) d.options = options;
-  if (section) d.section = section;
-  return d;
 }
