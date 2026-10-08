@@ -19,4 +19,8 @@ describe('pickAdapter', () => {
     expect(pickAdapter(new URL('https://careers-acme.icims.com/jobs/1/x/candidate'))?.id).toBe('icims');
     expect(CONTENT_MATCHES).toContain('*://*.icims.com/*');
   });
+  it('picks Oracle Recruiting Cloud', () => {
+    expect(pickAdapter(new URL('https://abcd.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/1/apply/email'))?.id).toBe('oracle');
+    expect(CONTENT_MATCHES).toContain('*://*.oraclecloud.com/hcmUI/CandidateExperience/*');
+  });
 });

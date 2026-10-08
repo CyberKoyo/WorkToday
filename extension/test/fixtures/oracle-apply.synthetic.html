@@ -1,0 +1,13 @@
+<!-- Synthetic: modeled on Oracle Recruiting Cloud apply flow (labelled inputs, JET comboboxes, ARIA radio pills, MM/YYYY dates). Pinned to a live capture in Task 9. -->
+<div class="app-header"><h1>Software Engineer</h1></div>
+<div class="apply-flow">
+  <h2>Contact Information</h2>
+  <div class="input-row"><label class="input-row__label" for="fn">First Name</label><input class="input-row__control" id="fn" aria-required="true"></div>
+  <div class="input-row"><label class="input-row__label" for="ln">Last Name</label><input class="input-row__control" id="ln" aria-required="true"></div>
+  <div class="input-row"><label class="input-row__label" for="em">Email Address</label><input class="input-row__control" id="em" type="email"></div>
+  <div class="input-row"><span id="ctry-l" class="input-row__label">Country</span><div class="oj-searchselect"><input role="combobox" aria-labelledby="ctry-l" aria-expanded="false"></div></div>
+  <h2>Application Questions</h2>
+  <div role="radiogroup" aria-labelledby="q1-l"><span id="q1-l">Will you now or in the future require sponsorship?</span><div role="radio" aria-checked="false">Yes</div><div role="radio" aria-checked="false">No</div></div>
+  <h2>Education</h2>
+  <div class="input-row"><label class="input-row__label" for="sd">Start Date</label><input class="input-row__control" id="sd" placeholder="MM/YYYY"></div>
+</div>
