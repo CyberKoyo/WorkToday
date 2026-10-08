@@ -11,4 +11,8 @@ describe('pickAdapter', () => {
     expect(CONTENT_MATCHES).toContain('*://*.myworkdayjobs.com/*');
     expect(CONTENT_MATCHES).toContain('*://*.myworkday.com/*');
   });
+  it('picks Greenhouse', () => {
+    expect(pickAdapter(new URL('https://job-boards.greenhouse.io/acme/jobs/1'))?.id).toBe('greenhouse');
+    expect(CONTENT_MATCHES).toContain('*://*.greenhouse.io/*');
+  });
 });
