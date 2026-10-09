@@ -102,6 +102,16 @@ describe('fillGeneric', () => {
     await fillGeneric(f, false);
     expect((document.getElementById('c') as HTMLInputElement).checked).toBe(false);
   });
+  it('single checkbox already ticked is left alone', async () => {
+    const f = setup('<div><input type="checkbox" id="c" checked><label for="c">I currently work here</label></div>');
+    expect(await fillGeneric(f, false)).toBe('skipped_nonempty');
+    expect((document.getElementById('c') as HTMLInputElement).checked).toBe(true);
+  });
+  it('date input with a value is left alone', async () => {
+    const f = setup('<div><label for="d">Start</label><input id="d" type="date" value="2020-01-15"></div>');
+    expect(await fillGeneric(f, '2019-09')).toBe('skipped_nonempty');
+    expect(f.container.querySelector('input')!.value).toBe('2020-01-15');
+  });
   it('date input takes the first of the month', async () => {
     const f = setup('<div><label for="d">Start</label><input id="d" type="date"></div>');
     expect(await fillGeneric(f, '2019-09')).toBe('filled');
