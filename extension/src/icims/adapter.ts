@@ -8,17 +8,19 @@ import { fillGeneric, fillFileGeneric } from '../generic/fill';
 const notApplication = (f: HTMLFormElement) => !!f.querySelector('input[type="password"]')
   || /search|login|signin|sign-in|alert/i.test(`${f.id} ${f.className} ${f.getAttribute('action') ?? ''} ${f.getAttribute('role') ?? ''}`);
 
+const widget = (el: HTMLElement) => el.matches(IC.widgetChrome);
+
 function formRoot(doc: Document): HTMLElement | null {
   return doc.querySelector<HTMLElement>(IC.form)
-    ?? [...doc.forms].find((f) => !notApplication(f) && discoverFields(f).length >= 2) ?? null;
+    ?? [...doc.forms].find((f) => !notApplication(f) && discoverFields(f, widget).length >= 2) ?? null;
 }
 
 export const icims: AtsAdapter = {
   id: 'icims',
   detect: (u) => /(^|\.)icims\.com$/.test(u.hostname),
-  isFormPage: (doc) => { const f = formRoot(doc); return !!f && discoverFields(f).length > 0; },
+  isFormPage: (doc) => { const f = formRoot(doc); return !!f && discoverFields(f, widget).length > 0; },
   stepKey: (doc) => `${doc.defaultView?.location.pathname ?? ''}${doc.defaultView?.location.search ?? ''}|${clean(formRoot(doc)?.querySelector(IC.heading)?.textContent)}`,
-  extract: (doc) => { const f = formRoot(doc); return f ? extractGeneric(f) : []; },
+  extract: (doc) => { const f = formRoot(doc); return f ? extractGeneric(f, { skip: widget }) : []; },
   fill: fillGeneric,
   fillFile: (f, file) => fillFileGeneric(f, file),
   ensureGroups: async () => {}, // the applicant adds extra work/education rows on iCIMS (README)

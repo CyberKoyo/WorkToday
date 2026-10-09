@@ -2,6 +2,29 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { icims } from '../../src/icims/adapter';
 
+const EXPECTED_ICIMS_PROFILE: Array<[string, string]> = [
+  ['Please upload your resume (Max size: 5 MB)', 'file'],
+  ['Login', 'text'],
+  ['First Name', 'text'],
+  ['Middle Name', 'text'],
+  ['Last Name', 'text'],
+  ['Email', 'text'],
+  ['Type', 'select'],
+  ['Number', 'text'],
+  ['Type', 'select'],
+  ['Address', 'text'],
+  ['Address 2', 'text'],
+  ['City', 'text'],
+  ['Zip/Postal Code', 'text'],
+  ['Country', 'select'],
+  ['State/Province', 'select'],
+  ['County', 'text'],
+  ['Please select your preferred area of interest', 'select'],
+  ['Where did you find this job?', 'select'],
+  ['Employee Referral? Enter name below', 'text'],
+  ['Please share your annual salary expectations', 'text'],
+];
+
 const load = () => { document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/icims-profile.synthetic.html`, 'utf8'); };
 
 beforeEach(load);
@@ -44,5 +67,10 @@ describe('icims adapter', () => {
     const state = icims.extract(document)[2]!;
     expect(await icims.fill(state, 'NY')).toBe('filled');
     expect((document.getElementById('PersonProfileFields.State') as HTMLSelectElement).value).toBe('NY');
+  });
+  it('real capture: profile step', () => {
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-icims-profile.html`, 'utf8');
+    expect(icims.isFormPage(document)).toBe(true);
+    expect(icims.extract(document).map((x) => [x.label, x.kind])).toEqual(EXPECTED_ICIMS_PROFILE);
   });
 });
