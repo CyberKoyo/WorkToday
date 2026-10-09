@@ -89,4 +89,8 @@ describe('extractGeneric', () => {
     const d = discoverFields(document.getElementById('f')!);
     expect(d.map((x) => [x.label, x.options])).toEqual([['Authorized?', ['Yes', 'No']]]);
   });
+  it('an id with a backslash does not break the form', () => {
+    document.body.innerHTML = '<form id="f"><div><label for="a\\b">Middle</label><input id="a\\b"></div><div><label for="z">Last</label><input id="z"></div></form>';
+    expect(discoverFields(document.getElementById('f')!).map((x) => x.label)).toEqual(['Middle', 'Last']);
+  });
 });

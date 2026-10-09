@@ -28,7 +28,7 @@ function labelFor(el: HTMLElement): HTMLElement | null {
   const l = by ? doc.getElementById(by) : null;
   if (l) return l;
   if (el.id) {
-    const f = doc.querySelector<HTMLElement>(`label[for="${el.id.replace(/"/g, '\\"')}"]`);
+    const f = doc.querySelector<HTMLElement>(`label[for="${CSS.escape(el.id)}"]`);
     if (f) return f;
   }
   return el.closest('label');
