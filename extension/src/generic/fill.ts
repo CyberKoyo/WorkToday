@@ -19,8 +19,8 @@ function fillNativeSelect(sel: HTMLSelectElement, text: string): FillResult {
   return 'filled';
 }
 
-function fillRadio(c: HTMLElement, options: string[], text: string): FillResult {
-  const radios = all<HTMLElement>(c, 'input[type="radio"],[role="radio"]');
+function fillRadio(c: HTMLElement, options: string[], text: string, members?: HTMLElement[]): FillResult {
+  const radios = members ?? all<HTMLElement>(c, 'input[type="radio"],[role="radio"]');
   const checked = (r: HTMLElement) => (r instanceof HTMLInputElement ? r.checked : r.getAttribute('aria-checked') === 'true');
   if (radios.some(checked)) return 'skipped_nonempty';
   const i = matchOption(text, options);
@@ -61,9 +61,9 @@ export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeou
         return sel ? fillNativeSelect(sel, text) : await fillCombobox(c, text, timeoutMs);
       }
       case 'radio':
-        return fillRadio(c, f.options ?? [], text);
+        return fillRadio(c, f.options ?? [], text, f.members);
       case 'checkbox': {
-        const boxes = all<HTMLInputElement>(c, 'input[type="checkbox"]');
+        const boxes = (f.members as HTMLInputElement[] | undefined) ?? all<HTMLInputElement>(c, 'input[type="checkbox"]');
         if (boxes.length > 1) return fillChecks(boxes, f.options ?? [], Array.isArray(value) ? value : [text], missed);
         const cb = boxes[0];
         if (!cb) return 'error';

@@ -1,6 +1,7 @@
 import type { FieldDescriptor } from '@wf/shared';
 
-export interface ExtractedField extends FieldDescriptor { groupIndex: number; container: HTMLElement }
+// members: a radio/checkbox group's own controls, for when its container also holds another group. Never sent.
+export interface ExtractedField extends FieldDescriptor { groupIndex: number; container: HTMLElement; members?: HTMLElement[] }
 export type FillResult = 'filled' | 'skipped_nonempty' | 'no_match' | 'error';
 
 export const clean = (s: string | null | undefined) => (s ?? '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();

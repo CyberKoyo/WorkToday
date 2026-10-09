@@ -5,7 +5,7 @@ const CONTROL = 'input,select,textarea,[role="combobox"],[role="radiogroup"]';
 const SKIP_TYPES = new Set(['hidden', 'submit', 'button', 'reset', 'image', 'search', 'password']);
 const BOX = 'fieldset,[role="group"],[role="radiogroup"]';
 
-export interface Discovered { container: HTMLElement; label: string; kind: FieldKind; required: boolean; options?: string[] }
+export interface Discovered { container: HTMLElement; label: string; kind: FieldKind; required: boolean; options?: string[]; members?: HTMLElement[] }
 
 function isControl(el: HTMLElement): boolean {
   if (el.closest('[hidden],[aria-hidden="true"]')) return false;
@@ -104,7 +104,7 @@ export function discoverFields(root: ParentNode): Discovered[] {
     const kind = kindOf(first);
     const isGroup = members.length > 1 || kind === 'radio';
     const rawLabel = (ownBox && boxLabel(ownBox)) || textOf(lab) || first.getAttribute('aria-label')
-      || (isGroup ? leftoverText(container, members) : '') || first.getAttribute('placeholder') || '';
+      || (isGroup && groupsIn(container) <= 1 ? leftoverText(container, members) : '') || first.getAttribute('placeholder') || '';
     const label = clean(rawLabel);
     if (!label) continue;
     const d: Discovered = {
@@ -114,8 +114,10 @@ export function discoverFields(root: ParentNode): Discovered[] {
     if (kind === 'radio') {
       const items = first.matches('[role="radiogroup"]') ? [...container.querySelectorAll<HTMLElement>('input[type="radio"],[role="radio"]')] : members;
       d.options = items.map(choiceLabel);
+      d.members = items;
     } else if (kind === 'checkbox' && members.length > 1) {
       d.options = members.map(choiceLabel);
+      d.members = members;
     }
     out.push(d);
   }
@@ -147,6 +149,7 @@ export function extractGeneric(root: ParentNode, opts: GenericOptions = {}): Ext
     const f: ExtractedField = { id, label: d.label, kind: d.kind, required: d.required, groupIndex: n ? Number(n[1]) - 1 : nth, container: d.container };
     if (section) f.section = section;
     if (d.options) f.options = d.options;
+    if (d.members) f.members = d.members;
     return f;
   });
 }

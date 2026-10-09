@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { discoverFields, extractGeneric } from '../../src/generic/extract';
+import { fillGeneric } from '../../src/generic/fill';
+import { toDescriptor } from '../../src/ats/field';
 
 const FORM = `<form id="f">
   <h2>Contact</h2>
@@ -92,5 +94,28 @@ describe('extractGeneric', () => {
   it('an id with a backslash does not break the form', () => {
     document.body.innerHTML = '<form id="f"><div><label for="a\\b">Middle</label><input id="a\\b"></div><div><label for="z">Last</label><input id="z"></div></form>';
     expect(discoverFields(document.getElementById('f')!).map((x) => x.label)).toEqual(['Middle', 'Last']);
+  });
+  const twoGroups = (a = '', b = '') => `<form id="f"><div><span>Q1?</span><input type=radio name=a id=a1${a}><label for=a1>Yes</label><input type=radio name=a id=a2><label for=a2>No</label>`
+    + `<span>Q2?</span><input type=radio name=b id=b1${b}><label for=b1>Yes</label><input type=radio name=b id=b2><label for=b2>No</label></div></form>`;
+  it('groups sharing a container never answer for each other', async () => {
+    document.body.innerHTML = twoGroups(' aria-label="Q1?"', ' aria-label="Q2?"');
+    const [q1, q2] = extractGeneric(document.getElementById('f')!);
+    expect([q1!.label, q2!.label]).toEqual(['Q1?', 'Q2?']);
+    expect(await fillGeneric(q2!, 'No')).toBe('filled');
+    expect([...document.querySelectorAll<HTMLInputElement>('input:checked')].map((r) => r.id)).toEqual(['b2']);
+    expect(await fillGeneric(q1!, 'Yes')).toBe('filled');
+    expect([...document.querySelectorAll<HTMLInputElement>('input:checked')].map((r) => r.id)).toEqual(['a1', 'b2']);
+    expect(Object.keys(toDescriptor(q1!)).sort()).toEqual(['id', 'kind', 'label', 'options', 'required']);
+  });
+  it('checkbox groups sharing a container tick only their own boxes', async () => {
+    document.body.innerHTML = twoGroups(' aria-label="Q1?"', ' aria-label="Q2?"').replace(/radio/g, 'checkbox');
+    const [, q2] = extractGeneric(document.getElementById('f')!);
+    expect(await fillGeneric(q2!, ['Yes', 'No'])).toBe('filled');
+    expect([...document.querySelectorAll<HTMLInputElement>('input:checked')].map((r) => r.id)).toEqual(['b1', 'b2']);
+  });
+  it('a shared container lends neither group its text as a label', async () => {
+    document.body.innerHTML = twoGroups();
+    const fields = extractGeneric(document.getElementById('f')!);
+    expect(fields.map((f) => f.label)).toEqual([]);
   });
 });
