@@ -1,6 +1,6 @@
 import { clean, type FillResult } from '../ats/field';
 import { matchOption } from '../fill/matchOption';
-import { pressKey, rawSet, waitFor } from '../fill/dom';
+import { pressKey, rawSet, safeClick, waitFor } from '../fill/dom';
 
 // The extractor may hand us the combobox element itself as the container.
 const findBox = (c: HTMLElement) => (c.matches('[role="combobox"]') ? c : c.querySelector<HTMLElement>('[role="combobox"]'));
@@ -9,6 +9,9 @@ const findBox = (c: HTMLElement) => (c.matches('[role="combobox"]') ? c : c.quer
 export function comboboxValue(c: HTMLElement): string {
   const shown = c.querySelector('[class*="single-value"],[class*="multi-value"]');
   if (shown) return clean(shown.textContent);
+  // Select-only comboboxes (MUI Select, ojSelect) have no text box and show the choice as their own text.
+  const box = findBox(c);
+  if (box && !(box instanceof HTMLInputElement) && !box.querySelector('input')) return clean(box.textContent);
   const el = c.matches('input[role="combobox"]') ? c : c.querySelector('input[role="combobox"],[role="combobox"] input');
   return (el as HTMLInputElement | null)?.value.trim() ?? '';
 }
@@ -32,7 +35,7 @@ export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 30
   target.focus();
   for (const open of [
     () => target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })),
-    () => target.click(),
+    () => safeClick(target),
     () => pressKey(target, 'ArrowDown', 40),
   ]) {
     open();

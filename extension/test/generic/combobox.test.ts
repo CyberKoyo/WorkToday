@@ -71,4 +71,21 @@ describe('fillCombobox', () => {
     input.value = 'typed';
     expect(comboboxValue(input)).toBe('typed');
   });
+  it('select-only combobox: its own text is the value', async () => {
+    document.body.innerHTML = '<div id="c"><span id="l">Relocate?</span><div role="combobox" aria-labelledby="l" tabindex="0">No</div></div>';
+    const c = document.getElementById('c')!;
+    expect(comboboxValue(c)).toBe('No');
+    expect(await fillCombobox(c, 'Yes', 60)).toBe('skipped_nonempty');
+  });
+  it('never submits the form through a button combobox', async () => {
+    document.body.innerHTML = '<form id="f"><button role="combobox" aria-label="Degree"></button><button role="combobox" aria-label="School">Select</button></form>';
+    const f = document.getElementById('f')!;
+    const submit = vi.fn((e: Event) => e.preventDefault());
+    f.addEventListener('submit', submit);
+    const [empty, shown] = f.querySelectorAll<HTMLElement>('button');
+    expect(await fillCombobox(empty!, 'BSc', 60)).toBe('no_match');
+    expect(submit).not.toHaveBeenCalled();
+    expect(await fillCombobox(shown!, 'MIT', 60)).toBe('skipped_nonempty'); // placeholder text counts as a value: the safe direction
+    expect(submit).not.toHaveBeenCalled();
+  });
 });
