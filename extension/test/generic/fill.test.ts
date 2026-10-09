@@ -37,6 +37,13 @@ describe('fillGeneric', () => {
     expect(await fillGeneric(f, '2019-09')).toBe('filled');
     expect(f.container.querySelector('input')!.value).toBe('09/2019');
   });
+  it('radio: never clicks an option button that would submit the form', async () => {
+    const f = setup('<div role="radiogroup" aria-label="Relocate?"><button role="radio" aria-checked="false">Yes</button><button role="radio" aria-checked="false">No</button></div>');
+    const submit = vi.fn((e: Event) => e.preventDefault());
+    document.getElementById('f')!.addEventListener('submit', submit);
+    expect(await fillGeneric(f, 'Yes')).toBe('error');
+    expect(submit).not.toHaveBeenCalled();
+  });
   it('textarea joins lists; booleans become Yes/No', async () => {
     let f = setup('<div><label for="t">Skills</label><textarea id="t"></textarea></div>');
     await fillGeneric(f, ['TS', 'Go']);

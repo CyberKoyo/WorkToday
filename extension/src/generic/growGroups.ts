@@ -1,4 +1,4 @@
-import { waitFor } from '../fill/dom';
+import { safeClick, waitFor } from '../fill/dom';
 
 const MAX_GROUPS = 10;
 
@@ -8,7 +8,7 @@ export async function growGroups(count: () => number, addButton: () => HTMLEleme
     const add = addButton();
     if (!add) return;
     const before = count();
-    add.click();
+    if (!safeClick(add)) return;
     if (!(await waitFor(() => (count() > before ? true : null), timeoutMs))) return; // Add did nothing → stop
   }
 }

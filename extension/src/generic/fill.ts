@@ -1,6 +1,6 @@
 import type { ExtractedField, FillResult } from '../ats/field';
 import type { ProfileValue } from '../profile/profile';
-import { TEXT_INPUT, setNativeValue, setFilesViaDataTransfer } from '../fill/dom';
+import { TEXT_INPUT, safeClick, setNativeValue, setFilesViaDataTransfer } from '../fill/dom';
 import { matchOption } from '../fill/matchOption';
 import { adaptForLabel, formatForPlaceholder } from '../fill/dateParts';
 import { fillCombobox } from './combobox';
@@ -25,8 +25,7 @@ function fillRadio(c: HTMLElement, options: string[], text: string): FillResult 
   if (radios.some(checked)) return 'skipped_nonempty';
   const i = matchOption(text, options);
   if (i === -1) return 'no_match';
-  radios[i]!.click();
-  return 'filled';
+  return safeClick(radios[i]!) ? 'filled' : 'error';
 }
 
 function fillChecks(boxes: HTMLInputElement[], options: string[], values: string[], missed: string[]): FillResult {

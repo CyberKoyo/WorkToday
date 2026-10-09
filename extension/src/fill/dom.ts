@@ -33,6 +33,13 @@ export function typeChars(el: HTMLInputElement, text: string) {
   el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
 }
 
+/** Clicks el unless it is a button that would submit or reset its form (type defaults to submit). */
+export function safeClick(el: HTMLElement): boolean {
+  if (el instanceof HTMLButtonElement && el.type !== 'button' && el.form) return false;
+  el.click();
+  return true;
+}
+
 export async function waitFor<T>(fn: () => T | null, timeoutMs = 3000): Promise<T | null> {
   const end = Date.now() + timeoutMs;
   for (;;) {
