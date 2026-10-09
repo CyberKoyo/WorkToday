@@ -6,6 +6,15 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and O
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
 - `shared/` — request/response contract.
 
+## Supported sites
+
+| ATS | Hosts | Notes |
+| --- | --- | --- |
+| Workday | `*.myworkdayjobs.com`, `*.myworkday.com` | Adds work/education groups to match your profile. |
+| Greenhouse | `job-boards.greenhouse.io`, `boards.greenhouse.io`, Greenhouse forms embedded on company sites | Adds education groups. |
+| iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
+| Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Same as iCIMS for extra rows. The sign-in / email step is yours. |
+
 ## Setup
 
 You need Node.js and a Gemini API key. No server setup is required.
@@ -38,6 +47,10 @@ The extension never overwrites a field that already has a value and never submit
 - When Workday accepts free text on Enter, your exact wording is entered even if a catalog entry exists.
 - Prompts with nested categories (often "How did you hear about us") are left for manual entry.
 - Option matching ignores `+` and `#`, so "C++" or "C#" can match an option named "C".
+- Company career sites that build their own form on top of Greenhouse's API (not the Greenhouse iframe) are not detected.
+- Oracle Taleo (`*.taleo.net`) is not supported.
+- Searchable dropdowns (Greenhouse School, Location) pick a result only when exactly one clearly matches; otherwise the field is highlighted.
+- iCIMS dropdowns are set through the underlying list; if a dropdown looks empty after Auto-fill, pick the value by hand.
 
 ## Tests
 
