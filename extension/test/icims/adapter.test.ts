@@ -73,4 +73,26 @@ describe('icims adapter', () => {
     expect(icims.isFormPage(document)).toBe(true);
     expect(icims.extract(document).map((x) => [x.label, x.kind])).toEqual(EXPECTED_ICIMS_PROFILE);
   });
+  describe('real capture: questions step', () => {
+    const loadQuestions = () => { document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-icims-questions.html`, 'utf8'); };
+    it('extracts the screening questions and fills a select once', async () => {
+      loadQuestions();
+      expect(icims.isFormPage(document)).toBe(true);
+      const fields = icims.extract(document);
+      expect(fields.map((f) => [f.label, f.kind, f.required])).toEqual([
+        ['Are you authorized to work in the US?', 'select', true],
+        ['Do you now or in the future require sponsorship? (e.g., H-1B visa status)', 'select', true],
+        ['What are your salary expectations?', 'text', false],
+        ['Please share with us how you heard about this job opportunity?', 'textarea', true],
+      ]);
+      expect(await icims.fill(fields[0]!, true)).toBe('filled');
+      expect((document.getElementById('Q25') as HTMLSelectElement).value).toBe('Yes');
+      expect(await icims.fill(fields[0]!, true)).toBe('skipped_nonempty');
+    });
+    it('matches the form explicitly, even with a password input', () => {
+      loadQuestions();
+      document.getElementById('questions')!.insertAdjacentHTML('beforeend', '<input type="password" name="pw">');
+      expect(icims.extract(document)).toHaveLength(4);
+    });
+  });
 });
