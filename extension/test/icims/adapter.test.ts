@@ -27,6 +27,15 @@ describe('icims adapter', () => {
     expect(icims.isFormPage(document)).toBe(false);
     expect(icims.extract(document)).toEqual([]);
   });
+  it('login and job-alert forms are not applications', () => {
+    document.getElementById('cpForm')!.remove();
+    document.body.insertAdjacentHTML('beforeend', `
+      <form id="f1" action="/candidate"><label for="le">Email</label><input id="le" type="email"><label for="lp">Password</label><input id="lp" type="password">
+        <input type="checkbox" id="rm"><label for="rm">Remember me</label></form>
+      <form class="jobAlertForm"><label for="ae">Email</label><input id="ae" type="email"><label for="ak">Keyword</label><input id="ak"></form>`);
+    expect(icims.isFormPage(document)).toBe(false);
+    expect(icims.extract(document)).toEqual([]);
+  });
   it('form page and step key', () => {
     expect(icims.isFormPage(document)).toBe(true);
     expect(icims.stepKey(document)).toMatch(/\|Candidate Profile$/);

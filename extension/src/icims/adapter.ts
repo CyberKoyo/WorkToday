@@ -4,11 +4,13 @@ import { IC } from './selectors';
 import { discoverFields, extractGeneric } from '../generic/extract';
 import { fillGeneric, fillFileGeneric } from '../generic/fill';
 
-const isSearch = (f: HTMLFormElement) => /search/i.test(`${f.id} ${f.className} ${f.getAttribute('action') ?? ''} ${f.getAttribute('role') ?? ''}`);
+// Search, login and job-alert forms sit beside the application and have enough fields to pass for one.
+const notApplication = (f: HTMLFormElement) => !!f.querySelector('input[type="password"]')
+  || /search|login|signin|sign-in|alert/i.test(`${f.id} ${f.className} ${f.getAttribute('action') ?? ''} ${f.getAttribute('role') ?? ''}`);
 
 function formRoot(doc: Document): HTMLElement | null {
   return doc.querySelector<HTMLElement>(IC.form)
-    ?? [...doc.forms].find((f) => !isSearch(f) && discoverFields(f).length >= 2) ?? null;
+    ?? [...doc.forms].find((f) => !notApplication(f) && discoverFields(f).length >= 2) ?? null;
 }
 
 export const icims: AtsAdapter = {
