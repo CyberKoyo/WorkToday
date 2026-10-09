@@ -8,6 +8,45 @@ const load = () => { document.body.innerHTML = readFileSync(`${__dirname}/../fix
 
 beforeEach(load);
 
+const EXPECTED_GREENHOUSE_EDUCATION: Array<[string, string]> = [
+  ['First Name', 'text'],
+  ['Last Name', 'text'],
+  ['Preferred First Name', 'text'],
+  ['Email', 'text'],
+  ['Country', 'select'],
+  ['Phone', 'text'],
+  ['Location (City)', 'select'],
+  ['Resume/CV', 'file'],
+  ['Cover Letter', 'file'],
+  ['School', 'select'],
+  ['Degree', 'select'],
+  ['Discipline', 'select'],
+  ['Start date year', 'text'],
+  ['End date year', 'text'],
+  ['Are you legally authorized to work in the United States?', 'select'],
+  ['Will you now or in the future require an employment visa to work in the US?', 'select'],
+  ['This is not a self-paced training program. Are you able to work 25-29 hrs/wk with a majority of hours being between 11am-4pm eastern Monday - Friday?', 'select'],
+  ['When are you available for full-time hire?', 'select'],
+  ['Do you have any formal training or experience within cybersecurity/IT? (select all that apply)', 'select'],
+  ['Do you have a recognized industry certification?', 'select'],
+  ['If yes, please list all recognized industry certifications', 'text'],
+  ['Did you hear about GPSU from any of the below organizations?', 'select'],
+  ['Are you a current or former GPS employee?', 'select'],
+  ['Are you a GuidePoint Security Employee Referral?', 'select'],
+  ['If you answered Yes above, list the name of the GuidePoint Security Employee that referred you and a brief note regarding your connection to them', 'text'],
+  ['Are you related to or associated with a Customer or Vendor Partner of GuidePoint Security?', 'select'],
+  ['If you answered Yes above, please list the contact name and organization', 'text'],
+  ['Will you be physically located within the United States during the entire duration of the internship?', 'select'],
+  ['Where will you primarily be located during the internship?', 'select'],
+  ['Full Street Address', 'text'],
+  ['City, State & Zip', 'text'],
+  ['LinkedIn Profile URL', 'text'],
+  ['Additional Comments', 'textarea'],
+  ['Gender', 'select'],
+  ['Are you Hispanic/Latino?', 'select'],
+  ['Veteran Status', 'select'],
+];
+
 describe('greenhouse adapter', () => {
   it('detects Greenhouse hosts only', () => {
     expect(greenhouse.detect(new URL('https://job-boards.greenhouse.io/acme/jobs/1'))).toBe(true);
@@ -57,5 +96,12 @@ describe('greenhouse adapter', () => {
     await greenhouse.ensureGroups(document, p);
     const schools = greenhouse.extract(document).filter((f) => f.label === 'School');
     expect(schools.map((f) => [f.section, f.groupIndex])).toEqual([['Education 1', 0], ['Education 2', 1]]);
+  });
+  it('real capture: application form with education', () => {
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-greenhouse-education.html`, 'utf8');
+    expect(greenhouse.isFormPage(document)).toBe(true);
+    const f = greenhouse.extract(document);
+    expect(f.map((x) => [x.label, x.kind])).toEqual(EXPECTED_GREENHOUSE_EDUCATION);
+    expect(f.filter((x) => x.section === 'Education 1').map((x) => x.label)).toEqual(['School', 'Degree', 'Discipline', 'Start date year', 'End date year']);
   });
 });
