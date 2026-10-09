@@ -118,4 +118,36 @@ describe('extractGeneric', () => {
     const fields = extractGeneric(document.getElementById('f')!);
     expect(fields.map((f) => f.label)).toEqual([]);
   });
+  it('reads required from label classes, not only a star', () => {
+    document.body.innerHTML = `<form id="f">
+      <div><label for="a" class="row__label row__label--required">A</label><input id="a"></div>
+      <div><label for="b" class="row__label"><span>B</span><span class="row__label--required-star"></span></label><input id="b"></div>
+      <div><label for="c" class="row__label">C</label><input id="c"></div>
+      <div role="radiogroup" aria-labelledby="q"><label id="q" class="lab lab--required">Q?</label>
+        <input type="radio" name="q" id="q1" required><label for="q1">Yes</label><input type="radio" name="q" id="q2" required><label for="q2">No</label></div>
+      <div role="radiogroup" aria-labelledby="r"><label id="r" class="lab">R?</label>
+        <input type="radio" name="r" id="r1"><label for="r1">Yes</label><input type="radio" name="r" id="r2"><label for="r2">No</label></div>
+      <div role="radiogroup" aria-label="S?"><input type="radio" name="s" id="s1" required><label for="s1">Yes</label><input type="radio" name="s" id="s2" required><label for="s2">No</label></div>
+    </form>`;
+    expect(extractGeneric(document.getElementById('f')!).map((x) => [x.label, x.required])).toEqual([
+      ['A', true], ['B', true], ['C', false], ['Q?', true], ['R?', false], ['S?', true],
+    ]);
+  });
+  it('skips controls hidden inline, disabled, and ruled out by the caller', () => {
+    document.body.innerHTML = `<form id="f">
+      <div><label for="a">A</label><input id="a"></div>
+      <div><label for="h">Hidden</label><input id="h" style="display: none;"></div>
+      <div><label for="w">Widget</label><a id="w" class="chrome" role="combobox"></a></div>
+      <div><label for="s">Real</label><select id="s"></select></div>
+      <div><label for="d">Disabled</label><select id="d" disabled></select></div></form>`;
+    const f = document.getElementById('f')!;
+    expect(discoverFields(f).map((d) => d.label)).toEqual(['A', 'Widget', 'Real']);
+    expect(discoverFields(f, (el) => el.matches('.chrome')).map((d) => d.label)).toEqual(['A', 'Real']);
+    expect(extractGeneric(f, { skip: (el) => el.matches('.chrome') }).map((d) => d.label)).toEqual(['A', 'Real']);
+  });
+  it('prefers the visible for= label over a screen-reader-only aria-labelledby duplicate', () => {
+    document.body.innerHTML = `<form id="f"><label id="vis" for="u">Upload your resume</label><label id="dup" for="u" aria-hidden="true">My Computer</label>
+      <input id="u" type="file" aria-labelledby="dup vis"></form>`;
+    expect(extractGeneric(document.getElementById('f')!).map((x) => x.label)).toEqual(['Upload your resume']);
+  });
 });

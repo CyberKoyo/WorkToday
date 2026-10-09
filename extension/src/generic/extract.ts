@@ -5,10 +5,15 @@ const CONTROL = 'input,select,textarea,[role="combobox"],[role="radiogroup"]';
 const SKIP_TYPES = new Set(['hidden', 'submit', 'button', 'reset', 'image', 'search', 'password']);
 const BOX = 'fieldset,[role="group"],[role="radiogroup"]';
 
+export type Skip = (el: HTMLElement) => boolean;
+
 export interface Discovered { container: HTMLElement; label: string; kind: FieldKind; required: boolean; options?: string[]; members?: HTMLElement[] }
 
-function isControl(el: HTMLElement): boolean {
-  if (el.closest('[hidden],[aria-hidden="true"]')) return false;
+function isControl(el: HTMLElement, skip?: Skip): boolean {
+  if (el.closest('[hidden],[aria-hidden="true"]') || skip?.(el)) return false;
+  // Sites keep a helper input in the markup and toggle it with an inline display:none.
+  if (el.style.display === 'none') return false;
+  if ((el as HTMLInputElement).disabled) return false;
   if (el instanceof HTMLInputElement && SKIP_TYPES.has(el.type)) return false;
   // The text box of an ARIA 1.1 combobox and the radios of a radiogroup belong to their wrapper.
   return !el.parentElement?.closest('[role="combobox"],[role="radiogroup"]');
@@ -26,12 +31,10 @@ function labelFor(el: HTMLElement): HTMLElement | null {
   const doc = el.ownerDocument;
   const by = el.getAttribute('aria-labelledby')?.split(/\s+/)[0];
   const l = by ? doc.getElementById(by) : null;
-  if (l) return l;
-  if (el.id) {
-    const f = doc.querySelector<HTMLElement>(`label[for="${CSS.escape(el.id)}"]`);
-    if (f) return f;
-  }
-  return el.closest('label');
+  const f = el.id ? doc.querySelector<HTMLElement>(`label[for="${CSS.escape(el.id)}"]`) : null;
+  // iCIMS lists a screen-reader-only duplicate ("My Computer (Opens new window)") first; the visible label is the for= one.
+  if (l && !(f && l.closest('[aria-hidden="true"]') && !f.closest('[aria-hidden="true"]'))) return l;
+  return f ?? el.closest('label');
 }
 
 /** Label text without any control nested in it (a wrapped select would leak its options). */
@@ -44,9 +47,35 @@ function textOf(el: Element | null | undefined): string {
 
 const choiceLabel = (el: HTMLElement) => clean(textOf(labelFor(el))) || clean(el.getAttribute('aria-label')) || clean(el.textContent);
 
+const legendOf = (box: HTMLElement) => [...box.children].find((e) => e.tagName === 'LEGEND');
+
 function boxLabel(box: HTMLElement): string {
-  const legend = [...box.children].find((e) => e.tagName === 'LEGEND');
-  return legend?.textContent ?? (byIds(box, 'aria-labelledby') || box.getAttribute('aria-label') || '');
+  return legendOf(box)?.textContent ?? (byIds(box, 'aria-labelledby') || box.getAttribute('aria-label') || '');
+}
+
+/** Sites like Oracle mark required with a class on the label (or a child of it), not with a star. */
+const REQUIRED_CLASS = '[class*="required" i]';
+// aria-labelledby often points at a span inside the <label> that carries the class.
+const flagged = (el: Element | null | undefined) => {
+  const l = el?.closest('label') ?? el;
+  return !!l && (l.matches(REQUIRED_CLASS) || !!l.querySelector(REQUIRED_CLASS));
+};
+
+function requiredLabel(
+  first: HTMLElement, members: HTMLElement[], ownBox: HTMLElement | null, lab: HTMLElement | null,
+  groupsIn: (n: Element) => number, root: ParentNode,
+): boolean {
+  const doc = first.ownerDocument;
+  const named = ownBox
+    ? [legendOf(ownBox), ...(ownBox.getAttribute('aria-labelledby') ?? '').split(/\s+/).map((id) => doc.getElementById(id))]
+    : [lab];
+  if (named.some(flagged)) return true;
+  if (named.some(Boolean)) return false;
+  // Labelled only by aria-label: the visible <label> sits beside the control, inside the nearest wrapper that holds just this field.
+  let wrap: HTMLElement = first;
+  for (let p = first.parentElement; p && p !== root && groupsIn(p) <= 1; p = p.parentElement) wrap = p;
+  const ids = new Set(members.map((m) => m.id).filter(Boolean));
+  return wrap !== first && [...wrap.querySelectorAll('label')].some((l) => !l.querySelector('input,select,textarea') && !ids.has(l.htmlFor) && flagged(l));
 }
 
 /** A group's question when it has no legend: the container's text minus the controls and their option labels. */
@@ -70,10 +99,10 @@ function kindOf(el: HTMLElement): FieldKind {
   return 'text';
 }
 
-export function discoverFields(root: ParentNode): Discovered[] {
+export function discoverFields(root: ParentNode, skip?: Skip): Discovered[] {
   const groups = new Map<unknown, HTMLElement[]>();
   for (const el of root.querySelectorAll<HTMLElement>(CONTROL)) {
-    if (!isControl(el)) continue;
+    if (!isControl(el, skip)) continue;
     const k = groupKey(el);
     groups.set(k, [...(groups.get(k) ?? []), el]);
   }
@@ -109,12 +138,14 @@ export function discoverFields(root: ParentNode): Discovered[] {
     if (!label) continue;
     const d: Discovered = {
       container, label, kind,
-      required: rawLabel.includes('*') || members.some((m) => m.matches('[required],[aria-required="true"]')) || container.matches('[aria-required="true"]'),
+      required: rawLabel.includes('*') || members.some((m) => m.matches('[required],[aria-required="true"]')) || container.matches('[aria-required="true"]')
+        || requiredLabel(first, members, ownBox, lab, groupsIn, root),
     };
     if (kind === 'radio') {
       const items = first.matches('[role="radiogroup"]') ? [...container.querySelectorAll<HTMLElement>('input[type="radio"],[role="radio"]')] : members;
       d.options = items.map(choiceLabel);
       d.members = items;
+      if (items.some((m) => m.matches('[required]'))) d.required = true;
     } else if (kind === 'checkbox' && members.length > 1) {
       d.options = members.map(choiceLabel);
       d.members = members;
@@ -133,12 +164,12 @@ export function headingBefore(c: HTMLElement): string | undefined {
   return clean(found?.textContent) || undefined;
 }
 
-export interface GenericOptions { sectionOf?: (container: HTMLElement) => string | undefined }
+export interface GenericOptions { sectionOf?: (container: HTMLElement) => string | undefined; skip?: Skip }
 
 export function extractGeneric(root: ParentNode, opts: GenericOptions = {}): ExtractedField[] {
   const sectionOf = opts.sectionOf ?? headingBefore;
   const seen = new Map<string, number>();
-  return discoverFields(root).map((d, i) => {
+  return discoverFields(root, opts.skip).map((d, i) => {
     const id = `wf-${i}`;
     d.container.dataset.wfId = id;
     const section = sectionOf(d.container);
