@@ -58,6 +58,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
 }
 
 export function formatReport(r: AutofillReport): string {
+  if (!r.filled && !r.skipped && !r.attention.length) return 'Found nothing to fill on this page.';
   const missed = r.missed.length ? ` Not added, fill in by hand: ${r.missed.join(', ')}.` : '';
   return `Filled ${r.filled} fields. ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed} Review, then continue.`;
 }

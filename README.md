@@ -1,6 +1,6 @@
 # Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and Oracle Recruiting Cloud job applications from your reviewed resume profile.
+Browser extension (Chrome + Firefox) that fills job applications from your reviewed resume profile: automatically on Workday, Greenhouse, iCIMS and Oracle Recruiting Cloud, and on any other site from the toolbar button.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
@@ -14,6 +14,7 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and O
 | Greenhouse | `job-boards.greenhouse.io`, `boards.greenhouse.io`, Greenhouse forms embedded on company sites | Adds education groups. |
 | iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
 | Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Same as iCIMS for extra rows. The sign-in / email step is yours. |
+| Any other site | Click the toolbar button on the application page | Uses the generic form reader. Same as iCIMS for extra rows. Click the button again after moving to a new site. |
 
 ## Setup
 
@@ -27,7 +28,8 @@ You need Node.js and a Gemini API key. No server setup is required.
      (temporary add-ons are removed when Firefox restarts).
 4. Open the extension's options page, add your Gemini API key (https://aistudio.google.com), upload a PDF resume,
    review every field (work authorization, sponsorship and EEO answers are never inferred — enter them yourself), and save.
-5. On a supported application, press **Auto-fill** in the banner on each step. Review the highlighted fields, then continue yourself.
+5. On a supported application, press **Auto-fill** in the banner on each step. On any other site, click the extension's toolbar button
+   to bring up the banner first. Review the highlighted fields, then continue yourself.
 
 ### Self-hosting the mapping server (optional)
 
@@ -48,7 +50,8 @@ The extension never overwrites a field that already has a value and never submit
 - Prompts with nested categories (often "How did you hear about us") are left for manual entry.
 - Option matching ignores `+` and `#`, so "C++" or "C#" can match an option named "C".
 - Company career sites that build their own form on top of Greenhouse's API (not the Greenhouse iframe) are not detected.
-- Oracle Taleo (`*.taleo.net`) is not supported.
+- Oracle Taleo (`*.taleo.net`) and other unlisted sites work only through the toolbar button, with the generic reader.
+- From the toolbar button, a form inside a frame from another site (an embedded application on a company page) may not be reached.
 - Searchable dropdowns (Greenhouse School, Location) pick a result only when exactly one clearly matches; otherwise the field is highlighted.
 - iCIMS dropdowns are set through the underlying list; if a dropdown looks empty after Auto-fill, pick the value by hand.
 

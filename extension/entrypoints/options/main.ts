@@ -61,7 +61,7 @@ $('save').onclick = async () => {
   }
   try {
     await saveProfile({ ...data, reviewed: true });
-    status('Saved. Auto-fill is ready on Workday.');
+    status('Saved. Auto-fill is ready.');
   } catch (e) {
     status(`Could not save: ${errorMessage(e)}`);
   }

@@ -3,10 +3,7 @@ import { clean } from '../ats/field';
 import { IC } from './selectors';
 import { discoverFields, extractGeneric } from '../generic/extract';
 import { fillGeneric, fillFileGeneric } from '../generic/fill';
-
-// Search, login and job-alert forms sit beside the application and have enough fields to pass for one.
-const notApplication = (f: HTMLFormElement) => !!f.querySelector('input[type="password"]')
-  || /search|login|signin|sign-in|alert/i.test(`${f.id} ${f.className} ${f.getAttribute('action') ?? ''} ${f.getAttribute('role') ?? ''}`);
+import { notApplication } from '../generic/adapter';
 
 const widget = (el: HTMLElement) => el.matches(IC.widgetChrome);
 
