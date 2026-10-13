@@ -105,4 +105,20 @@ describe('matchOption', () => {
     expect(matchOption('not listed', ['Yale University', 'Other'])).toBe(1);
     expect(matchOption('not listed', ['Yale University', 'Xavier University'])).toBe(-1);
   });
+
+  it('degree short forms (live Oracle pills: Bachelor\'s, Master\'s)', () => {
+    const PILLS = ["Associate's", "Bachelor's", "Master's", 'MBA', 'PhD'];
+    expect(['AS', 'BS', 'BA', 'Bachelors', 'MS', 'Masters', 'MBA', 'PhD'].map((v) => matchOption(v, PILLS))).toEqual([0, 1, 1, 1, 2, 2, 3, 4]);
+  });
+
+  it('a number picks the range that holds it (live Oracle GPA pills)', () => {
+    const GPA = ['0.0-1.9', '1.91-2.25', '2.26-2.75', '2.76-3.0', '3.01-3.25', '3.26-3.50', '3.51-3.75', '3.76-4.0', 'School has non-disclosure policy', 'N/A'];
+    expect(matchOption('3.6', GPA)).toBe(6);
+    expect(matchOption('3.60/4.00', GPA)).toBe(6);
+    expect(matchOption('3.0', GPA)).toBe(3);
+    expect(matchOption('4.0', GPA)).toBe(7);
+    expect(matchOption('3.8 GPA', ['3.0 – 3.49', '3.5 – 4.0'])).toBe(1);
+    expect(matchOption('5', GPA)).toBe(-1);
+    expect(matchOption('2019', ['2018-2020', '2017-2021'])).toBe(-1); // two ranges hold it
+  });
 });

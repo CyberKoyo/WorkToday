@@ -19,11 +19,11 @@ const ALIASES: Record<string, string[]> = {
 
 // Degree wordings resumes use → wording Workday degree dropdowns use (normalized, apostrophes dropped).
 const DEGREE_ALIASES: Array<[string[], string[]]> = [
-  [['bachelors', 'bachelor', 'bs', 'b s', 'bsc', 'b sc', 'ba', 'b a', 'bachelor of science', 'bachelor of arts'], ['bachelors degree']],
-  [['masters', 'master', 'ms', 'm s', 'msc', 'm sc', 'ma', 'm a', 'master of science', 'master of arts'], ['masters degree']],
+  [['bachelors', 'bachelor', 'bs', 'b s', 'bsc', 'b sc', 'ba', 'b a', 'bachelor of science', 'bachelor of arts'], ['bachelors degree', 'bachelors']],
+  [['masters', 'master', 'ms', 'm s', 'msc', 'm sc', 'ma', 'm a', 'master of science', 'master of arts'], ['masters degree', 'masters']],
   [['mba', 'm b a', 'master of business administration'], ['m b a', 'mba']],
   [['phd', 'ph d', 'doctorate', 'doctor of philosophy'], ['doctorate degree', 'doctorate', 'phd']],
-  [['associates', 'associate', 'aa', 'a a', 'as', 'a s'], ['associates degree']],
+  [['associates', 'associate', 'aa', 'a a', 'as', 'a s'], ['associates degree', 'associates']],
 ];
 for (const [from, to] of DEGREE_ALIASES) for (const k of from) ALIASES[k] = [...(ALIASES[k] ?? []), ...to];
 
@@ -53,9 +53,22 @@ export interface MatchOptions {
   ties?: 'none' | 'shortest';
 }
 
+// "3.6" (or "3.60/4.00", "3.6 GPA") is in the option "3.51-3.75".
+function inRange(value: string, options: string[]): number {
+  const v = value.trim().match(/^(\d+(?:\.\d+)?)(?:\s*\/\s*\d+(?:\.\d+)?)?(?:\s*gpa)?$/i);
+  if (!v) return -1;
+  const n = Number(v[1]);
+  return onlyOne(options.flatMap((o, i) => {
+    const r = o.trim().match(/^(\d+(?:\.\d+)?)\s*[-–—]\s*(\d+(?:\.\d+)?)$/);
+    return r && Number(r[1]) <= n && n <= Number(r[2]) ? [i] : [];
+  }));
+}
+
 export function matchOption(value: string, options: string[], { ties = 'none' }: MatchOptions = {}): number {
   const strict = matchWith(value, options, onlyOne);
-  if (strict !== -1 || ties === 'none') return strict;
+  if (strict !== -1) return strict;
+  const ranged = inRange(value, options);
+  if (ranged !== -1 || ties === 'none') return ranged;
   const len = options.map((o) => norm(o.replace(/\([^)]*\)/g, ' ')).length);
   return matchWith(value, options, (hits) => {
     const min = Math.min(...hits.map((i) => len[i]!));
