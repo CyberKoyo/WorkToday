@@ -1,3 +1,4 @@
+import type { ProfileKey } from '@wf/shared';
 import { TEXT_INPUT } from '../fill/dom';
 // Every Workday-specific selector lives here. Verify against a live page (Task 13) when Workday changes its DOM.
 export const SEL = {
@@ -22,3 +23,9 @@ export const SEL = {
   pageHeader: '[data-automation-id="pageHeader"]',
   textInput: TEXT_INPUT,
 } as const;
+
+// formField-<id> → profile key, for fields whose labels do not name what they ask (live: gender is
+// "how you self-identify"). hispanicOrLatino is a Yes/No question answered from the ethnicity.
+export const FIELD_KEYS: Record<string, ProfileKey> = {
+  gender: 'gender', hispanicOrLatino: 'ethnicity', ethnicity: 'ethnicity', veteranStatus: 'veteranStatus', degree: 'edu.degree',
+};

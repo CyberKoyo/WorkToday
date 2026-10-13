@@ -1,6 +1,6 @@
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field';
-import { resolveProfileValue, type Profile } from '../profile/profile';
+import { resolveProfileValue, asksHispanicYesNo, hispanicAnswer, type Profile, type ProfileValue } from '../profile/profile';
 import type { AtsAdapter } from '../ats/types';
 
 export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[] }
@@ -35,17 +35,19 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   if (fields[0]) unflagAll(fields[0].container.ownerDocument);
   const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [] };
   if (!fields.length) return report;
-  const mapping = await d.map(fields.map(toDescriptor));
+  const toMap = fields.filter((f) => !f.profileKey);
+  const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
 
   for (const f of fields) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
-    const key = mapping.get(f.id) ?? null;
+    const key = f.profileKey ?? mapping.get(f.id) ?? null;
     let result: FillResult = 'no_match';
     const missed: string[] = [];
     if (key === 'resumeFile') {
       if (d.resume) result = await d.fillFile(f, d.resume);
     } else if (key) {
-      const value = resolveProfileValue(d.profile, key, f.groupIndex);
+      let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
+      if (key === 'ethnicity' && typeof value === 'string' && asksHispanicYesNo(f.label)) value = hispanicAnswer(value);
       if (value !== null) result = await d.fill(f, value, undefined, missed);
     }
     report.missed.push(...missed);

@@ -1,5 +1,5 @@
 import type { FieldKind } from '@wf/shared';
-import { SEL } from './selectors';
+import { SEL, FIELD_KEYS } from './selectors';
 import { clean, type ExtractedField } from '../ats/field';
 
 export { clean, toDescriptor, type ExtractedField } from '../ats/field';
@@ -48,6 +48,8 @@ export function extractFields(root: ParentNode = document): ExtractedField[] {
       container,
     };
     if (section) field.section = section;
+    const key = FIELD_KEYS[container.dataset.automationId!.slice('formField-'.length)];
+    if (key) field.profileKey = key;
     if (kind === 'radio') {
       field.options = [...container.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map((r) => radioLabel(container, r));
     }

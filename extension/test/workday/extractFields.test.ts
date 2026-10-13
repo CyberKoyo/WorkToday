@@ -37,4 +37,14 @@ describe('extractFields', () => {
     extractFields();
     expect(extractFields()[2]!.id).toBe('wf-2');
   });
+  it('voluntary disclosures: keys come from automation ids, whose labels do not name the field (live 2026-10-12)', () => {
+    const dd = (id: string, label: string) => `<div data-automation-id="formField-${id}"><label>${label}</label><button aria-haspopup="listbox" type="button">Select One</button></div>`;
+    document.body.innerHTML = dd('gender', 'Please select which most accurately describes how you self-identify.*')
+      + dd('hispanicOrLatino', 'Please indicate if you are Hispanic or Latino (Leave blank if you do not wish to answer).')
+      + dd('ethnicity', 'Please select the ethnicity which most accurately describes how you identify yourself.*')
+      + dd('veteranStatus', 'Please select the veteran status which most accurately describes your status.*')
+      + dd('somethingElse', 'Other question');
+    expect(extractFields().map((f) => f.profileKey)).toEqual(['gender', 'ethnicity', 'ethnicity', 'veteranStatus', undefined]);
+    expect(toDescriptor(extractFields()[0]!)).not.toHaveProperty('profileKey');
+  });
 });

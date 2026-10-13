@@ -69,4 +69,22 @@ describe('matchOption', () => {
     expect(matchOption('', ['Yes'])).toBe(-1);
     expect(matchOption('yes', [])).toBe(-1);
   });
+
+  // Voluntary disclosures on a live Workday tenant, 2026-10-12.
+  const GENDER = ['Select One', 'Female', 'Male', 'Not declared'];
+  const ETHNICITY = ['Select One', 'American Indian or Alaska Native (Not Hispanic or Latino) (United States of America)',
+    'Asian (Not Hispanic or Latino) (United States of America)', 'Black or African American (Not Hispanic or Latino) (United States of America)',
+    'Hispanic or Latino (United States of America)', 'I do not wish to answer. (United States of America)',
+    'Native Hawaiian or Other Pacific Islander (Not Hispanic or Latino) (United States of America)',
+    'Two or More Races (Not Hispanic or Latino) (United States of America)', 'White (Not Hispanic or Latino) (United States of America)'];
+  const VETERAN = ['Select One', 'I IDENTIFY AS ONE OR MORE OF THE CLASSIFICATIONS OF PROTECTED VETERANS LISTED ABOVE',
+    'I IDENTIFY AS A VETERAN, JUST NOT A PROTECTED VETERAN', 'I AM NOT A VETERAN', 'I DO NOT WISH TO SELF-IDENTIFY'];
+  it.each([
+    ['male', GENDER, 2], ['female', GENDER, 1], ['decline', GENDER, 3], ['non-binary', GENDER, -1],
+    ['american indian or alaska native', ETHNICITY, 1], ['asian', ETHNICITY, 2], ['black or african american', ETHNICITY, 3],
+    ['hispanic or latino', ETHNICITY, 4], ['decline', ETHNICITY, 5], ['native hawaiian or other pacific islander', ETHNICITY, 6],
+    ['two or more races', ETHNICITY, 7], ['white', ETHNICITY, 8],
+    ['veteran', VETERAN, 1], ['not a veteran', VETERAN, 3], ['decline', VETERAN, 4],
+    ['Yes', ['Select One', 'Yes', 'No'], 1], ['No', ['Select One', 'Yes', 'No'], 2],
+  ])('live disclosures: %s in %j -> %i', (v, opts, i) => expect(matchOption(v, opts as string[])).toBe(i));
 });

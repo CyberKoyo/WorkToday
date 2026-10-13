@@ -1,7 +1,10 @@
-import type { FieldDescriptor } from '@wf/shared';
+import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 
-// members: a radio/checkbox group's own controls, for when its container also holds another group. Never sent.
-export interface ExtractedField extends FieldDescriptor { groupIndex: number; container: HTMLElement; members?: HTMLElement[] }
+// members: a radio/checkbox group's own controls, for when its container also holds another group.
+// profileKey: known from the page itself, so the field is not sent to the mapper. Neither is ever sent.
+export interface ExtractedField extends FieldDescriptor {
+  groupIndex: number; container: HTMLElement; members?: HTMLElement[]; profileKey?: ProfileKey;
+}
 export type FillResult = 'filled' | 'skipped_nonempty' | 'no_match' | 'error';
 
 export const clean = (s: string | null | undefined) => (s ?? '').replace(/\*/g, '').replace(/\s+/g, ' ').trim();

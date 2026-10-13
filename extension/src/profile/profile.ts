@@ -84,3 +84,8 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
   const v = p[key as ScalarKey];
   return v ? v : null;
 }
+
+// A yes/no "are you Hispanic or Latino?" question (not a race/ethnicity list that includes it), answered from the ethnicity.
+export const asksHispanicYesNo = (label: string) => /hispanic|latin[oa]/i.test(label) && !/\b(race|ethnic\w*)\b/i.test(label);
+export const hispanicAnswer = (ethnicity: string) =>
+  /^decline$/i.test(ethnicity) ? 'decline' : /hispanic|latin[oa]/i.test(ethnicity) ? 'Yes' : 'No';
