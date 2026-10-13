@@ -70,12 +70,12 @@ describe('fillField: multiselect prompt', () => {
     expect(chipTexts()).toEqual(['Rust']);
     expect(missed).toEqual(['Cobol']);
   });
-  it('never guesses among ambiguous results', async () => {
+  it('picks the shortest of equally good results', async () => {
     const { f, chipTexts } = prompt('Field of Study');
     const missed: string[] = [];
-    expect(await fillField(f, 'Computer', 300, missed)).toBe('no_match');
-    expect(missed).toEqual(['Computer']);
-    expect(chipTexts()).toEqual([]);
+    expect(await fillField(f, 'Computer', 300, missed)).toBe('filled');
+    expect(missed).toEqual([]);
+    expect(chipTexts()).toEqual(['Computer Science']);
   });
   it('fills every value, no cap', async () => {
     const { f, chipTexts } = prompt('Skills');

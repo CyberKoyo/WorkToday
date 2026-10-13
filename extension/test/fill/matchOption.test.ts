@@ -70,6 +70,18 @@ describe('matchOption', () => {
     expect(matchOption('yes', [])).toBe(-1);
   });
 
+  it('ties: shortest picks the shortest of equally good options, only when one is shortest (live skills results)', () => {
+    const shortest = { ties: 'shortest' } as const;
+    expect(matchOption('SQL', ['SQL DBMS', 'SQL/400'], shortest)).toBe(1);
+    expect(matchOption('DHCP', ['DHCP Servers', 'DHCP Administration'], shortest)).toBe(0);
+    expect(matchOption('Java', ['Java (Programming Language)', 'Java (Island)'], shortest)).toBe(-1); // qualifiers do not count toward length
+    expect(matchOption('AC', ['Access Control (AC)', 'Alternating Current (AC)'], shortest)).toBe(0);
+    expect(matchOption('CI/CD', ['CICD Tools', 'CICD Panes'], shortest)).toBe(-1);
+    expect(matchOption('OSINT Automation', ['IT Automation', 'Design Automation'], shortest)).toBe(-1);
+    // A strict match at a later stage still beats a tie at an earlier one.
+    expect(matchOption('VPNs', ['Virtual Private Networks (VPNs)', 'MPLS VPNs'], shortest)).toBe(0);
+  });
+
   // Voluntary disclosures on a live Workday tenant, 2026-10-12.
   const GENDER = ['Select One', 'Female', 'Male', 'Not declared'];
   const ETHNICITY = ['Select One', 'American Indian or Alaska Native (Not Hispanic or Latino) (United States of America)',

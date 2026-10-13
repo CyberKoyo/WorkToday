@@ -51,7 +51,7 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
       return outcome === 'entered';
     }
     const found = results();
-    const i = matchOption(value, found.map(labelOf));
+    const i = matchOption(value, found.map(labelOf), { ties: 'shortest' });
     if (i === -1) { warnMissed(value, 'no single clear match among', found.slice(0, 10).map(labelOf)); return false; }
     const row = found[i]!;
     const leaf = row.querySelector<HTMLElement>(SEL.promptLeaf);

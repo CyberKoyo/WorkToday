@@ -43,12 +43,27 @@ function candidatesFor(value: string): string[] {
   return [...new Set(out)];
 }
 
-function uniqueIndex(opts: string[], pred: (o: string, i: number) => boolean): number {
-  const hits = opts.flatMap((o, i) => (pred(o, i) ? [i] : []));
-  return hits.length === 1 ? hits[0]! : -1;
+// Picks one index from equally good hits, or -1.
+type Pick = (hits: number[]) => number;
+const onlyOne: Pick = (hits) => (hits.length === 1 ? hits[0]! : -1);
+
+export interface MatchOptions {
+  /** 'shortest': among equally good options, take the one shortest without its parentheticals, if only one is. */
+  ties?: 'none' | 'shortest';
 }
 
-export function matchOption(value: string, options: string[]): number {
+export function matchOption(value: string, options: string[], { ties = 'none' }: MatchOptions = {}): number {
+  const strict = matchWith(value, options, onlyOne);
+  if (strict !== -1 || ties === 'none') return strict;
+  const len = options.map((o) => norm(o.replace(/\([^)]*\)/g, ' ')).length);
+  return matchWith(value, options, (hits) => {
+    const min = Math.min(...hits.map((i) => len[i]!));
+    return onlyOne(hits.filter((i) => len[i] === min));
+  });
+}
+
+function matchWith(value: string, options: string[], pick: Pick): number {
+  const uniqueIndex = (opts: string[], pred: (o: string, i: number) => boolean) => pick(opts.flatMap((o, i) => (pred(o, i) ? [i] : [])));
   const opts = options.map(norm);
   const cands = candidatesFor(value);
   if (!cands.length || !opts.length) return -1;
@@ -86,13 +101,11 @@ export function matchOption(value: string, options: string[]): number {
   const words = (s: string) => new Set(s.split(' ').filter((t) => !FILLER.has(t)));
   const vt = words(cands[0]!);
   if (!vt.size) return -1;
-  let best = -1, bestScore = 0, tie = false;
-  opts.forEach((o, i) => {
+  const scores = opts.map((o) => {
     const ot = words(o);
     const inter = [...vt].filter((t) => ot.has(t)).length;
-    const score = inter / new Set([...vt, ...ot]).size;
-    if (score > bestScore) { best = i; bestScore = score; tie = false; }
-    else if (score === bestScore && score > 0) tie = true;
+    return inter / new Set([...vt, ...ot]).size;
   });
-  return bestScore >= 0.6 && !tie ? best : -1;
+  const bestScore = Math.max(...scores);
+  return bestScore >= 0.6 ? uniqueIndex(opts, (_, i) => scores[i] === bestScore) : -1;
 }
