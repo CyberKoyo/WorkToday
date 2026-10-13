@@ -47,7 +47,12 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     if (key === 'resumeFile' && /\b(import|auto-?fill|parse|populate)\b/i.test(f.label)) key = null;
     let result: FillResult = 'no_match';
     const missed: string[] = [];
-    if (key === 'resumeFile') {
+    // A full-name or signature box takes the whole name; the mapper often says first name (live Oracle).
+    const fullName = f.kind === 'text' && /\bfull\s+(legal\s+)?name\b|\bsignature\b/i.test(f.label)
+      ? [d.profile.firstName, d.profile.lastName].filter(Boolean).join(' ') : '';
+    if (fullName) {
+      result = await d.fill(f, fullName, undefined, missed);
+    } else if (key === 'resumeFile') {
       if (d.resume) result = await d.fillFile(f, d.resume);
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
@@ -64,7 +69,10 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     report.missed.push(...missed);
     if (result === 'filled' && missed.length) { report.filled++; report.attention.push(f); flag(f); } // partly filled
     else if (result === 'filled') report.filled++;
-    else if (result === 'skipped_nonempty') report.skipped++;
+    else if (result === 'skipped_nonempty') {
+      report.skipped++;
+      console.info('[workday-filler] already has a value:', JSON.stringify(f.label), f.kind);
+    }
     else if (f.required || key) { report.attention.push(f); flag(f); }
   }
   return report;

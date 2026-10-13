@@ -149,4 +149,18 @@ describe('runAutofill', () => {
       profile: { ...emptyProfile(), postalCode: '11372', city: 'Jackson Heights', reviewed: true } } as never);
     expect(fill.mock.calls[0]![0].tieBreak).toBe('Jackson Heights');
   });
+  it('a full-name or signature box gets first and last name, whatever the mapper said (live Oracle: first name only)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Full Name*</label><input type="text"></div>
+      <div data-automation-id="formField-b"><label>Electronic Signature*</label><input type="text"></div>
+      <div data-automation-id="formField-c"><label>First Name</label><input type="text"></div>`;
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'firstName'], ['wf-1', null], ['wf-2', 'firstName']])),
+      profile: { ...emptyProfile(), firstName: 'Koyo', lastName: 'Keiter', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([
+      ['Full Name', 'Koyo Keiter'], ['Electronic Signature', 'Koyo Keiter'], ['First Name', 'Koyo'],
+    ]);
+  });
 });
