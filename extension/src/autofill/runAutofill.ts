@@ -2,6 +2,7 @@ import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field';
 import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, racesAnswer, standardKey, type Profile, type ProfileValue } from '../profile/profile';
 import type { AtsAdapter } from '../ats/types';
+import { setNativeValue } from '../fill/dom';
 
 export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[] }
 export interface AutofillDeps {
@@ -58,6 +59,9 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     const fullName = f.kind === 'text' && /\bfull\s+(legal\s+)?name\b|\bsignature\b/i.test(f.label)
       ? [d.profile.firstName, d.profile.lastName].filter(Boolean).join(' ') : '';
     if (fullName) {
+      // An earlier run put only the first name here; that one value is ours to correct.
+      const box = f.container.matches('input') ? f.container as HTMLInputElement : f.container.querySelector<HTMLInputElement>('input');
+      if (box && d.profile.lastName && box.value.trim() === d.profile.firstName) setNativeValue(box, '');
       result = await d.fill(f, fullName, undefined, missed);
     } else if (key === 'resumeFile') {
       if (d.resume) result = await d.fillFile(f, d.resume);

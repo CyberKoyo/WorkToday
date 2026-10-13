@@ -216,4 +216,16 @@ describe('runAutofill', () => {
     expect(await run('asian', '')).toEqual([['Ethnicity', 'No'], ['Select the races you identify with.', ['asian']]]);
     expect(await run('decline', '')).toEqual([['Ethnicity', 'decline'], ['Select the races you identify with.', ['decline']]]);
   });
+  it('a signature box holding just the first name (left by an earlier run) gets the full name; other values stay', async () => {
+    const run = async (existing: string) => {
+      const base = deps();
+      document.body.innerHTML = `<div data-automation-id="formField-a"><label>Full Name*</label><input type="text" value="${existing}"></div>`;
+      await runAutofill({ ...base, extract: () => extractFields(document), fill: (await import('../../src/fill/fillField')).fillField,
+        map: vi.fn().mockResolvedValue(new Map([['wf-0', 'firstName']])),
+        profile: { ...emptyProfile(), firstName: 'Koyo', lastName: 'Keiter', reviewed: true } } as never);
+      return document.querySelector('input')!.value;
+    };
+    expect(await run('Koyo')).toBe('Koyo Keiter');
+    expect(await run('K. Keiter')).toBe('K. Keiter');
+  });
 });
