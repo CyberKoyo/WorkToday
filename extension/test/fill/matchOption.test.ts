@@ -155,6 +155,13 @@ describe('matchOption', () => {
     expect(matchOption('Company Careers Site', ['Acme Career Web Site', 'Indeed'])).toBe(0);
   });
 
+  it('"Mobile" reaches a phone device type however it is named', () => {
+    expect(matchOption('Mobile', ['Select One', 'Home', 'Mobile', 'Work'])).toBe(2);
+    expect(matchOption('Mobile', ['Home', 'Cell', 'Work'])).toBe(1);
+    expect(matchOption('Mobile', ['Landline', 'Cell Phone'])).toBe(1);
+    expect(matchOption('Mobile', ['Home Phone', 'Mobile Phone', 'Work Phone'])).toBe(1);
+  });
+
   it('"company career website" reaches "Corewell Health website" (live Workday referral source)', () => {
     const SRC = ['Select One', 'ACEMAPP', 'Career Builder', 'CareerMD', 'College/University Career fair', 'Conference',
       'Corewell Health website', 'Diversity job posting site', 'DiversityMD', 'Facebook', 'Glassdoor', 'Google',

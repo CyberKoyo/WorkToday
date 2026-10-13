@@ -71,8 +71,13 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     // An address "Type" list has no profile value; the address is the applicant's home (live iCIMS).
     const sel = f.kind === 'select' ? (f.container.matches('select') ? f.container : f.container.querySelector('select')) : null;
     const homeAddress = !!sel && /^(address\s+)?type$/i.test(f.label.trim()) && /address/i.test(`${sel.id} ${sel.getAttribute('name') ?? ''}`);
+    // A phone's device type has no profile value; the number is the applicant's mobile (live Workday "Phone Device Type").
+    const phoneType = (f.kind === 'select' || f.kind === 'radio')
+      && (/\bphone\b.*\btype\b|\bdevice\s+type\b/i.test(f.label) || (/^type$/i.test(f.label.trim()) && /phone/i.test(f.section ?? '')));
     if (homeAddress) {
       result = await d.fill(f, 'Home', undefined, missed);
+    } else if (phoneType) {
+      result = await d.fill(f, 'Mobile', undefined, missed);
     } else if (fullName) {
       // An earlier run put only the first name here; that one value is ours to correct.
       const box = f.container.matches('input') ? f.container as HTMLInputElement : f.container.querySelector<HTMLInputElement>('input');

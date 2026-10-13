@@ -16,6 +16,7 @@ const ALIASES: Record<string, string[]> = {
   usa: ['united states of america', 'united states', 'american us'],
   us: ['united states of america', 'united states', 'american us'],
   uk: ['united kingdom'],
+  mobile: ['mobile phone', 'cell', 'cell phone', 'cellular', 'personal cell', 'personal mobile'], // phone device types
   'not listed': ['not listed other', 'other not listed', 'other'], // a list's catch-all (live Oracle: "Not Listed/Other")
 };
 

@@ -222,6 +222,20 @@ describe('runAutofill', () => {
     const c: HTMLElement = fill.mock.calls[0]![0].container;
     expect(c.matches('select') ? c.id : c.querySelector('select')!.id).toBe('a');
   });
+  it('a phone device type list takes "Mobile" (live Workday)', async () => {
+    const base = deps();
+    const select = (id: string, label: string) =>
+      `<div data-automation-id="formField-${id}"><label>${label}</label><button aria-haspopup="listbox" type="button">Select One</button></div>`;
+    document.body.innerHTML = select('phoneType', 'Phone Device Type') + select('b', 'Phone Type') + select('c', 'Employment Type')
+      + '<div data-automation-id="formField-phoneNumber"><label>Phone Number</label><input type="text"></div>';
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'phone'], ['wf-3', 'phone']])), // the mapper reads it as the number
+      profile: { ...emptyProfile(), phone: '555-0100', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([
+      ['Phone Device Type', 'Mobile'], ['Phone Type', 'Mobile'], ['Phone Number', '555-0100'],
+    ]);
+  });
   it('standard yes/no questions are answered from the profile by their wording (live UL Solutions, PwC)', async () => {
     const qs = [
       'Are you currently 18 years of age or older?', 'Are you at least 18?',
