@@ -3,6 +3,7 @@ import { clean } from '../ats/field';
 import { OR } from './selectors';
 import { discoverFields, extractGeneric } from '../generic/extract';
 import { fillGeneric, fillFileGeneric } from '../generic/fill';
+import { addTimelineEntries } from './timeline';
 
 const path = (doc: Document) => doc.defaultView?.location.pathname ?? '';
 
@@ -19,5 +20,5 @@ export const oracle: AtsAdapter = {
   extract: (doc) => { const r = formRoot(doc); return r ? extractGeneric(r) : []; },
   fill: fillGeneric,
   fillFile: (f, file) => fillFileGeneric(f, file),
-  ensureGroups: async () => {}, // the applicant adds extra work/education rows on Oracle (README)
+  ensureGroups: (doc, p) => addTimelineEntries(doc, p),
 };

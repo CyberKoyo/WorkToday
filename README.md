@@ -13,7 +13,7 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and O
 | Workday | `*.myworkdayjobs.com`, `*.myworkday.com` | Adds work/education groups to match your profile. |
 | Greenhouse | `job-boards.greenhouse.io`, `boards.greenhouse.io`, Greenhouse forms embedded on company sites | Adds education groups. |
 | iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
-| Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Same as iCIMS for extra rows. The sign-in / email step is yours. |
+| Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Adds and saves work/education history entries. The sign-in / email step is yours. |
 
 ## Setup
 

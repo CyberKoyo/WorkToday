@@ -1,6 +1,6 @@
 import { norm } from './matchOption';
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+export const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /** A YYYY-MM profile date as the part a split date field asks for ("Start date year" → 2019). */
 export function adaptForLabel(label: string, value: string): string {
