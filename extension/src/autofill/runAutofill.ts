@@ -38,6 +38,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   const toMap = fields.filter((f) => !f.profileKey);
   const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
 
+  let resumeUploaded = false;
   for (const f of fields) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
     let key = f.profileKey ?? mapping.get(f.id) ?? null;
@@ -45,6 +46,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     if (key === 'addressLine2' && /\bline\s*[3-9]\b/i.test(f.label)) key = null;
     // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.
     if (key === 'resumeFile' && /\b(import|auto-?fill|parse|populate)\b/i.test(f.label)) key = null;
+    // One resume per run, and never as the cover letter (live Oracle: the resume was attached twice).
+    if (key === 'resumeFile' && (resumeUploaded || /\bcover\b/i.test(f.label))) key = null;
     let result: FillResult = 'no_match';
     const missed: string[] = [];
     // A full-name or signature box takes the whole name; the mapper often says first name (live Oracle).
@@ -54,6 +57,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       result = await d.fill(f, fullName, undefined, missed);
     } else if (key === 'resumeFile') {
       if (d.resume) result = await d.fillFile(f, d.resume);
+      if (result === 'filled') resumeUploaded = true;
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
       if (key === 'ethnicity' && typeof value === 'string' && asksHispanicYesNo(f.label)) value = hispanicAnswer(value);

@@ -163,4 +163,17 @@ describe('runAutofill', () => {
       ['Full Name', 'Koyo Keiter'], ['Electronic Signature', 'Koyo Keiter'], ['First Name', 'Koyo'],
     ]);
   });
+  it('uploads the resume once per run, never to a cover-letter box (live Oracle: resume attached twice)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Upload Resume</label><input type="file"></div>
+      <div data-automation-id="formField-b"><label>Resume</label><input type="file"></div>
+      <div data-automation-id="formField-c"><label>Upload Cover Letter</label><input type="file"></div>`;
+    const fillFile = vi.fn().mockResolvedValue('filled');
+    const r = await runAutofill({ ...base, extract: () => extractFields(document), fillFile,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile'], ['wf-1', 'resumeFile'], ['wf-2', 'resumeFile']])) } as never);
+    expect(fillFile.mock.calls.map((c) => c[0].label)).toEqual(['Upload Resume']);
+    expect(r.filled).toBe(1);
+    expect(r.attention).toEqual([]);
+  });
 });
