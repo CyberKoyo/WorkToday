@@ -176,4 +176,23 @@ describe('runAutofill', () => {
     expect(r.filled).toBe(1);
     expect(r.attention).toEqual([]);
   });
+  it('standard yes/no questions are answered from the profile by their wording (live UL Solutions, PwC)', async () => {
+    const qs = [
+      'Are you currently 18 years of age or older?', 'Are you at least 18?',
+      'Have you previously been employed by UL?', 'Have you previously completed an internship at UL?', 'Have you ever been employed by PwC?',
+      'Are you related to a current UL Solutions employee?', 'Do any of your close family members currently work at PwC?',
+      'Are you willing to consent to a post-offer UL background check?',
+      'Are you currently employed?', 'Have you ever been convicted of a felony?', 'Have you ever worked with Python?',
+      'Have you ever worked for a government agency?', // not standard
+    ];
+    const base = deps();
+    document.body.innerHTML = qs.map((q, i) => `<div data-automation-id="formField-${i}"><label>${q}</label><input type="text"></div>`).join('');
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-2', 'workAuthorized']])), // a wrong guess the wording overrides
+      profile: { ...emptyProfile(), over18: 'yes', previouslyEmployed: 'no', relatedToEmployee: 'no', backgroundCheckConsent: 'yes', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([
+      [qs[0], 'Yes'], [qs[1], 'Yes'], [qs[2], 'No'], [qs[3], 'No'], [qs[4], 'No'], [qs[5], 'No'], [qs[6], 'No'], [qs[7], 'Yes'],
+    ]);
+  });
 });

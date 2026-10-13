@@ -5,6 +5,7 @@ export const PROFILE_KEYS = [
   'workAuthorized', 'requiresSponsorship', 'willingToRelocate',
   'desiredSalary', 'earliestStartDate', 'referralSource',
   'gender', 'ethnicity', 'veteranStatus', 'disabilityStatus',
+  'over18', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent',
   'resumeFile', 'skills',
   'work.title', 'work.company', 'work.location', 'work.startDate', 'work.endDate', 'work.current', 'work.description',
   'edu.school', 'edu.degree', 'edu.fieldOfStudy', 'edu.startDate', 'edu.endDate', 'edu.gpa',

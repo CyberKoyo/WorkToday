@@ -8,11 +8,14 @@ export const FIELD_LABELS: Record<ScalarKey, string> = {
   willingToRelocate: 'Willing to relocate?', desiredSalary: 'Desired salary', earliestStartDate: 'Earliest start date',
   referralSource: 'How did you hear about jobs (default answer)', gender: 'Gender', ethnicity: 'Race / ethnicity',
   veteranStatus: 'Veteran status', disabilityStatus: 'Disability status',
+  over18: '18 or older?', previouslyEmployed: 'Previously worked or interned at the company? (default answer)',
+  relatedToEmployee: 'Related to a current employee? (default answer)', backgroundCheckConsent: 'Consent to a background check?',
 };
 
 const YN = ['', 'yes', 'no'];
 export const CHOICES: Partial<Record<ScalarKey, string[]>> = {
   workAuthorized: YN, requiresSponsorship: YN, willingToRelocate: YN,
+  over18: YN, previouslyEmployed: YN, relatedToEmployee: YN, backgroundCheckConsent: YN,
   gender: ['', 'male', 'female', 'non-binary', 'decline'],
   ethnicity: ['', 'hispanic or latino', 'white', 'black or african american', 'asian', 'american indian or alaska native',
     'native hawaiian or other pacific islander', 'two or more races', 'decline'],

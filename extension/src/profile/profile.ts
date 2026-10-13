@@ -85,6 +85,16 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
   return v ? v : null;
 }
 
+// Standard yes/no questions, known by their wording; the mapper tends to miss or misplace them (live UL Solutions, PwC).
+const STANDARD: Array<[ScalarKey, RegExp]> = [
+  ['over18', /\b(18|eighteen)\b.*\b(years?|age|older)\b|\bat least (18|eighteen)\b/i],
+  ['backgroundCheckConsent', /\bbackground (check|screen(ing)?|investigation)\b/i],
+  ['relatedToEmployee', /\brelated to\b.*\bemployee|\b(family|relatives?)\b.*\b(work|employed)\b/i],
+  // "by / at / here": "Have you ever worked with Python?" is not about this company.
+  ['previouslyEmployed', /\b(previously|ever|formerly|before)\b.*\b(employed|worked|intern(ship|ed)?)\b.*\b(by|at|here|for us)\b|\bformer (employee|intern)\b/i],
+];
+export const standardKey = (label: string): ScalarKey | null => STANDARD.find(([, re]) => re.test(label))?.[0] ?? null;
+
 // A yes/no "are you Hispanic or Latino?" question (not a race/ethnicity list that includes it), answered from the ethnicity.
 export const asksHispanicYesNo = (label: string) => /hispanic|latin[oa]/i.test(label) && !/\b(race|ethnic\w*)\b/i.test(label);
 export const hispanicAnswer = (ethnicity: string) =>
