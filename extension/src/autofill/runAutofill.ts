@@ -40,7 +40,11 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
 
   for (const f of fields) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
-    const key = f.profileKey ?? mapping.get(f.id) ?? null;
+    let key = f.profileKey ?? mapping.get(f.id) ?? null;
+    // The mapper (and its cache) can put line 2 here.
+    if (key === 'addressLine2' && /\bline\s*[3-9]\b/i.test(f.label)) key = null;
+    // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.
+    if (key === 'resumeFile' && /\b(import|auto-?fill|parse|populate)\b/i.test(f.label)) key = null;
     let result: FillResult = 'no_match';
     const missed: string[] = [];
     if (key === 'resumeFile') {
@@ -48,7 +52,14 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
       if (key === 'ethnicity' && typeof value === 'string' && asksHispanicYesNo(f.label)) value = hispanicAnswer(value);
+      if (key === 'postalCode' && d.profile.city) f.tieBreak = d.profile.city; // one zip can list several towns
       if (value !== null) result = await d.fill(f, value, undefined, missed);
+      // A school missing from a fixed list takes the list's catch-all; the applicant should know.
+      if (key === 'edu.school' && result === 'no_match' && typeof value === 'string'
+        && (await d.fill(f, 'not listed', undefined, missed)) === 'filled') {
+        result = 'filled';
+        missed.push(`${value} (picked "Not listed")`);
+      }
     }
     report.missed.push(...missed);
     if (result === 'filled' && missed.length) { report.filled++; report.attention.push(f); flag(f); } // partly filled

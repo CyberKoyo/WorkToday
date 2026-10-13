@@ -14,6 +14,7 @@ const ALIASES: Record<string, string[]> = {
   usa: ['united states of america', 'united states'],
   us: ['united states of america', 'united states'],
   uk: ['united kingdom'],
+  'not listed': ['not listed other', 'other not listed', 'other'], // a list's catch-all (live Oracle: "Not Listed/Other")
 };
 
 // Degree wordings resumes use → wording Workday degree dropdowns use (normalized, apostrophes dropped).

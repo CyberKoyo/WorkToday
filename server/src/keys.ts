@@ -3,7 +3,7 @@ import type { ProfileKey } from '@wf/shared';
 export const KEY_DESCRIPTIONS: Record<ProfileKey, string> = {
   firstName: 'given / legal first name', lastName: 'family / legal last name', preferredName: 'preferred or nickname',
   email: 'email address', phone: 'phone number (not device type, not country code)',
-  addressLine1: 'street address line 1', addressLine2: 'apartment / suite / address line 2', city: 'city',
+  addressLine1: 'street address line 1', addressLine2: 'apartment / suite / address line 2 (never address line 3 or later)', city: 'city',
   state: 'state / province / region', postalCode: 'ZIP or postal code', country: 'country of residence',
   linkedinUrl: 'LinkedIn profile URL', websiteUrl: 'personal website / portfolio URL', githubUrl: 'GitHub URL',
   workAuthorized: 'legally authorized / eligible to work in the country (yes/no)',
@@ -12,7 +12,7 @@ export const KEY_DESCRIPTIONS: Record<ProfileKey, string> = {
   earliestStartDate: 'earliest available start date', referralSource: 'how did you hear about us / source',
   gender: 'gender (EEO)', ethnicity: 'race or ethnicity, including Hispanic/Latino question (EEO)',
   veteranStatus: 'protected veteran status (EEO)', disabilityStatus: 'disability status (EEO)',
-  resumeFile: 'resume / CV file upload', skills: 'skills list',
+  resumeFile: 'resume / CV file upload (never an "import / autofill profile from resume" box)', skills: 'skills list',
   'work.title': 'job title in a work experience entry', 'work.company': 'company / employer in a work experience entry',
   'work.location': 'location of a work experience entry', 'work.startDate': 'start / from date of a work experience entry',
   'work.endDate': 'end / to date of a work experience entry', 'work.current': '"I currently work here" checkbox',

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runAutofill, formatReport } from '../../src/autofill/runAutofill';
 import { extractFields } from '../../src/workday/extractFields';
-import { emptyProfile } from '../../src/profile/profile';
+import { emptyProfile, emptyEdu } from '../../src/profile/profile';
 
 const html = `
   <div data-automation-id="formField-a"><label>First Name*</label><input type="text"></div>
@@ -103,5 +103,50 @@ describe('runAutofill', () => {
     await runAutofill({ ...base, extract: () => extractFields(document), fill, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'ethnicity']])),
       profile: { ...emptyProfile(), ethnicity: 'white', reviewed: true } } as never);
     expect(fill.mock.calls[0]![1]).toBe('white');
+  });
+  it('address line 3 and beyond never get address line 2 (live Oracle: line 3 repeated line 2)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Address Line 2</label><input type="text"></div>
+      <div data-automation-id="formField-b"><label>Address Line 3</label><input type="text"></div>`;
+    const fill = vi.fn().mockResolvedValue('filled');
+    const r = await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'addressLine2'], ['wf-1', 'addressLine2']])),
+      profile: { ...emptyProfile(), addressLine2: 'Apt. 118E', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => c[0].label)).toEqual(['Address Line 2']);
+    expect(r.attention).toEqual([]);
+  });
+  it('never uploads to a resume-import box, which re-parses the resume over the form (live Oracle)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Import your profile from resume</label><input type="file"></div>
+      <div data-automation-id="formField-b"><label>Autofill with resume</label><input type="file"></div>
+      <div data-automation-id="formField-c"><label>Upload Resume</label><input type="file"></div>`;
+    const fillFile = vi.fn().mockResolvedValue('filled');
+    const r = await runAutofill({ ...base, extract: () => extractFields(document), fillFile,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile'], ['wf-1', 'resumeFile'], ['wf-2', 'resumeFile']])) } as never);
+    expect(fillFile.mock.calls.map((c) => c[0].label)).toEqual(['Upload Resume']);
+    expect(r.attention).toEqual([]);
+  });
+  it('a school missing from the list gets its "Not listed / Other" option, and is reported', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>School</label><input type="text"></div>';
+    const fill = vi.fn(async (_f: unknown, v: unknown) => (v === 'not listed' ? 'filled' : 'no_match'));
+    const r = await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'edu.school']])),
+      profile: { ...emptyProfile(), education: [{ ...emptyEdu(), school: 'Stony Brook University' }], reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => c[1])).toEqual(['Stony Brook University', 'not listed']);
+    expect(r.filled).toBe(1);
+    expect(r.missed).toEqual(['Stony Brook University (picked "Not listed")']);
+    expect(r.attention.map((f) => f.label)).toEqual(['School']);
+  });
+  it('a postal code is given the city to choose among same-zip results', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Zip Code</label><input type="text"></div>';
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'postalCode']])),
+      profile: { ...emptyProfile(), postalCode: '11372', city: 'Jackson Heights', reviewed: true } } as never);
+    expect(fill.mock.calls[0]![0].tieBreak).toBe('Jackson Heights');
   });
 });

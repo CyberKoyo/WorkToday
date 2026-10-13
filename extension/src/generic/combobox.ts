@@ -1,5 +1,5 @@
 import { clean, type FillResult } from '../ats/field';
-import { matchOption } from '../fill/matchOption';
+import { matchOption, norm } from '../fill/matchOption';
 import { pressKey, rawSet, safeClick, waitFor } from '../fill/dom';
 
 // The extractor may hand us the combobox element itself as the container.
@@ -16,20 +16,32 @@ export function comboboxValue(c: HTMLElement): string {
   return (el as HTMLInputElement | null)?.value.trim() ?? '';
 }
 
-export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 3000): Promise<FillResult> {
+/** `tieBreak` picks among options that match `value` equally well: the one that also names it. */
+export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 3000, tieBreak?: string): Promise<FillResult> {
   const box = findBox(c);
   if (!box) return 'error';
   if (comboboxValue(c)) return 'skipped_nonempty';
   const input = box instanceof HTMLInputElement ? box : box.querySelector('input');
   const target = input ?? box;
   const doc = c.ownerDocument;
-  // Another list left open on the page is not this combobox's.
-  const before = new Set(doc.querySelectorAll('[role="option"]'));
-  const fresh = () => [...doc.querySelectorAll<HTMLElement>('[role="option"]')].filter((o) => !before.has(o));
+  // Oracle's cx-select lists role="gridcell" items in a role="grid" popup instead of options in a listbox.
+  const OPTION = '[role="option"],[role="gridcell"]';
+  // The popup the box names is its own; without one, another list left open on the page is not this combobox's.
+  const popupId = target.getAttribute('aria-controls') ?? box.getAttribute('aria-controls');
+  const before = new Set(doc.querySelectorAll(OPTION));
+  const fresh = () => {
+    const popup = popupId ? doc.getElementById(popupId) : null;
+    return popup ? [...popup.querySelectorAll<HTMLElement>(OPTION)] : [...doc.querySelectorAll<HTMLElement>(OPTION)].filter((o) => !before.has(o));
+  };
   const pick = () => {
     const l = fresh();
     const i = matchOption(value, l.map((o) => clean(o.textContent)));
-    return i === -1 ? null : l[i]!;
+    if (i !== -1) return l[i]!;
+    const t = tieBreak && norm(tieBreak);
+    if (!t) return null;
+    const named = l.filter((o) => ` ${norm(o.textContent ?? '')} `.includes(` ${t} `));
+    const j = matchOption(value, named.map((o) => clean(o.textContent)));
+    return j === -1 ? null : named[j]!;
   };
 
   target.focus();

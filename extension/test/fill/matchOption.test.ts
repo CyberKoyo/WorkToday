@@ -99,4 +99,10 @@ describe('matchOption', () => {
     ['veteran', VETERAN, 1], ['not a veteran', VETERAN, 3], ['decline', VETERAN, 4],
     ['Yes', ['Select One', 'Yes', 'No'], 1], ['No', ['Select One', 'Yes', 'No'], 2],
   ])('live disclosures: %s in %j -> %i', (v, opts, i) => expect(matchOption(v, opts as string[])).toBe(i));
+
+  it('"not listed" finds the catch-all option of a list (live Oracle school list)', () => {
+    expect(matchOption('not listed', ['Binghamton University (SUNY Binghamton)', 'Not Listed/Other', 'Yale University'])).toBe(1);
+    expect(matchOption('not listed', ['Yale University', 'Other'])).toBe(1);
+    expect(matchOption('not listed', ['Yale University', 'Xavier University'])).toBe(-1);
+  });
 });

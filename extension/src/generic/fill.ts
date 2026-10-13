@@ -58,7 +58,7 @@ export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeou
       }
       case 'select': {
         const sel = own<HTMLSelectElement>(c, 'select');
-        return sel ? fillNativeSelect(sel, text) : await fillCombobox(c, text, timeoutMs);
+        return sel ? fillNativeSelect(sel, text) : await fillCombobox(c, text, timeoutMs, f.tieBreak);
       }
       case 'radio':
         return fillRadio(c, f.options ?? [], text, f.members);
