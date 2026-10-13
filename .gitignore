@@ -8,3 +8,7 @@ node_modules/
 .wxt/
 .wrangler/
 .dev.vars
+
+# Raw page captures (hold personal data); commit only redacted real-*.html fixtures
+extension/test/fixtures/career4.html
+extension/test/fixtures/career4_files/

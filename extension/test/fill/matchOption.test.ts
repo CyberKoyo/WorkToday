@@ -129,4 +129,29 @@ describe('matchOption', () => {
   it('decline reaches "Choose Not to Specify" (live Oracle races)', () => {
     expect(matchOption('decline', ['Asian', 'Choose Not to Specify', 'White'])).toBe(1);
   });
+
+  it('"company" stands for the employer\'s name (live SuccessFactors Ericsson)', () => {
+    const SRC = ['Ericsson Career Website', 'LinkedIn', 'Indeed', 'Employee Referral', 'Other'];
+    expect(matchOption('Company Career Website', SRC)).toBe(0);
+    expect(matchOption('Company Website', ['Acme Website', 'LinkedIn'])).toBe(0);
+    expect(matchOption('Company Career Website', ['Acme Career Website', 'Other Career Website'])).toBe(-1); // two employers' sites
+  });
+
+  it('US citizenship picks the demonym with its country code (live SuccessFactors)', () => {
+    const NAT = ['No Selection', 'Afghan', 'American GU', 'American US', 'American VI', 'British GB'];
+    expect(matchOption('United States of America', NAT)).toBe(3);
+    expect(matchOption('United States', NAT)).toBe(3);
+    expect(matchOption('USA', NAT)).toBe(3);
+    expect(matchOption('US', NAT)).toBe(3);
+  });
+
+  it('"company career website" reaches "Ericsson Career Site" (live SuccessFactors referral source)', () => {
+    const SRC = ['No Selection', 'Avature', 'BestJobs', 'Career Fair', 'Employee Referral', 'Ericsson Career Site',
+      'External workforce conversion', 'Facebook', 'Glassdoor', 'Google Search', 'Indeed', 'Internal Job Board CV Search',
+      'Job Board CV Search', 'Job Board Posting', 'LinkedIn – Advertisement', 'LinkedIn – Search/Networking', 'Monster',
+      'My Next...(Opt in)', 'Naukri – Job Board', 'Newspaper', 'Other Social Media', 'Recruiter Networking',
+      'Recruitment Agency', 'Student contract conversion', 'Twitter', 'University recruiting and events'];
+    expect(matchOption('Company Career Website', SRC)).toBe(5);
+    expect(matchOption('Company Careers Site', ['Acme Career Web Site', 'Indeed'])).toBe(0);
+  });
 });

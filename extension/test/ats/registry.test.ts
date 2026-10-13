@@ -23,4 +23,9 @@ describe('pickAdapter', () => {
     expect(pickAdapter(new URL('https://abcd.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/job/1/apply/email'))?.id).toBe('oracle');
     expect(CONTENT_MATCHES).toContain('*://*.oraclecloud.com/hcmUI/CandidateExperience/*');
   });
+  it('picks SAP SuccessFactors', () => {
+    expect(pickAdapter(new URL('https://career2.successfactors.eu/career?company=Ericsson&career_ns=job_application'))?.id).toBe('successfactors');
+    expect(CONTENT_MATCHES).toContain('*://*.successfactors.eu/career*');
+    expect(CONTENT_MATCHES).toContain('*://*.successfactors.com/career*');
+  });
 });

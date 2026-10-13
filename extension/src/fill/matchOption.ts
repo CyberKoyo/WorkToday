@@ -10,10 +10,11 @@ const ALIASES: Record<string, string[]> = {
   // Plural first: "protected veteran" alone also ends "a veteran, just not a protected veteran" (live).
   veteran: ['i identify as one or more of the classifications of protected veterans',
     'i identify as one or more of the classifications of protected veteran', 'protected veteran'],
-  'united states': ['united states of america', 'usa'],
-  'united states of america': ['united states', 'usa'],
-  usa: ['united states of america', 'united states'],
-  us: ['united states of america', 'united states'],
+  // SuccessFactors citizenship lists demonyms with a country code ("American US", live Ericsson).
+  'united states': ['united states of america', 'usa', 'american us'],
+  'united states of america': ['united states', 'usa', 'american us'],
+  usa: ['united states of america', 'united states', 'american us'],
+  us: ['united states of america', 'united states', 'american us'],
   uk: ['united kingdom'],
   'not listed': ['not listed other', 'other not listed', 'other'], // a list's catch-all (live Oracle: "Not Listed/Other")
 };
@@ -112,6 +113,13 @@ function matchWith(value: string, rawOptions: string[], pick: Pick): number {
     const js = options.map(joined);
     let i = uniqueIndex(js, (o) => o === v);
     if (i === -1 && v.length >= 4) i = uniqueIndex(js, (o) => o.startsWith(v));
+    if (i !== -1) return i;
+  }
+  // "Company" stands for the employer's name: "Company Career Website" is "Ericsson Career Site" (live SuccessFactors).
+  if (/\bcompany\b/.test(cands[0]!)) {
+    const loose = (s: string) => s.replace(/\bcareers?\b/g, 'careers?').replace(/\b(?:web ?site|site)\b/g, '(?:web ?site|site)');
+    const any = new RegExp(`^${cands[0]!.split(/\bcompany\b/).map(loose).join('.+')}$`);
+    const i = uniqueIndex(opts, (o) => any.test(o));
     if (i !== -1) return i;
   }
   // Filler words would sink "Computer Science" vs "Computer and Information Science" below the cutoff.

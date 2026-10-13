@@ -1,6 +1,6 @@
 # Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and Oracle Recruiting Cloud job applications from your reviewed resume profile.
+Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud and SAP SuccessFactors job applications from your reviewed resume profile.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
@@ -14,6 +14,7 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS and O
 | Greenhouse | `job-boards.greenhouse.io`, `boards.greenhouse.io`, Greenhouse forms embedded on company sites | Adds education groups. |
 | iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
 | Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Adds and saves work/education history entries. The sign-in / email step is yours. |
+| SAP SuccessFactors | `careerN.successfactors.com`/`.eu`, `careerN.sapsf.com`/`.eu` (`/career?…`) | Fills the one-page apply form and attaches the resume. Password, cover letter, personal website link and the privacy statement are yours. |
 
 ## Setup
 
@@ -49,6 +50,8 @@ The extension never overwrites a field that already has a value and never submit
 - Option matching ignores `+` and `#`, so "C++" or "C#" can match an option named "C".
 - Company career sites that build their own form on top of Greenhouse's API (not the Greenhouse iframe) are not detected.
 - Oracle Taleo (`*.taleo.net`) is not supported.
+- SuccessFactors career sites on a company's own domain (`jobs.acme.com`) are not detected.
+- SuccessFactors picklist options load only when opened, so the mapper sees the question without its choices.
 - Searchable dropdowns (Greenhouse School, Location) pick a result only when exactly one clearly matches; otherwise the field is highlighted.
 - iCIMS dropdowns are set through the underlying list; if a dropdown looks empty after Auto-fill, pick the value by hand.
 

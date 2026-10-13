@@ -1,6 +1,7 @@
 import { clean, type FillResult } from '../ats/field';
 import { matchOption, norm } from '../fill/matchOption';
 import { pressKey, rawSet, safeClick, waitFor } from '../fill/dom';
+import { US_STATES } from '../fill/usStates';
 
 // The extractor may hand us the combobox element itself as the container.
 const findBox = (c: HTMLElement) => (c.matches('[role="combobox"]') ? c : c.querySelector<HTMLElement>('[role="combobox"]'));
@@ -56,8 +57,11 @@ export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 30
   let hit = pick();
   if (!hit && input) {
     // Long or server-searched lists (Greenhouse School, Location) only show the match after typing.
-    rawSet(input, value);
+    // SuccessFactors picklists filter on keyup, not input, by text the option contains ("NY" is not in "New York").
+    const search = (/^[a-z]{2}$/i.test(value.trim()) && US_STATES[value.trim().toUpperCase()]) || value;
+    rawSet(input, search);
     input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent('keyup', { key: search.slice(-1), bubbles: true }));
     hit = await waitFor(pick, timeoutMs * 2);
   }
   if (!hit) {
