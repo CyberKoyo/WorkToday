@@ -109,4 +109,24 @@ describe('oracle adapter', () => {
     const f = oracle.extract(document);
     expect(f.map((x) => [x.label, x.kind, x.required])).toEqual(EXPECTED_ORACLE_APPLY);
   }, 20000);
+
+  it('pill lists of aria-pressed buttons are single-choice questions (live UL Solutions, 2026-10-13)', async () => {
+    const pills = (id: string, q: string, opts: string[]) => `<div class="input-row input-row--has-picker">
+      <label class="input-row__label input-row__label--required" for="${id}" aria-labelledby="labelText-${id}"><span id="labelText-${id}">${q}</span></label>
+      <div class="input-row__control-container"><ul role="list" aria-label="${q}" class="cx-select-pills-container">${opts.map((o) =>
+        `<li role="listitem"><button type="button" aria-disabled="false" aria-pressed="false" class="cx-select-pill-section "><span class="cx-select-pill-name"> ${o}</span></button></li>`).join('')}</ul></div></div>`;
+    document.body.innerHTML = `<div class="apply-flow"><form>${pills('a', 'Are you legally authorized to work in the country to which you are applying?', ['Yes', 'No'])}
+      ${pills('b', 'Please indicate the degree you are currently pursuing.', ["Associate's", "Bachelor's", "Master's"])}</form></div>`;
+    document.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+      b.closest('ul')!.querySelectorAll('button').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+    }));
+    const f = oracle.extract(document);
+    expect(f.map((x) => [x.label, x.kind, x.required, x.options])).toEqual([
+      ['Are you legally authorized to work in the country to which you are applying?', 'radio', true, ['Yes', 'No']],
+      ['Please indicate the degree you are currently pursuing.', 'radio', true, ["Associate's", "Bachelor's", "Master's"]],
+    ]);
+    expect(await oracle.fill(f[0]!, 'yes')).toBe('filled');
+    expect([...document.querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')).slice(0, 2)).toEqual(['true', 'false']);
+    expect(await oracle.fill(f[0]!, 'no')).toBe('skipped_nonempty');
+  });
 });

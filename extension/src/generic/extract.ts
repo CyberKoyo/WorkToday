@@ -1,9 +1,12 @@
 import type { FieldKind } from '@wf/shared';
 import { clean, type ExtractedField } from '../ats/field';
 
-const CONTROL = 'input,select,textarea,[role="combobox"],[role="radiogroup"]';
+// Oracle's single-choice pills: a role="list" of aria-pressed buttons, no radiogroup (live 2026-10-13).
+const PILLS = '.cx-select-pills-container';
+const CHOICES = `[role="radiogroup"],${PILLS}`;
+const CONTROL = `input,select,textarea,[role="combobox"],${CHOICES}`;
 const SKIP_TYPES = new Set(['hidden', 'submit', 'button', 'reset', 'image', 'search', 'password']);
-const BOX = 'fieldset,[role="group"],[role="radiogroup"]';
+const BOX = `fieldset,[role="group"],${CHOICES}`;
 
 export type Skip = (el: HTMLElement) => boolean;
 
@@ -16,7 +19,7 @@ function isControl(el: HTMLElement, skip?: Skip): boolean {
   if ((el as HTMLInputElement).disabled) return false;
   if (el instanceof HTMLInputElement && SKIP_TYPES.has(el.type)) return false;
   // The text box of an ARIA 1.1 combobox and the radios of a radiogroup belong to their wrapper.
-  return !el.parentElement?.closest('[role="combobox"],[role="radiogroup"]');
+  return !el.parentElement?.closest(`[role="combobox"],${CHOICES}`);
 }
 
 const groupKey = (el: HTMLElement): unknown =>
@@ -92,7 +95,7 @@ function leftoverText(container: HTMLElement, members: HTMLElement[]): string {
 function kindOf(el: HTMLElement): FieldKind {
   if (el.matches('input[type="file"]')) return 'file';
   if (el.matches('select,[role="combobox"]')) return 'select';
-  if (el.matches('input[type="radio"],[role="radiogroup"]')) return 'radio';
+  if (el.matches(`input[type="radio"],${CHOICES}`)) return 'radio';
   if (el.matches('input[type="checkbox"]')) return 'checkbox';
   if (el.matches('textarea')) return 'textarea';
   if (el.matches('input[type="date"],input[type="month"]')) return 'date';
@@ -142,7 +145,7 @@ export function discoverFields(root: ParentNode, skip?: Skip): Discovered[] {
         || requiredLabel(first, members, ownBox, lab, groupsIn, root),
     };
     if (kind === 'radio') {
-      const items = first.matches('[role="radiogroup"]') ? [...container.querySelectorAll<HTMLElement>('input[type="radio"],[role="radio"]')] : members;
+      const items = first.matches(CHOICES) ? [...container.querySelectorAll<HTMLElement>('input[type="radio"],[role="radio"],button[aria-pressed]')] : members;
       d.options = items.map(choiceLabel);
       d.members = items;
       if (items.some((m) => m.matches('[required]'))) d.required = true;

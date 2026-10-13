@@ -21,7 +21,8 @@ function fillNativeSelect(sel: HTMLSelectElement, text: string): FillResult {
 
 function fillRadio(c: HTMLElement, options: string[], text: string, members?: HTMLElement[]): FillResult {
   const radios = members ?? all<HTMLElement>(c, 'input[type="radio"],[role="radio"]');
-  const checked = (r: HTMLElement) => (r instanceof HTMLInputElement ? r.checked : r.getAttribute('aria-checked') === 'true');
+  const checked = (r: HTMLElement) => (r instanceof HTMLInputElement ? r.checked
+    : r.getAttribute('aria-checked') === 'true' || r.getAttribute('aria-pressed') === 'true');
   if (radios.some(checked)) return 'skipped_nonempty';
   const i = matchOption(text, options);
   if (i === -1) return 'no_match';
