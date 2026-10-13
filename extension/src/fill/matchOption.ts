@@ -11,6 +11,7 @@ const ALIASES: Record<string, string[]> = {
   veteran: ['i identify as one or more of the classifications of protected veterans',
     'i identify as one or more of the classifications of protected veteran', 'protected veteran'],
   'united states': ['united states of america', 'usa'],
+  'united states of america': ['united states', 'usa'],
   usa: ['united states of america', 'united states'],
   us: ['united states of america', 'united states'],
   uk: ['united kingdom'],
@@ -76,7 +77,9 @@ export function matchOption(value: string, options: string[], { ties = 'none' }:
   });
 }
 
-function matchWith(value: string, options: string[], pick: Pick): number {
+function matchWith(value: string, rawOptions: string[], pick: Pick): number {
+  // Phone country lists end each name in its dial code ("United States+1", live Greenhouse).
+  const options = rawOptions.map((o) => o.replace(/\s*\+\d{1,4}\s*$/, ''));
   const uniqueIndex = (opts: string[], pred: (o: string, i: number) => boolean) => pick(opts.flatMap((o, i) => (pred(o, i) ? [i] : [])));
   const opts = options.map(norm);
   const cands = candidatesFor(value);

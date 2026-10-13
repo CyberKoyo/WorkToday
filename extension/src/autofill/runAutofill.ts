@@ -55,6 +55,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     const raceList = f.kind === 'checkbox' && !!f.options && asksRaces(f.label);
     const hispanicBox = f.kind === 'checkbox' && !f.options && /hispanic|latin[oa]/i.test(f.container.textContent ?? '');
     if (raceList || hispanicBox) key = 'ethnicity';
+    // A phone number's country list; the mapper reads it as a country code and leaves it out (live Greenhouse).
+    if (f.kind === 'select' && f.section === 'Phone' && /^country(\s+code)?$/i.test(f.label)) key = 'country';
     // The mapper (and its cache) can put line 2 here.
     if (key === 'addressLine2' && /\bline\s*[3-9]\b/i.test(f.label)) key = null;
     // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.

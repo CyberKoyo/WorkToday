@@ -3,6 +3,8 @@ import { runAutofill, formatReport } from '../../src/autofill/runAutofill';
 import { extractFields } from '../../src/workday/extractFields';
 import { extractGeneric } from '../../src/generic/extract';
 import { emptyProfile, emptyEdu } from '../../src/profile/profile';
+import { greenhouse } from '../../src/greenhouse/adapter';
+import { readFileSync } from 'node:fs';
 
 const html = `
   <div data-automation-id="formField-a"><label>First Name*</label><input type="text"></div>
@@ -104,6 +106,15 @@ describe('runAutofill', () => {
     await runAutofill({ ...base, extract: () => extractFields(document), fill, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'ethnicity']])),
       profile: { ...emptyProfile(), ethnicity: 'white', reviewed: true } } as never);
     expect(fill.mock.calls[0]![1]).toBe('white');
+  });
+  it('a phone number\'s country list gets the country, whatever the mapper said (live Greenhouse: left empty)', async () => {
+    const base = deps();
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/greenhouse-application.html`, 'utf8');
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => greenhouse.extract(document), fill,
+      map: vi.fn().mockResolvedValue(new Map()),
+      profile: { ...emptyProfile(), country: 'United States of America', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].label, c[0].section, c[1]])).toEqual([['Country', 'Phone', 'United States of America']]);
   });
   it('address line 3 and beyond never get address line 2 (live Oracle: line 3 repeated line 2)', async () => {
     const base = deps();

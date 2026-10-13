@@ -17,6 +17,10 @@ describe('matchOption', () => {
     ['decline', ['Male', 'Female', 'I do not wish to answer'], 2],
     ['not a veteran', ['I identify as one or more of the classifications of protected veteran', 'I am not a protected veteran', "I don't wish to answer"], 1],
     ['USA', ['Canada', 'United States of America'], 1],
+    // Greenhouse phone country: the dial code runs into the name (live).
+    ['United States of America', ['Canada+1', 'United States+1', 'United States Minor Outlying Islands+1', 'Uruguay+598'], 1],
+    ['United States', ['Canada+1', 'United States+1', 'United States Minor Outlying Islands+1'], 1],
+    ['Canada', ['Cameroon+237', 'Canada+1'], 1],
     ['LinkedIn', ['Job Board', 'Social Media - LinkedIn', 'Referral'], 1],
   ])('%s in %j -> %i', (v, opts, i) => expect(matchOption(v, opts)).toBe(i));
 
