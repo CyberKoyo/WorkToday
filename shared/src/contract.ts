@@ -4,7 +4,7 @@ export const PROFILE_KEYS = [
   'linkedinUrl', 'websiteUrl', 'githubUrl',
   'workAuthorized', 'requiresSponsorship', 'willingToRelocate',
   'desiredSalary', 'earliestStartDate', 'referralSource',
-  'gender', 'ethnicity', 'veteranStatus', 'disabilityStatus',
+  'gender', 'ethnicity', 'races', 'veteranStatus', 'disabilityStatus',
   'over18', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent',
   'resumeFile', 'skills',
   'work.title', 'work.company', 'work.location', 'work.startDate', 'work.endDate', 'work.current', 'work.description',

@@ -97,5 +97,14 @@ export const standardKey = (label: string): ScalarKey | null => STANDARD.find(([
 
 // A yes/no "are you Hispanic or Latino?" question (not a race/ethnicity list that includes it), answered from the ethnicity.
 export const asksHispanicYesNo = (label: string) => /hispanic|latin[oa]/i.test(label) && !/\b(race|ethnic\w*)\b/i.test(label);
+/** The races to tick in a check-all-that-apply list: the races setting, else a single-race ethnicity. */
+export function racesAnswer(p: Profile): string[] | null {
+  const list = p.races.split(',').map((r) => r.trim().toLowerCase()).filter(Boolean);
+  if (list.length) return list;
+  const e = p.ethnicity.trim().toLowerCase();
+  return !e || /hispanic|latin|two or more/.test(e) ? null : [e];
+}
+export const asksRaces = (label: string) => /\braces?\b/i.test(label);
+
 export const hispanicAnswer = (ethnicity: string) =>
   /^decline$/i.test(ethnicity) ? 'decline' : /hispanic|latin[oa]/i.test(ethnicity) ? 'Yes' : 'No';

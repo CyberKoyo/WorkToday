@@ -129,4 +129,21 @@ describe('oracle adapter', () => {
     expect([...document.querySelectorAll('button')].map((b) => b.getAttribute('aria-pressed')).slice(0, 2)).toEqual(['true', 'false']);
     expect(await oracle.fill(f[0]!, 'no')).toBe('skipped_nonempty');
   });
+
+  it('diversity checkboxes: unnamed boxes in one labelled group are one question (live 2026-10-13)', () => {
+    const item = (code: string, text: string) => `<div class="input-row__control-item"><input type="checkbox" class="input-row__hidden-control" value="${code}" id="dq-option-${code}" aria-labelledby="label-dq-option-${code}">
+      <label class="apply-flow-input-checkbox" for="dq-option-${code}"><span class="apply-flow-input-checkbox__button"></span><span class="apply-flow-input-checkbox__label">${text}</span></label></div>`;
+    const group = (id: string, label: string, items: string) => `<div class="input-row input-row--radiogroup" role="group" aria-labelledby="${id}-label">
+      <label class="input-row__label" id="${id}-label"><span class="input-row__linebreak">${label}</span></label>
+      <div class="input-row__control-container">${items}</div></div>`;
+    document.body.innerHTML = `<div class="apply-flow"><form>
+      ${group('hl', 'Ethnicity', item('4', 'I am Hispanic or Latino.'))}
+      ${group('races', 'Select the races you identify with.', item('7', 'American Indian or Alaska Native') + item('5', 'Asian') + item('3', 'Black or African American')
+        + item('NS', 'Choose Not to Specify') + item('6', 'Native Hawaiian or other Pacific Islander') + item('1', 'White'))}</form></div>`;
+    expect(oracle.extract(document).map((x) => [x.label, x.kind, x.options])).toEqual([
+      ['Ethnicity', 'checkbox', undefined],
+      ['Select the races you identify with.', 'checkbox', ['American Indian or Alaska Native', 'Asian', 'Black or African American',
+        'Choose Not to Specify', 'Native Hawaiian or other Pacific Islander', 'White']],
+    ]);
+  });
 });

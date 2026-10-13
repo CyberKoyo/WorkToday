@@ -12,6 +12,7 @@ export const KEY_DESCRIPTIONS: Record<ProfileKey, string> = {
   earliestStartDate: 'earliest available start date', referralSource: 'how did you hear about us / source',
   gender: 'gender (EEO)', ethnicity: 'race or ethnicity, including Hispanic/Latino question (EEO)',
   veteranStatus: 'protected veteran status (EEO)', disabilityStatus: 'disability status (EEO)',
+  races: 'races to tick in a "select all races that apply" checkbox list (EEO)',
   over18: 'at least 18 years old (yes/no)',
   previouslyEmployed: 'previously employed by or interned at this company (yes/no)',
   relatedToEmployee: 'related to / family of a current employee of this company (yes/no)',

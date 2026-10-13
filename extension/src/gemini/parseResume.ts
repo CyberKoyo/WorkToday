@@ -14,7 +14,7 @@ export class ResumeParseError extends Error {
 // The user fills these in during review; Gemini must not guess them.
 export const MANUAL_ONLY: ScalarKey[] = [
   'workAuthorized', 'requiresSponsorship', 'willingToRelocate', 'desiredSalary', 'earliestStartDate',
-  'referralSource', 'gender', 'ethnicity', 'veteranStatus', 'disabilityStatus',
+  'referralSource', 'gender', 'ethnicity', 'races', 'veteranStatus', 'disabilityStatus',
   'over18', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent',
 ];
 const EXTRACTED = SCALAR_KEYS.filter((k) => !MANUAL_ONLY.includes(k));

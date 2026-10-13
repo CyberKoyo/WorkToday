@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runAutofill, formatReport } from '../../src/autofill/runAutofill';
 import { extractFields } from '../../src/workday/extractFields';
+import { extractGeneric } from '../../src/generic/extract';
 import { emptyProfile, emptyEdu } from '../../src/profile/profile';
 
 const html = `
@@ -194,5 +195,25 @@ describe('runAutofill', () => {
     expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([
       [qs[0], 'Yes'], [qs[1], 'Yes'], [qs[2], 'No'], [qs[3], 'No'], [qs[4], 'No'], [qs[5], 'No'], [qs[6], 'No'], [qs[7], 'Yes'],
     ]);
+  });
+  it('race checkbox lists take the races setting; a lone Hispanic checkbox follows the ethnicity (live Oracle)', async () => {
+    const run = async (ethnicity: string, races: string) => {
+      const base = deps();
+      document.body.innerHTML = `
+        <fieldset><legend>Ethnicity</legend><label><input type="checkbox">I am Hispanic or Latino.</label></fieldset>
+        <fieldset><legend>Select the races you identify with.</legend>
+          <label><input type="checkbox" name="r">Asian</label><label><input type="checkbox" name="r">White</label></fieldset>`;
+      const fill = vi.fn().mockResolvedValue('filled');
+      await runAutofill({ ...base, extract: () => extractGeneric(document.body), fill,
+        map: vi.fn().mockResolvedValue(new Map([['wf-0', 'ethnicity'], ['wf-1', null]])),
+        profile: { ...emptyProfile(), ethnicity, races, reviewed: true } } as never);
+      return fill.mock.calls.map((c) => [c[0].label, c[1]]);
+    };
+    expect(await run('two or more races', 'asian, white')).toEqual([
+      ['Ethnicity', 'No'], ['Select the races you identify with.', ['asian', 'white']],
+    ]);
+    expect(await run('hispanic or latino', '')).toEqual([['Ethnicity', 'Yes']]);
+    expect(await run('asian', '')).toEqual([['Ethnicity', 'No'], ['Select the races you identify with.', ['asian']]]);
+    expect(await run('decline', '')).toEqual([['Ethnicity', 'decline'], ['Select the races you identify with.', ['decline']]]);
   });
 });

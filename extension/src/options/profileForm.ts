@@ -7,6 +7,7 @@ export const FIELD_LABELS: Record<ScalarKey, string> = {
   workAuthorized: 'Legally authorized to work in this country?', requiresSponsorship: 'Will require visa sponsorship?',
   willingToRelocate: 'Willing to relocate?', desiredSalary: 'Desired salary', earliestStartDate: 'Earliest start date',
   referralSource: 'How did you hear about jobs (default answer)', gender: 'Gender', ethnicity: 'Race / ethnicity',
+  races: 'Races, comma-separated, for check-all-that-apply lists (e.g. asian, white)',
   veteranStatus: 'Veteran status', disabilityStatus: 'Disability status',
   over18: '18 or older?', previouslyEmployed: 'Previously worked or interned at the company? (default answer)',
   relatedToEmployee: 'Related to a current employee? (default answer)', backgroundCheckConsent: 'Consent to a background check?',

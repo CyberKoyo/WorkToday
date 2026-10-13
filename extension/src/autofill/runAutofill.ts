@@ -1,6 +1,6 @@
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field';
-import { resolveProfileValue, asksHispanicYesNo, hispanicAnswer, standardKey, type Profile, type ProfileValue } from '../profile/profile';
+import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, racesAnswer, standardKey, type Profile, type ProfileValue } from '../profile/profile';
 import type { AtsAdapter } from '../ats/types';
 
 export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[] }
@@ -42,6 +42,10 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   for (const f of fields) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
     let key = f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id) ?? null;
+    // Diversity checkboxes (live Oracle): a list of races, and a lone "I am Hispanic or Latino." box.
+    const raceList = f.kind === 'checkbox' && !!f.options && asksRaces(f.label);
+    const hispanicBox = f.kind === 'checkbox' && !f.options && /hispanic|latin[oa]/i.test(f.container.textContent ?? '');
+    if (raceList || hispanicBox) key = 'ethnicity';
     // The mapper (and its cache) can put line 2 here.
     if (key === 'addressLine2' && /\bline\s*[3-9]\b/i.test(f.label)) key = null;
     // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.
@@ -60,7 +64,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (result === 'filled') resumeUploaded = true;
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
-      if (key === 'ethnicity' && typeof value === 'string' && asksHispanicYesNo(f.label)) value = hispanicAnswer(value);
+      if (key === 'ethnicity' && typeof value === 'string' && (hispanicBox || asksHispanicYesNo(f.label))) value = hispanicAnswer(value);
+      if (raceList) value = racesAnswer(d.profile);
       if (typeof value === 'string' && /^(yes|no)$/.test(value)) value = value === 'yes' ? 'Yes' : 'No'; // as a person types it
       if (key === 'postalCode' && d.profile.city) f.tieBreak = d.profile.city; // one zip can list several towns
       if (value !== null) result = await d.fill(f, value, undefined, missed);

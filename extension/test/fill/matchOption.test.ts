@@ -121,4 +121,8 @@ describe('matchOption', () => {
     expect(matchOption('5', GPA)).toBe(-1);
     expect(matchOption('2019', ['2018-2020', '2017-2021'])).toBe(-1); // two ranges hold it
   });
+
+  it('decline reaches "Choose Not to Specify" (live Oracle races)', () => {
+    expect(matchOption('decline', ['Asian', 'Choose Not to Specify', 'White'])).toBe(1);
+  });
 });

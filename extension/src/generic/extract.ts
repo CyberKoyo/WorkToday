@@ -22,8 +22,20 @@ function isControl(el: HTMLElement, skip?: Skip): boolean {
   return !el.parentElement?.closest(`[role="combobox"],${CHOICES}`);
 }
 
-const groupKey = (el: HTMLElement): unknown =>
-  el instanceof HTMLInputElement && (el.type === 'radio' || el.type === 'checkbox') && el.name ? `${el.type}:${el.name}` : el;
+// Unnamed checkboxes in a box (fieldset, role="group") that holds nothing else are one question (live Oracle races).
+const boxTokens = new WeakMap<Element, object>();
+function checkboxBox(el: HTMLInputElement): object | null {
+  const box = el.closest('fieldset,[role="group"]');
+  if (!box || box.querySelector('input:not([type="checkbox"]):not([type="hidden"]),select,textarea,[role="combobox"]')) return null;
+  if (!boxTokens.has(box)) boxTokens.set(box, {});
+  return boxTokens.get(box)!;
+}
+
+const groupKey = (el: HTMLElement): unknown => {
+  if (!(el instanceof HTMLInputElement) || (el.type !== 'radio' && el.type !== 'checkbox')) return el;
+  if (el.name) return `${el.type}:${el.name}`;
+  return (el.type === 'checkbox' && checkboxBox(el)) || el;
+};
 
 function byIds(el: Element, attr: string): string {
   const doc = el.ownerDocument;

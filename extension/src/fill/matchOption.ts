@@ -5,7 +5,7 @@ const ALIASES: Record<string, string[]> = {
   no: ['no', 'n', 'false'],
   decline: ["i don't wish to answer", 'i do not wish to answer', 'decline to self identify', 'i decline to self identify',
     'prefer not to say', 'i choose not to disclose', 'decline to answer', 'i prefer not to answer', 'i do not wish to self identify',
-    'not declared'],
+    'not declared', 'choose not to specify'],
   'not a veteran': ['i am not a protected veteran', 'i am not a veteran', 'not a protected veteran'],
   // Plural first: "protected veteran" alone also ends "a veteran, just not a protected veteran" (live).
   veteran: ['i identify as one or more of the classifications of protected veterans',
