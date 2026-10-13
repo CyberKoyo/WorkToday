@@ -1,4 +1,4 @@
-export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean }
+export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean }
 
 const CSS = `
   .box { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 300px; padding: 12px 14px;
@@ -35,6 +35,7 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
       catch (e) { msg.textContent = e instanceof Error ? e.message : 'Auto-fill failed.'; }
       finally { primary.disabled = false; }
     };
+    if (opts.autoFill) primary.click();
   }
   shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { host.remove(); opts.onDismiss(); };
   // An iframe sized to its content has no visible bottom edge; put the banner where the form starts.

@@ -73,6 +73,58 @@ describe('icims adapter', () => {
     expect(icims.isFormPage(document)).toBe(true);
     expect(icims.extract(document).map((x) => [x.label, x.kind])).toEqual(EXPECTED_ICIMS_PROFILE);
   });
+  it('real capture: uploads the resume, but not over one already on file', async () => {
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-icims-profile.html`, 'utf8');
+    expect(icims.resumeReloadsPage).toBe(true);
+    const resume = icims.extract(document)[0]!;
+    // The live onchange submits the form; jsdom can't, so keep it out of the way.
+    document.getElementById('PortalProfileFields.Resume_File')!.removeAttribute('onchange');
+    const file = new File(['x'], 'r.pdf');
+    (document.getElementById('PortalProfileFields.Resume_FileName') as HTMLInputElement).value = 'resume.pdf';
+    expect(await icims.fillFile(resume, file)).toBe('skipped_nonempty');
+    (document.getElementById('PortalProfileFields.Resume_FileName') as HTMLInputElement).value = '';
+    expect(await icims.fillFile(resume, file)).not.toBe('skipped_nonempty');
+  });
+  it('real capture: Country loads its list only when the widget opens, and is picked there', async () => {
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-icims-profile.html`, 'utf8');
+    const id = '-1_PersonProfileFields.AddressCountry';
+    const sel = document.getElementById(id) as HTMLSelectElement;
+    const ul = document.getElementById(`${id}_dropdown-results`)!;
+    // As live: opening fills the list; a pick adds its option to the select.
+    document.getElementById(`${id}_icimsDropdown`)!.addEventListener('click', () => {
+      ul.innerHTML = ['— Make a Selection —', 'United States', 'United States Minor Outlying Islands', 'Canada']
+        .map((t, i) => `<li class="dropdown-result result-selectable" dropdown-index="${i - 1}" title="${t}">${t}</li>`).join('');
+    });
+    ul.addEventListener('click', (e) => {
+      const li = (e.target as HTMLElement).closest('li')!;
+      sel.insertAdjacentHTML('beforeend', `<option value="v${li.getAttribute('dropdown-index')}">${li.title}</option>`);
+      sel.value = `v${li.getAttribute('dropdown-index')}`;
+    });
+    const country = icims.extract(document).find((x) => x.label === 'Country')!;
+    expect(await icims.fill(country, 'United States', 500)).toBe('filled');
+    expect(sel.options[sel.selectedIndex]!.text).toBe('United States');
+    expect(await icims.fill(country, 'Canada', 500)).toBe('skipped_nonempty');
+  });
+  it('real capture: State searches past the first page of its list', async () => {
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-icims-profile.html`, 'utf8');
+    const id = '-1_PersonProfileFields.AddressState';
+    const sel = document.getElementById(id) as HTMLSelectElement;
+    sel.innerHTML = '<option value=""></option>'; // Country is chosen
+    const ul = document.getElementById(`${id}_dropdown-results`)!;
+    const li = (t: string, i: number) => `<li class="dropdown-result result-selectable" dropdown-index="${i}" title="${t}">${t}</li>`;
+    document.getElementById(`${id}_icimsDropdown`)!.addEventListener('click', () => { ul.innerHTML = ['Armed Forces', 'Alabama', 'Alaska'].map(li).join(''); });
+    const search = document.querySelector<HTMLInputElement>(`[id="${id}_icimsDropdown_ctnr"] input.dropdown-search`)!;
+    search.addEventListener('keyup', () => { ul.innerHTML = ['New Mexico', 'New York'].filter((t) => t.startsWith(search.value)).map(li).join(''); });
+    ul.addEventListener('click', (e) => {
+      const pick = (e.target as HTMLElement).closest('li')!;
+      sel.insertAdjacentHTML('beforeend', `<option value="s">${pick.title}</option>`);
+      sel.value = 's';
+    });
+    const state = icims.extract(document).find((x) => x.label === 'State/Province')!;
+    expect(await icims.fill(state, 'NY', 500)).toBe('filled');
+    expect(search.value).toBe('New York');
+    expect(sel.options[sel.selectedIndex]!.text).toBe('New York');
+  });
   describe('real capture: questions step', () => {
     const loadQuestions = () => { document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-icims-questions.html`, 'utf8'); };
     it('extracts the screening questions and fills a select once', async () => {

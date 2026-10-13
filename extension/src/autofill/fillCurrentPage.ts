@@ -5,6 +5,7 @@ import { storedToFile } from '../storage/fileCodec';
 import type { AtsAdapter } from '../ats/types';
 import { runAutofill, formatReport } from './runAutofill';
 import type { BgMessage, MapReply } from '../messages';
+import { markResumeReload, resumeReloadPending, clearResumeReload } from './resumeReload';
 
 const ERRORS: Record<string, string> = {
   rate_limited: 'Mapping service is busy. Try again in a minute.',
@@ -20,6 +21,8 @@ async function mapViaBackground(fields: FieldDescriptor[]): Promise<Map<string, 
 }
 
 export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
+  const resumeDone = !!adapter.resumeReloadsPage && resumeReloadPending();
+  clearResumeReload(); // before any await, so a second banner on the reloaded page does not fill again
   const profile = await getProfile();
   if (!profile?.reviewed) throw new Error('Review your profile in setup first.');
   const stored = await getResume();
@@ -29,8 +32,13 @@ export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
     extract: () => adapter.extract(document),
     map: mapViaBackground,
     fill: adapter.fill,
-    fillFile: adapter.fillFile,
+    // Marked before the upload: the page may start unloading as soon as the input changes.
+    fillFile: adapter.resumeReloadsPage
+      ? async (f, file) => { markResumeReload(); const r = await adapter.fillFile(f, file); if (r !== 'filled') clearResumeReload(); return r; }
+      : adapter.fillFile,
     ensureGroups: (p) => adapter.ensureGroups(document, p),
+    resumeFirst: adapter.resumeReloadsPage,
+    resumeDone,
   });
   return formatReport(report);
 }

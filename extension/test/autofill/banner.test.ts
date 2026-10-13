@@ -18,6 +18,12 @@ describe('banner', () => {
     await vi.waitFor(() => expect(msg(host)).toBe('Busy'));
     expect(btn(host, '.primary').disabled).toBe(false);
   });
+  it('autoFill runs the fill without a click', async () => {
+    const onFill = vi.fn().mockResolvedValue('Filled 3 fields.');
+    const { host } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn(), autoFill: true });
+    await vi.waitFor(() => expect(msg(host)).toBe('Filled 3 fields.'));
+    expect(onFill).toHaveBeenCalledTimes(1);
+  });
   it('setup mode', () => {
     const onSetup = vi.fn();
     const { host } = showBanner({ needsSetup: true, onFill: vi.fn(), onSetup, onDismiss: vi.fn() });

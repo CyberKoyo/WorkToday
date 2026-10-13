@@ -177,6 +177,40 @@ describe('runAutofill', () => {
     expect(r.filled).toBe(1);
     expect(r.attention).toEqual([]);
   });
+  it('a resume upload that reloads the page goes first and alone (live iCIMS: the reload wiped the filled form)', async () => {
+    const d = deps({ resumeFirst: true });
+    const r = await runAutofill(d as never);
+    expect(d.fillFile).toHaveBeenCalledTimes(1);
+    expect(d.fill).not.toHaveBeenCalled();
+    expect(r.reloading).toBe(true);
+    expect(formatReport(r)).toMatch(/^Resume uploaded\. The page will reload/);
+  });
+  it('after that reload the rest is filled and the resume is not uploaded again', async () => {
+    const d = deps({ resumeFirst: true, resumeDone: true });
+    const r = await runAutofill(d as never);
+    expect(d.fillFile).not.toHaveBeenCalled();
+    expect(d.fill).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-0' }), 'Ada', undefined, []);
+    expect(r.reloading).toBeUndefined();
+    expect(r.attention.map((f) => f.label)).toEqual(['Favourite colour']);
+  });
+  it('a resume already on file does not stop the run', async () => {
+    const d = deps({ resumeFirst: true, fillFile: vi.fn().mockResolvedValue('skipped_nonempty') });
+    const r = await runAutofill(d as never);
+    expect(r.reloading).toBeUndefined();
+    expect(d.fill).toHaveBeenCalled();
+  });
+  it('an address type list is answered Home; a phone type list is left to the mapper (live iCIMS)', async () => {
+    const base = deps();
+    document.body.innerHTML = `<form>
+      <label for="p">Type</label><select id="p" name="PersonProfileFields.PhoneType"><option></option><option>Home</option><option>Mobile</option></select>
+      <label for="a">Type</label><select id="a" name="PersonProfileFields.AddressType"><option></option><option>Home</option><option>Other</option></select></form>`;
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractGeneric(document.querySelector('form')!), fill,
+      map: vi.fn().mockResolvedValue(new Map()) } as never);
+    expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([['Type', 'Home']]);
+    const c: HTMLElement = fill.mock.calls[0]![0].container;
+    expect(c.matches('select') ? c.id : c.querySelector('select')!.id).toBe('a');
+  });
   it('standard yes/no questions are answered from the profile by their wording (live UL Solutions, PwC)', async () => {
     const qs = [
       'Are you currently 18 years of age or older?', 'Are you at least 18?',

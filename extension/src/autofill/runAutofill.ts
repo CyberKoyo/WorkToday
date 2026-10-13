@@ -4,7 +4,8 @@ import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, race
 import type { AtsAdapter } from '../ats/types';
 import { setNativeValue } from '../fill/dom';
 
-export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[] }
+/** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it. */
+export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean }
 export interface AutofillDeps {
   profile: Profile;
   resume: File | null;
@@ -13,6 +14,10 @@ export interface AutofillDeps {
   fill: AtsAdapter['fill'];
   fillFile: (f: ExtractedField, file: File) => Promise<FillResult>;
   ensureGroups: (p: Profile) => Promise<void>;
+  /** Uploading the resume reloads the page (iCIMS): upload it before anything else and stop there. */
+  resumeFirst?: boolean;
+  /** This run follows that reload; the resume is already on file. */
+  resumeDone?: boolean;
 }
 
 function flag(f: ExtractedField) {
@@ -40,7 +45,10 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
 
   let resumeUploaded = false;
-  for (const f of fields) {
+  // Anything filled before a reloading upload is lost, so the resume box goes first.
+  const isResume = (f: ExtractedField) => (f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id)) === 'resumeFile';
+  const order = d.resumeFirst ? [...fields.filter(isResume), ...fields.filter((f) => !isResume(f))] : fields;
+  for (const f of order) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
     let key = f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id) ?? null;
     // Diversity checkboxes (live Oracle): a list of races, and a lone "I am Hispanic or Latino." box.
@@ -58,13 +66,19 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     // A full-name or signature box takes the whole name; the mapper often says first name (live Oracle).
     const fullName = f.kind === 'text' && /\bfull\s+(legal\s+)?name\b|\bsignature\b/i.test(f.label)
       ? [d.profile.firstName, d.profile.lastName].filter(Boolean).join(' ') : '';
-    if (fullName) {
+    // An address "Type" list has no profile value; the address is the applicant's home (live iCIMS).
+    const sel = f.kind === 'select' ? (f.container.matches('select') ? f.container : f.container.querySelector('select')) : null;
+    const homeAddress = !!sel && /^(address\s+)?type$/i.test(f.label.trim()) && /address/i.test(`${sel.id} ${sel.getAttribute('name') ?? ''}`);
+    if (homeAddress) {
+      result = await d.fill(f, 'Home', undefined, missed);
+    } else if (fullName) {
       // An earlier run put only the first name here; that one value is ours to correct.
       const box = f.container.matches('input') ? f.container as HTMLInputElement : f.container.querySelector<HTMLInputElement>('input');
       if (box && d.profile.lastName && box.value.trim() === d.profile.firstName) setNativeValue(box, '');
       result = await d.fill(f, fullName, undefined, missed);
     } else if (key === 'resumeFile') {
-      if (d.resume) result = await d.fillFile(f, d.resume);
+      if (d.resumeDone) result = 'skipped_nonempty';
+      else if (d.resume) result = await d.fillFile(f, d.resume);
       if (result === 'filled') resumeUploaded = true;
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
@@ -88,11 +102,13 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       console.info('[workday-filler] already has a value:', JSON.stringify(f.label), f.kind);
     }
     else if (f.required || key) { report.attention.push(f); flag(f); }
+    if (d.resumeFirst && resumeUploaded) { report.reloading = true; break; }
   }
   return report;
 }
 
 export function formatReport(r: AutofillReport): string {
+  if (r.reloading) return 'Resume uploaded. The page will reload with what the site read from it; filling continues after that.';
   const missed = r.missed.length ? ` Not added, fill in by hand: ${r.missed.join(', ')}.` : '';
   return `Filled ${r.filled} fields. ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed} Review, then continue.`;
 }
