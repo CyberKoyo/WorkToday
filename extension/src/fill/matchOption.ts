@@ -121,6 +121,12 @@ function matchWith(value: string, rawOptions: string[], pick: Pick): number {
     const any = new RegExp(`^${cands[0]!.split(/\bcompany\b/).map(loose).join('.+')}$`);
     const i = uniqueIndex(opts, (o) => any.test(o));
     if (i !== -1) return i;
+    // Without a career site, the employer's plain website ("Corewell Health website", live Workday) — never a job board's.
+    if (/\bcareers?\b/.test(cands[0]!)) {
+      const generic = /\b(?:careers?|job|jobs|board|posting|other|social|internet|diversity|search)\b/;
+      const j = uniqueIndex(opts, (o) => { const m = o.match(/^(.+) web ?site$/); return !!m && !generic.test(m[1]!); });
+      if (j !== -1) return j;
+    }
   }
   // Filler words would sink "Computer Science" vs "Computer and Information Science" below the cutoff.
   const words = (s: string) => new Set(s.split(' ').filter((t) => !FILLER.has(t)));

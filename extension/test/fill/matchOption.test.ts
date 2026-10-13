@@ -154,4 +154,14 @@ describe('matchOption', () => {
     expect(matchOption('Company Career Website', SRC)).toBe(5);
     expect(matchOption('Company Careers Site', ['Acme Career Web Site', 'Indeed'])).toBe(0);
   });
+
+  it('"company career website" reaches "Corewell Health website" (live Workday referral source)', () => {
+    const SRC = ['Select One', 'ACEMAPP', 'Career Builder', 'CareerMD', 'College/University Career fair', 'Conference',
+      'Corewell Health website', 'Diversity job posting site', 'DiversityMD', 'Facebook', 'Glassdoor', 'Google',
+      'Indeed.com', 'Internet Job Board', 'LinkedIn', 'Mlive.com', 'Veteran source', 'ZipRecruiter'];
+    expect(matchOption('Company Career Website', SRC)).toBe(6);
+    // A career site still wins over a plain one, and a job board's website is no employer's site.
+    expect(matchOption('Company Career Website', ['Acme Website', 'Acme Careers Site'])).toBe(1);
+    expect(matchOption('Company Career Website', ['Job Board Website', 'Indeed'])).toBe(-1);
+  });
 });
