@@ -1,4 +1,5 @@
 import { US_STATES } from './usStates';
+import { matchDegree } from './degree';
 
 const ALIASES: Record<string, string[]> = {
   yes: ['yes', 'y', 'true'],
@@ -68,6 +69,11 @@ function inRange(value: string, options: string[]): number {
 }
 
 export function matchOption(value: string, options: string[], { ties = 'none' }: MatchOptions = {}): number {
+  // The very wording first: "MA" in a list of state codes is Massachusetts, not a master's.
+  const same = options.flatMap((o, i) => (norm(o) === norm(value) ? [i] : []));
+  if (same.length === 1) return same[0]!;
+  const degree = matchDegree(value, options);
+  if (degree !== null) return degree;
   const strict = matchWith(value, options, onlyOne);
   if (strict !== -1) return strict;
   const ranged = inRange(value, options);
