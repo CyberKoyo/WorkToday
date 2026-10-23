@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { parseResume, ResumeParseError, MAX_RESUME_BYTES } from '../../src/gemini/parseResume';
 
 const pdf = { name: 'r.pdf', type: 'application/pdf', dataBase64: 'JVBERi0=' };
@@ -29,10 +30,20 @@ describe('parseResume', () => {
     const p = await parseResume(linked, 'K', f);
     expect(p.githubUrl).toBe('https://github.com/ada');
   });
-  it('rejects docx without calling network', async () => {
+  it('sends a .docx as its text and fills links from its hyperlinks', async () => {
+    const docx = { name: 'r.docx', type: 'application/octet-stream', dataBase64: readFileSync(`${__dirname}/../fixtures/resume.synthetic.docx`).toString('base64') };
+    const f = vi.fn().mockResolvedValue(ok({ githubUrl: 'GitHub' }));
+    const p = await parseResume(docx, 'K', f);
+    const sent = JSON.parse(f.mock.calls[0]![1].body).contents[0].parts[0].inline_data;
+    expect(sent.mime_type).toBe('text/plain');
+    expect(Buffer.from(sent.data, 'base64').toString('utf8')).toContain('Software Engineer, Acme & Co\t2021-03 – Present');
+    expect(p.githubUrl).toBe('https://github.com/ada?tab=repositories&x=1');
+  });
+  it('rejects an unreadable docx and an old .doc without calling network', async () => {
     const f = vi.fn();
     await expect(parseResume({ ...pdf, type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }, 'K', f))
       .rejects.toMatchObject({ code: 'unsupported_type' });
+    await expect(parseResume({ ...pdf, name: 'r.doc', type: 'application/msword' }, 'K', f)).rejects.toMatchObject({ code: 'unsupported_type' });
     expect(f).not.toHaveBeenCalled();
   });
   it('rejects missing key', async () => {

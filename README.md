@@ -27,7 +27,7 @@ You need Node.js and a Gemini API key. No server setup is required.
    - Chrome: `chrome://extensions` → Developer mode → Load unpacked → `extension/.output/chrome-mv3`.
    - Firefox: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `extension/.output/firefox-mv2/manifest.json`
      (temporary add-ons are removed when Firefox restarts).
-4. Open the extension's options page, add your Gemini API key (https://aistudio.google.com), upload a PDF resume,
+4. Open the extension's options page, add your Gemini API key (https://aistudio.google.com), upload your resume (PDF, .docx or .txt),
    review every field (work authorization, sponsorship and EEO answers are never inferred — enter them yourself), and save.
 5. On a supported application, press **Auto-fill** in the banner on each step. Review the highlighted fields, then continue yourself.
 

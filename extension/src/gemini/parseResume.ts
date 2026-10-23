@@ -1,9 +1,11 @@
 import type { StoredFile } from '../storage/fileCodec';
 import { extractPdfLinks, fillLinkFields } from '../resume/pdfLinks';
+import { readDocx } from '../resume/docx';
 import { normalizeProfile, SCALAR_KEYS, type Profile, type ScalarKey } from '../profile/profile';
 
 export const GEMINI_MODEL = 'gemini-3.5-flash-lite';
-export const SUPPORTED_RESUME_TYPES = ['application/pdf', 'text/plain'];
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+export const SUPPORTED_RESUME_TYPES = ['application/pdf', 'text/plain', DOCX];
 export const MAX_RESUME_BYTES = 14 * 1024 * 1024;
 
 type Code = 'unsupported_type' | 'bad_key' | 'rate_limited' | 'bad_response' | 'network' | 'too_large';
@@ -37,31 +39,71 @@ For a current job set current=true and endDate="". state: 2-letter code if US.
 Do not invent information. Keep description to the resume's bullet text for that role.`;
 
 function inferMimeType(file: StoredFile): string {
-  if (file.type) return file.type;
+  // Browsers can label a .docx application/octet-stream (or leave it blank); the extension then decides.
+  if (SUPPORTED_RESUME_TYPES.includes(file.type)) return file.type;
   const name = file.name.toLowerCase();
   if (name.endsWith('.pdf')) return 'application/pdf';
   if (name.endsWith('.txt')) return 'text/plain';
+  if (name.endsWith('.docx')) return DOCX;
   return '';
 }
 
 export async function parseResume(file: StoredFile, apiKey: string, fetchImpl: typeof fetch = fetch): Promise<Profile> {
   const mimeType = inferMimeType(file);
   if (!SUPPORTED_RESUME_TYPES.includes(mimeType)) {
-    throw new ResumeParseError('unsupported_type', 'Upload a PDF or .txt resume (Word files are not supported — export to PDF).');
+    throw new ResumeParseError('unsupported_type', 'Upload a PDF, .docx or .txt resume (old .doc files are not supported — save as .docx or PDF).');
   }
   if (!apiKey) throw new ResumeParseError('bad_key', 'Enter your Gemini API key first.');
   const decodedSize = Math.floor(file.dataBase64.length * 3 / 4);
   if (decodedSize > MAX_RESUME_BYTES) {
     throw new ResumeParseError('too_large', 'Resume is too large (max 14 MB). Export a smaller PDF.');
   }
+  let mime = mimeType, data = file.dataBase64, links: string[] = [];
+  if (mimeType === DOCX) {
+    const doc = await readDocx(base64ToBytes(file.dataBase64)).catch(() => null);
+    if (!doc?.text) throw new ResumeParseError('unsupported_type', 'Could not read this Word file. Save it as PDF and upload that.');
+    mime = 'text/plain';
+    data = bytesToBase64(new TextEncoder().encode(doc.text));
+    links = doc.links;
+  }
+  const text = await generate(apiKey, [{ inline_data: { mime_type: mime, data } }, { text: PROMPT }], RESPONSE_SCHEMA, fetchImpl);
+  let parsed: Profile;
+  try {
+    const profile = normalizeProfile(JSON.parse(text));
+    for (const k of MANUAL_ONLY) profile[k] = '';
+    parsed = profile;
+  } catch {
+    throw new ResumeParseError('bad_response', 'Gemini returned an unreadable result. Try again.');
+  }
+  if (mimeType === 'application/pdf') links = await extractPdfLinks(base64ToBytes(file.dataBase64)).catch(() => []);
+  fillLinkFields(parsed, links);
+  return parsed;
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+/** One structured-output Gemini call; returns the reply's JSON text. */
+export async function generate(apiKey: string, parts: unknown[], schema: unknown, fetchImpl: typeof fetch = fetch): Promise<string> {
+  if (!apiKey) throw new ResumeParseError('bad_key', 'Enter your Gemini API key first.');
   let res: Response;
   try {
     res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify({
-        contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: file.dataBase64 } }, { text: PROMPT }] }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: RESPONSE_SCHEMA, temperature: 0 },
+        contents: [{ parts }],
+        generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
       }),
     });
   } catch {
@@ -78,24 +120,10 @@ export async function parseResume(file: StoredFile, apiKey: string, fetchImpl: t
   }
   if (res.status === 429) throw new ResumeParseError('rate_limited', 'Gemini free-tier limit hit. Wait a minute and retry.');
   if (!res.ok) throw new ResumeParseError('bad_response', `Gemini error (HTTP ${res.status}).`);
-  let parsed: Profile;
   try {
     const data = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const profile = normalizeProfile(JSON.parse(text));
-    for (const k of MANUAL_ONLY) profile[k] = '';
-    parsed = profile;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
   } catch {
     throw new ResumeParseError('bad_response', 'Gemini returned an unreadable result. Try again.');
   }
-  const links = mimeType === 'application/pdf' ? await extractPdfLinks(base64ToBytes(file.dataBase64)).catch(() => []) : [];
-  fillLinkFields(parsed, links);
-  return parsed;
-}
-
-function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }
