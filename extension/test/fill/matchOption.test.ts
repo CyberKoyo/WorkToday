@@ -9,6 +9,9 @@ describe('matchOption', () => {
     ['no', ['Yes', 'No'], 1],
     ['male', ['Female', 'Male', 'Decline'], 1],
     ['female', ['Male', 'Female'], 1],
+    // Live Ashby gender identity list.
+    ['male', ['Man', 'Non-binary', 'Woman', 'Prefer not to say'], 0],
+    ['female', ['Man', 'Non-binary', 'Woman', 'Prefer not to say'], 2],
     ['CA', ['Alabama', 'California', 'Texas'], 1],
     ['California', ['AL', 'CA', 'TX'], 1],
     ['no', DISABILITY, 1],
@@ -22,6 +25,9 @@ describe('matchOption', () => {
     ['United States', ['Canada+1', 'United States+1', 'United States Minor Outlying Islands+1'], 1],
     ['Canada', ['Cameroon+237', 'Canada+1'], 1],
     ['LinkedIn', ['Job Board', 'Social Media - LinkedIn', 'Referral'], 1],
+    // Live Ashby "What brought you to this job posting": no career site, so the catch-all.
+    ['Company Career Website', ['Agency', 'Glassdoor', 'Indeed', 'LinkedIn Jobs', 'Other', 'Previously worked at 1Password', 'Word of mouth'], -1],
+    ['not listed', ['Agency', 'Glassdoor', 'Indeed', 'LinkedIn Jobs', 'Other', 'Previously worked at 1Password', 'Word of mouth'], 4],
   ])('%s in %j -> %i', (v, opts, i) => expect(matchOption(v, opts)).toBe(i));
 
   const DEGREES = ['Select One', 'Degree in Progress (no degree awarded)', 'High School Diploma/GED', 'Attendance (No Degree Awarded)', 'Other',

@@ -28,4 +28,8 @@ describe('pickAdapter', () => {
     expect(CONTENT_MATCHES).toContain('*://*.successfactors.eu/career*');
     expect(CONTENT_MATCHES).toContain('*://*.successfactors.com/career*');
   });
+  it('picks Ashby', () => {
+    expect(pickAdapter(new URL('https://jobs.ashbyhq.com/openai/240d459b-696d-43eb-8497-fab3e56ecd9b/application'))?.id).toBe('ashby');
+    expect(CONTENT_MATCHES).toContain('*://jobs.ashbyhq.com/*');
+  });
 });

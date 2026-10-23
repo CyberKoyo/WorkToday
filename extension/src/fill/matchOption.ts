@@ -18,6 +18,9 @@ const ALIASES: Record<string, string[]> = {
   us: ['united states of america', 'united states', 'american us'],
   uk: ['united kingdom'],
   mobile: ['mobile phone', 'cell', 'cell phone', 'cellular', 'personal cell', 'personal mobile'], // phone device types
+  // Gender lists that name people, not sexes (live Ashby: "Man", "Woman", "Non-binary").
+  male: ['man'],
+  female: ['woman'],
   'not listed': ['not listed other', 'other not listed', 'other'], // a list's catch-all (live Oracle: "Not Listed/Other")
 };
 

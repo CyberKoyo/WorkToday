@@ -104,7 +104,7 @@ export function racesAnswer(p: Profile): string[] | null {
   const e = p.ethnicity.trim().toLowerCase();
   return !e || /hispanic|latin|two or more/.test(e) ? null : [e];
 }
-export const asksRaces = (label: string) => /\braces?\b/i.test(label);
+export const asksRaces = (label: string) => /\b(races?|racial)\b/i.test(label); // live Ashby: "your racial or ethnic background"
 
 export const hispanicAnswer = (ethnicity: string) =>
   /^decline$/i.test(ethnicity) ? 'decline' : /hispanic|latin[oa]/i.test(ethnicity) ? 'Yes' : 'No';

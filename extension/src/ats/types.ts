@@ -2,7 +2,7 @@ import type { ExtractedField, FillResult } from './field';
 import type { Profile, ProfileValue } from '../profile/profile';
 
 export interface AtsAdapter {
-  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors';
+  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby';
   detect(url: URL): boolean;
   /** An application form with fields is on screen in this document. */
   isFormPage(doc: Document): boolean;

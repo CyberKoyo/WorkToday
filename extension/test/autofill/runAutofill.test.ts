@@ -116,6 +116,47 @@ describe('runAutofill', () => {
       profile: { ...emptyProfile(), country: 'United States of America', reviewed: true } } as never);
     expect(fill.mock.calls.map((c) => [c[0].label, c[0].section, c[1]])).toEqual([['Country', 'Phone', 'United States of America']]);
   });
+  it('a referral source missing from the list picks "Other" and says so (live Ashby)', async () => {
+    const base = deps();
+    const field = { id: 'wf-0', label: 'What brought you to this job posting', kind: 'select', required: false, groupIndex: 0, container: document.body };
+    const fill = vi.fn().mockResolvedValueOnce('no_match').mockResolvedValueOnce('filled');
+    const r = await runAutofill({ ...base, extract: () => [field], fill, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'referralSource']])),
+      profile: { ...emptyProfile(), referralSource: 'Company Career Website', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => c[1])).toEqual(['Company Career Website', 'not listed']);
+    expect(r.missed).toEqual(['Company Career Website (picked "Other")']);
+  });
+  it('the follow-up box after "Other" gets the real answer, whatever the mapper said (live Ashby)', async () => {
+    const base = deps();
+    const at = (id: string, label: string, kind: string) => ({ id, label, kind, required: false, groupIndex: 0, container: document.body });
+    const fields = [
+      at('wf-0', 'What brought you to this job posting', 'select'),
+      at('wf-1', 'If you responded "other" to the question above, let us know how you found this job posting', 'textarea'),
+      at('wf-2', 'Anything else? Other comments', 'textarea'),
+    ];
+    const fill = vi.fn().mockResolvedValueOnce('no_match').mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => fields, fill, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'referralSource']])),
+      profile: { ...emptyProfile(), referralSource: 'Company Career Website', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'Company Career Website'], ['wf-0', 'not listed'], ['wf-1', 'Company Career Website']]);
+  });
+  it('a pronouns box never gets the preferred name (live Ashby: the mapper says preferredName)', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Pronouns</label><input type="text"></div>';
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'preferredName']])),
+      profile: { ...emptyProfile(), preferredName: 'Ada', reviewed: true } } as never);
+    expect(fill).not.toHaveBeenCalled();
+  });
+  it('a "racial or ethnic background" checklist is answered with the races (live Ashby)', async () => {
+    const base = deps();
+    const field = { id: 'wf-0', label: 'How do you identify your racial or ethnic background?', kind: 'checkbox', required: false,
+      options: ['Black', 'White'], groupIndex: 0, container: document.body };
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => [field], fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'ethnicity']])),
+      profile: { ...emptyProfile(), races: 'White', reviewed: true } } as never);
+    expect(fill.mock.calls[0]![1]).toEqual(['white']);
+  });
   it('address line 3 and beyond never get address line 2 (live Oracle: line 3 repeated line 2)', async () => {
     const base = deps();
     document.body.innerHTML = `
@@ -160,6 +201,15 @@ describe('runAutofill', () => {
       map: vi.fn().mockResolvedValue(new Map([['wf-0', 'postalCode']])),
       profile: { ...emptyProfile(), postalCode: '11372', city: 'Jackson Heights', reviewed: true } } as never);
     expect(fill.mock.calls[0]![0].tieBreak).toBe('Jackson Heights');
+  });
+  it('a city is given the state, by name, to choose among same-name towns', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>City</label><input type="text"></div>';
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'city']])),
+      profile: { ...emptyProfile(), city: 'Austin', state: 'TX', reviewed: true } } as never);
+    expect(fill.mock.calls[0]![0].tieBreak).toBe('Texas');
   });
   it('a full-name or signature box gets first and last name, whatever the mapper said (live Oracle: first name only)', async () => {
     const base = deps();

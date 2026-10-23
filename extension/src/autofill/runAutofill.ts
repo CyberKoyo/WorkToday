@@ -3,6 +3,7 @@ import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field
 import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, racesAnswer, standardKey, type Profile, type ProfileValue } from '../profile/profile';
 import type { AtsAdapter } from '../ats/types';
 import { setNativeValue } from '../fill/dom';
+import { US_STATES } from '../fill/usStates';
 
 /** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it. */
 export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean }
@@ -45,6 +46,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
 
   let resumeUploaded = false;
+  let otherAnswer: string | null = null; // the real answer behind a catch-all pick, for its follow-up box
   // Anything filled before a reloading upload is lost, so the resume box goes first.
   const isResume = (f: ExtractedField) => (f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id)) === 'resumeFile';
   const order = d.resumeFirst ? [...fields.filter(isResume), ...fields.filter((f) => !isResume(f))] : fields;
@@ -57,6 +59,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     if (raceList || hispanicBox) key = 'ethnicity';
     // A phone number's country list; the mapper reads it as a country code and leaves it out (live Greenhouse).
     if (f.kind === 'select' && f.section === 'Phone' && /^country(\s+code)?$/i.test(f.label)) key = 'country';
+    // The mapper reads "Pronouns" as the preferred name (live Ashby).
+    if (key === 'preferredName' && /\bpronouns?\b/i.test(f.label)) key = null;
     // The mapper (and its cache) can put line 2 here.
     if (key === 'addressLine2' && /\bline\s*[3-9]\b/i.test(f.label)) key = null;
     // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.
@@ -74,7 +78,12 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     // A phone's device type has no profile value; the number is the applicant's mobile (live Workday "Phone Device Type").
     const phoneType = (f.kind === 'select' || f.kind === 'radio')
       && (/\bphone\b.*\btype\b|\bdevice\s+type\b/i.test(f.label) || (/^type$/i.test(f.label.trim()) && /phone/i.test(f.section ?? '')));
-    if (homeAddress) {
+    // The box after a catch-all pick ("If you responded "other"…", "If your institution was not listed…") takes the real answer.
+    const followUp = otherAnswer !== null && (f.kind === 'text' || f.kind === 'textarea') && /\b(other|not listed)\b/i.test(f.label);
+    if (followUp) {
+      result = await d.fill(f, otherAnswer!, undefined, missed);
+      otherAnswer = null;
+    } else if (homeAddress) {
       result = await d.fill(f, 'Home', undefined, missed);
     } else if (phoneType) {
       result = await d.fill(f, 'Mobile', undefined, missed);
@@ -87,18 +96,24 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (d.resumeDone) result = 'skipped_nonempty';
       else if (d.resume) result = await d.fillFile(f, d.resume);
       if (result === 'filled') resumeUploaded = true;
+      else if (!d.resumeDone) console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
       if (key === 'ethnicity' && typeof value === 'string' && (hispanicBox || asksHispanicYesNo(f.label))) value = hispanicAnswer(value);
       if (raceList) value = racesAnswer(d.profile);
       if (typeof value === 'string' && /^(yes|no)$/.test(value)) value = value === 'yes' ? 'Yes' : 'No'; // as a person types it
       if (key === 'postalCode' && d.profile.city) f.tieBreak = d.profile.city; // one zip can list several towns
+      // One town name can be in several states (live Ashby location: "Austin, Texas" and "Austin, Minnesota").
+      if (key === 'city' && d.profile.state) f.tieBreak = US_STATES[d.profile.state.trim().toUpperCase()] ?? d.profile.state;
       if (value !== null) result = await d.fill(f, value, undefined, missed);
-      // A school missing from a fixed list takes the list's catch-all; the applicant should know.
-      if (key === 'edu.school' && result === 'no_match' && typeof value === 'string'
+      // A school or referral source missing from a fixed list takes the list's catch-all; the applicant should know
+      // (live Ashby: no career-site choice among "How did you hear", so "Other" and its follow-up box).
+      const catchAll = key === 'edu.school' ? 'Not listed' : key === 'referralSource' ? 'Other' : null;
+      if (catchAll && result === 'no_match' && typeof value === 'string'
         && (await d.fill(f, 'not listed', undefined, missed)) === 'filled') {
         result = 'filled';
-        missed.push(`${value} (picked "Not listed")`);
+        missed.push(`${value} (picked "${catchAll}")`);
+        otherAnswer = value;
       }
     }
     report.missed.push(...missed);

@@ -5,6 +5,7 @@ export const MATCHES = {
   icims: ['*://*.icims.com/*'],
   oracle: ['*://*.oraclecloud.com/hcmUI/CandidateExperience/*'],
   successfactors: ['*://*.successfactors.com/career*', '*://*.successfactors.eu/career*', '*://*.sapsf.com/career*', '*://*.sapsf.eu/career*'],
+  ashby: ['*://jobs.ashbyhq.com/*'],
 } as const;
 
 export const CONTENT_MATCHES: string[] = Object.values(MATCHES).flat();

@@ -89,12 +89,14 @@ export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeou
   }
 }
 
+/** `attached`: whether the field already holds a file; by default, whether its input does. */
 export async function fillFileGeneric(
   f: ExtractedField, file: File, setFiles: (input: HTMLInputElement, file: File) => void = setFilesViaDataTransfer,
+  attached: (input: HTMLInputElement) => boolean = (input) => !!input.files?.length,
 ): Promise<FillResult> {
   const input = own<HTMLInputElement>(f.container, 'input[type="file"]');
   if (!input) return 'error';
-  if (input.files?.length) return 'skipped_nonempty';
+  if (attached(input)) return 'skipped_nonempty';
   try {
     setFiles(input, file);
     input.dispatchEvent(new Event('input', { bubbles: true }));

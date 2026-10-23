@@ -1,6 +1,6 @@
 # Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud and SAP SuccessFactors job applications from your reviewed resume profile.
+Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors and Ashby job applications from your reviewed resume profile.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
@@ -15,6 +15,7 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Orac
 | iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
 | Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Adds and saves work/education history entries. The sign-in / email step is yours. |
 | SAP SuccessFactors | `careerN.successfactors.com`/`.eu`, `careerN.sapsf.com`/`.eu` (`/career?…`) | Fills the one-page apply form and attaches the resume. Password, cover letter, personal website link and the privacy statement are yours. |
+| Ashby | `jobs.ashbyhq.com` (`/…/application`) | Fills the application tab and the EEO survey. The "Autofill from resume" box is left alone. |
 
 ## Setup
 
