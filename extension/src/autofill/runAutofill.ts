@@ -4,9 +4,14 @@ import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, race
 import type { AtsAdapter } from '../ats/types';
 import { setNativeValue } from '../fill/dom';
 import { US_STATES } from '../fill/usStates';
+import { answerKey, answerable } from '../answers/remembered';
 
-/** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it. */
-export interface AutofillReport { filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean }
+/** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it.
+ * `recalled`: filled from answers the applicant gave before. `answered`: filled by Gemini, highlighted for checking. */
+export interface AutofillReport {
+  filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean;
+  recalled?: number; answered?: ExtractedField[]; answerError?: string;
+}
 export interface AutofillDeps {
   profile: Profile;
   resume: File | null;
@@ -19,11 +24,16 @@ export interface AutofillDeps {
   resumeFirst?: boolean;
   /** This run follows that reload; the resume is already on file. */
   resumeDone?: boolean;
+  /** Answers the applicant gave on earlier forms, by `answerKey`. */
+  remembered?: Record<string, ProfileValue>;
+  /** Answers to the questions left over, by field id (Gemini). */
+  answer?: (fields: FieldDescriptor[]) => Promise<Map<string, string[]>>;
 }
 
-function flag(f: ExtractedField) {
+// Amber: needs an answer. Blue: Gemini answered it; check before submitting.
+function flag(f: ExtractedField, color = '#f59e0b') {
   f.container.dataset.wfUnfilled = '1';
-  f.container.style.outline = '2px solid #f59e0b';
+  f.container.style.outline = `2px solid ${color}`;
   f.container.style.outlineOffset = '4px';
 }
 
@@ -40,7 +50,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   await d.ensureGroups(d.profile);
   const fields = d.extract();
   if (fields[0]) unflagAll(fields[0].container.ownerDocument);
-  const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [] };
+  const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [], recalled: 0, answered: [] };
+  const leftover: ExtractedField[] = [];
   if (!fields.length) return report;
   const toMap = fields.filter((f) => !f.profileKey);
   const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
@@ -97,6 +108,9 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       else if (d.resume) result = await d.fillFile(f, d.resume);
       if (result === 'filled') resumeUploaded = true;
       else if (!d.resumeDone) console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
+    } else if (!key && answerable(f) && d.remembered?.[answerKey(f)] !== undefined) {
+      result = await d.fill(f, d.remembered[answerKey(f)]!, undefined, missed);
+      if (result === 'filled') report.recalled!++;
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
       if (key === 'ethnicity' && typeof value === 'string' && (hispanicBox || asksHispanicYesNo(f.label))) value = hispanicAnswer(value);
@@ -123,14 +137,34 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       report.skipped++;
       console.info('[workday-filler] already has a value:', JSON.stringify(f.label), f.kind);
     }
+    else if (!key && d.answer && answerable(f)) leftover.push(f);
     else if (f.required || key) { report.attention.push(f); flag(f); }
     if (d.resumeFirst && resumeUploaded) { report.reloading = true; break; }
   }
+  if (leftover.length && !report.reloading) await answerLeftovers(d, leftover, report);
   return report;
+}
+
+async function answerLeftovers(d: AutofillDeps, fields: ExtractedField[], report: AutofillReport) {
+  let answers = new Map<string, string[]>();
+  try {
+    answers = await d.answer!(fields.map(toDescriptor));
+  } catch (e) {
+    report.answerError = e instanceof Error ? e.message : String(e);
+  }
+  for (const f of fields) {
+    const a = answers.get(f.id);
+    const result = a ? await d.fill(f, f.kind === 'checkbox' ? a : a[0]!, undefined, []) : 'no_match';
+    if (result === 'filled') { report.filled++; report.answered!.push(f); flag(f, '#3b82f6'); }
+    else if (f.required) { report.attention.push(f); flag(f); }
+  }
 }
 
 export function formatReport(r: AutofillReport): string {
   if (r.reloading) return 'Resume uploaded. The page will reload with what the site read from it; filling continues after that.';
   const missed = r.missed.length ? ` Not added, fill in by hand: ${r.missed.join(', ')}.` : '';
-  return `Filled ${r.filled} fields. ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed} Review, then continue.`;
+  const recalled = r.recalled ? ` ${r.recalled} from your saved answers.` : '';
+  const answered = r.answered?.length ? ` Gemini answered ${r.answered.length} (blue): check them.` : '';
+  const failed = r.answerError ? ` Gemini could not answer the rest: ${r.answerError}` : '';
+  return `Filled ${r.filled} fields.${recalled}${answered} ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed}${failed} Review, then continue.`;
 }

@@ -1,10 +1,11 @@
 import { browser } from 'wxt/browser';
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
-import { getProfile, getResume } from '../storage/store';
+import { getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
+import { rememberAnswers } from '../answers/remembered';
 import { storedToFile } from '../storage/fileCodec';
 import type { AtsAdapter } from '../ats/types';
 import { runAutofill, formatReport } from './runAutofill';
-import type { BgMessage, MapReply } from '../messages';
+import type { AnswerReply, BgMessage, MapReply } from '../messages';
 import { markResumeReload, resumeReloadPending, clearResumeReload } from './resumeReload';
 
 const ERRORS: Record<string, string> = {
@@ -18,6 +19,12 @@ async function mapViaBackground(fields: FieldDescriptor[]): Promise<Map<string, 
   const reply = (await browser.runtime.sendMessage({ type: 'map-fields', fields } satisfies BgMessage)) as MapReply;
   if (!reply?.ok) throw new Error(ERRORS[reply?.code ?? 'server']);
   return new Map(reply.mappings);
+}
+
+async function answerViaBackground(fields: FieldDescriptor[]): Promise<Map<string, string[]>> {
+  const reply = (await browser.runtime.sendMessage({ type: 'answer-fields', fields } satisfies BgMessage)) as AnswerReply;
+  if (!reply?.ok) throw new Error(reply?.message ?? 'Gemini could not answer.');
+  return new Map(reply.answers);
 }
 
 export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
@@ -39,6 +46,10 @@ export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
     ensureGroups: (p) => adapter.ensureGroups(document, p),
     resumeFirst: adapter.resumeReloadsPage,
     resumeDone,
+    remembered: await getSavedAnswers(),
+    answer: answerViaBackground,
   });
+  // What the applicant now types into the fields left to them (or corrects after Gemini) is kept for the next form.
+  rememberAnswers([...report.attention, ...(report.answered ?? [])], (k, v) => { saveAnswer(k, v).catch((e) => console.warn('[workday-filler] could not save answer', e)); });
   return formatReport(report);
 }

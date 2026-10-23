@@ -116,6 +116,36 @@ describe('runAutofill', () => {
       profile: { ...emptyProfile(), country: 'United States of America', reviewed: true } } as never);
     expect(fill.mock.calls.map((c) => [c[0].label, c[0].section, c[1]])).toEqual([['Country', 'Phone', 'United States of America']]);
   });
+  it('fills unmatched questions from saved answers, then asks Gemini about the rest (blue), never about personal ones', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div id="a"></div><div id="b"></div><div id="c"></div><div id="d"></div>';
+    const box = (id: string) => document.getElementById(id)!;
+    const fields = [
+      { id: 'wf-0', label: 'How did you hear about us?', kind: 'radio', required: false, options: ['LinkedIn', 'Other'], groupIndex: 0, container: box('a') },
+      { id: 'wf-1', label: 'Are you currently enrolled?', kind: 'radio', required: true, options: ['Yes', 'No'], groupIndex: 0, container: box('b') },
+      { id: 'wf-2', label: 'Do you have experience with Splunk?', kind: 'radio', required: true, options: ['Yes', 'No'], groupIndex: 0, container: box('c') },
+      { id: 'wf-3', label: 'Do you identify as transgender?', kind: 'radio', required: true, options: ['Yes', 'No'], groupIndex: 0, container: box('d') },
+    ];
+    const fill = vi.fn().mockResolvedValue('filled');
+    const answer = vi.fn().mockResolvedValue(new Map([['wf-1', ['Yes']]]));
+    const r = await runAutofill({ ...base, extract: () => fields, fill, answer, map: vi.fn().mockResolvedValue(new Map()),
+      remembered: { 'radio|how did you hear about us': 'LinkedIn' } } as never);
+    expect(answer.mock.calls[0]![0].map((f: { id: string }) => f.id)).toEqual(['wf-1', 'wf-2']);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'LinkedIn'], ['wf-1', 'Yes']]);
+    expect(r.recalled).toBe(1);
+    expect(r.answered!.map((f) => f.id)).toEqual(['wf-1']);
+    expect(box('b').style.outline).toContain('#3b82f6');
+    expect(r.attention.map((f) => f.id)).toEqual(['wf-3', 'wf-2']);
+    expect(formatReport(r)).toBe('Filled 2 fields. 1 from your saved answers. Gemini answered 1 (blue): check them. 0 already had values. 2 need your attention (highlighted). Review, then continue.');
+  });
+  it('a Gemini failure leaves the leftovers highlighted and says why', async () => {
+    const base = deps();
+    const field = { id: 'wf-0', label: 'Are you currently enrolled?', kind: 'radio', required: true, options: ['Yes', 'No'], groupIndex: 0, container: document.body };
+    const r = await runAutofill({ ...base, extract: () => [field], map: vi.fn().mockResolvedValue(new Map()),
+      answer: vi.fn().mockRejectedValue(new Error('Gemini free-tier limit hit. Wait a minute and retry.')) } as never);
+    expect(r.attention).toHaveLength(1);
+    expect(formatReport(r)).toContain('Gemini could not answer the rest: Gemini free-tier limit hit.');
+  });
   it('a referral source missing from the list picks "Other" and says so (live Ashby)', async () => {
     const base = deps();
     const field = { id: 'wf-0', label: 'What brought you to this job posting', kind: 'select', required: false, groupIndex: 0, container: document.body };

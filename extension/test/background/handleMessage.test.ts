@@ -16,4 +16,9 @@ describe('handleMessage', () => {
     await handleMessage({ type: 'open-options' }, { openOptions });
     expect(openOptions).toHaveBeenCalled();
   });
+  it('answer-fields ok and error -> message', async () => {
+    const answerFields = vi.fn().mockResolvedValueOnce(new Map([['wf-0', ['Yes']]])).mockRejectedValueOnce(new Error('Gemini rejected the API key.'));
+    expect(await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields })).toEqual({ ok: true, answers: [['wf-0', ['Yes']]] });
+    expect(await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields })).toEqual({ ok: false, message: 'Gemini rejected the API key.' });
+  });
 });

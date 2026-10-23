@@ -40,6 +40,10 @@ to its URL (or `http://localhost:8787` for `npm run dev -w server`), then rebuil
 ## Privacy
 
 Your resume goes only to Google Gemini under your key. The mapping server only sees form labels, never your data.
+Questions no profile field covers go to Gemini too, under your key, with your profile minus the answers you enter by hand
+(work authorization, sponsorship, EEO). Gemini picks only from the options a question offers; its answers are outlined blue
+for you to check. Work authorization, sponsorship, demographic, consent, salary and essay questions are never sent.
+Answers you type into highlighted fields are saved in the extension (this browser only) and reused when the same question comes up again.
 The extension never overwrites a field that already has a value and never submits or advances an application.
 
 ## Known limitations

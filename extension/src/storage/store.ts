@@ -1,9 +1,9 @@
 import { browser } from 'wxt/browser';
 import type { ProfileKey } from '@wf/shared';
-import { normalizeProfile, type Profile } from '../profile/profile';
+import { normalizeProfile, type Profile, type ProfileValue } from '../profile/profile';
 import type { StoredFile } from './fileCodec';
 
-const K = { profile: 'profile', apiKey: 'geminiApiKey', resume: 'resumeFile', mapCache: 'mapCache' } as const;
+const K = { profile: 'profile', apiKey: 'geminiApiKey', resume: 'resumeFile', mapCache: 'mapCache', answers: 'savedAnswers' } as const;
 export const MAP_CACHE_MAX = 2000;
 
 async function get<T>(key: string): Promise<T | undefined> {
@@ -27,3 +27,9 @@ export const saveResume = (f: StoredFile) => set(K.resume, f);
 export const getMapCache = async () => (await get<Record<string, ProfileKey>>(K.mapCache)) ?? {};
 export const saveMapCache = (c: Record<string, ProfileKey>) =>
   set(K.mapCache, Object.keys(c).length > MAP_CACHE_MAX ? {} : c);
+
+export const getSavedAnswers = async () => (await get<Record<string, ProfileValue>>(K.answers)) ?? {};
+// One write at a time: two answers settling together would otherwise each overwrite the other's read.
+let answerWrites: Promise<unknown> = Promise.resolve();
+export const saveAnswer = (key: string, value: ProfileValue) =>
+  (answerWrites = answerWrites.catch(() => {}).then(async () => set(K.answers, { ...(await getSavedAnswers()), [key]: value })));

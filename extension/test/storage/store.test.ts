@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { getProfile, saveProfile, getApiKey, saveApiKey, getResume, saveResume, getMapCache, saveMapCache, MAP_CACHE_MAX } from '../../src/storage/store';
+import { getProfile, saveProfile, getApiKey, saveApiKey, getResume, saveResume, getMapCache, saveMapCache, MAP_CACHE_MAX, getSavedAnswers, saveAnswer } from '../../src/storage/store';
 import { fileToStored, storedToFile } from '../../src/storage/fileCodec';
 import { emptyProfile } from '../../src/profile/profile';
 
@@ -38,5 +38,10 @@ describe('fileCodec', () => {
     expect(back.name).toBe('r.pdf');
     expect(back.type).toBe('application/pdf');
     expect(new Uint8Array(await back.arrayBuffer())).toEqual(bytes);
+  });
+  it('saved answers: answers saved together are all kept', async () => {
+    expect(await getSavedAnswers()).toEqual({});
+    await Promise.all([saveAnswer('radio|a', 'Yes'), saveAnswer('checkbox|b', ['LinkedIn']), saveAnswer('text|c', '4')]);
+    expect(await getSavedAnswers()).toEqual({ 'radio|a': 'Yes', 'checkbox|b': ['LinkedIn'], 'text|c': '4' });
   });
 });
