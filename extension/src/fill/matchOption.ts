@@ -17,6 +17,7 @@ const ALIASES: Record<string, string[]> = {
   usa: ['united states of america', 'united states', 'american us'],
   us: ['united states of america', 'united states', 'american us'],
   uk: ['united kingdom'],
+  usd: ['us dollar'], // Oracle currency lists name currencies, not ISO codes (live Rockland Trust)
   mobile: ['mobile phone', 'cell', 'cell phone', 'cellular', 'personal cell', 'personal mobile'], // phone device types
   // Gender lists that name people, not sexes (live Ashby: "Man", "Woman", "Non-binary").
   male: ['man'],

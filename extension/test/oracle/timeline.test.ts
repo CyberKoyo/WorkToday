@@ -31,9 +31,23 @@ const EDITORS = {
     + combo('startDate', 'Start Date Month', MONTHS) + combo('startDate', 'Start Date Year', YEARS)
     + combo('endDate', 'End Date Month', MONTHS) + combo('endDate', 'End Date Year', YEARS),
 };
+// Live Rockland Trust (2026-11-02): Achievements in place of Responsibilities and no city; Major is free text; GPA box.
+const ROCKLAND: typeof EDITORS = {
+  experience: () => text('employerName', 'Employer Name') + text('jobTitle', 'Job Title')
+    + combo('startDate', 'Start Date Month', MONTHS) + combo('startDate', 'Start Date Year', YEARS)
+    + combo('endDate', 'End Date Month', MONTHS) + combo('endDate', 'End Date Year', YEARS)
+    + `<div class="input-row input-row--checkbox"><input type="checkbox" class="input-row__hidden-control" id="af-checkbox-currentJobFlag-1"><label for="af-checkbox-currentJobFlag-1">Current Job</label></div>`
+    + text('achievements', 'Achievements', 'textarea'),
+  education: () => combo('contentItemId', 'Degree', ['AA', 'BS', 'MS'])
+    + text('major', 'Major')
+    + combo('educationalEstablishment', 'School', ['Stony Brook University', 'Other US Institution', 'Other/Autre/Otros/Andere/Altri/Ander/Outro/Inny'])
+    + combo('startDate', 'Start Date Month', MONTHS) + combo('startDate', 'Start Date Year', YEARS)
+    + combo('endDate', 'End Date Month', MONTHS) + combo('endDate', 'End Date Year', YEARS)
+    + text('gpa', 'GPA'),
+};
 const REQUIRED = { experience: ['employerName', 'jobTitle'], education: ['educationalEstablishment'] };
 
-function page(saved: { experience?: number; education?: number } = {}) {
+function page(saved: { experience?: number; education?: number } = {}, editors = EDITORS) {
   const tile = (kind: string) => `<div class="beautiful-timeline-item" data-profile-item-tile="true">${kind}</div>`;
   document.body.innerHTML = `<form class="apply-flow__content apply-flow__content-form">
     <div class="apply-flow-block apply-flow-block--work-and-education-timeline">
@@ -69,7 +83,7 @@ function page(saved: { experience?: number; education?: number } = {}) {
   const open = (kind: 'experience' | 'education') => {
     const slot = document.getElementById('editor-slot')!;
     if (slot.firstChild) return; // one editor at a time
-    slot.innerHTML = `<div class="profile-item-editor">${EDITORS[kind]()}
+    slot.innerHTML = `<div class="profile-item-editor">${editors[kind]()}
       <button type="submit" class="button app-dialog__footer-button cancel-btn">Cancel</button>
       <button type="submit" class="button app-dialog__footer-button save-btn">Add ${kind === 'experience' ? 'Experience' : 'Education'}</button></div>`;
     slot.querySelector('.save-btn')!.addEventListener('click', (e) => {
@@ -113,6 +127,28 @@ describe('Oracle work and education timeline', () => {
     ]);
     expect(submit).not.toHaveBeenCalled();
     expect(document.querySelector('.save-btn')).toBeNull();
+  });
+
+  it('Rockland Trust editors: description into Achievements, free-text Major, GPA', async () => {
+    const { savedEntries } = page({}, ROCKLAND);
+    const p = profile();
+    p.work = [p.work[0]!];
+    p.education[0]!.gpa = '3.8';
+    await addTimelineEntries(document, p, 100);
+    expect(savedEntries).toEqual([
+      { kind: 'experience', employerName: 'Acme', jobTitle: 'SOC Analyst Intern', startDateMonth: 'June', startDateYear: '2025',
+        endDateMonth: 'August', endDateYear: '2025', achievements: 'Triage', current: 'false' },
+      { kind: 'education', contentItemId: 'BS', major: 'Computer Science', educationalEstablishment: 'Stony Brook University',
+        startDateMonth: 'August', startDateYear: '2022', endDateMonth: 'May', endDateYear: '2026', gpa: '3.8', current: '' },
+    ]);
+  });
+
+  it('a school not in the list falls back to the multilingual Other entry', async () => {
+    const { savedEntries } = page({ experience: 2 }, ROCKLAND);
+    const p = profile();
+    p.education[0]!.school = 'Northeastern University';
+    await addTimelineEntries(document, p, 100);
+    expect(savedEntries.map((e) => e.educationalEstablishment)).toEqual(['Other/Autre/Otros/Andere/Altri/Ander/Outro/Inny']);
   });
 
   it('adds only entries beyond those already saved (a rerun adds no duplicates)', async () => {

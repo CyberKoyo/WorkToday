@@ -177,4 +177,7 @@ describe('matchOption', () => {
     expect(matchOption('Company Career Website', ['Acme Website', 'Acme Careers Site'])).toBe(1);
     expect(matchOption('Company Career Website', ['Job Board Website', 'Indeed'])).toBe(-1);
   });
+  it('"USD" reaches "US Dollar", not its settlement variants (live Oracle currency list)', () => {
+    expect(matchOption('USD', ['UAE Dirham', 'US Dollar', 'US Dollar (next day)', 'US Dollar (same day)'])).toBe(1);
+  });
 });

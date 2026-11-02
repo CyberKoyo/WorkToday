@@ -14,10 +14,12 @@ function setText(ed: Editor, name: string, value: string) {
   if (el && value && !el.value.trim()) setNativeValue(el, value);
 }
 
-async function setCombo(ed: Editor, name: string, value: string, timeoutMs: number, fallback?: string) {
+async function setCombo(ed: Editor, name: string, value: string, timeoutMs: number, fallbacks: string[] = []) {
   const el = named(ed, name)[0];
   if (!el || !value) return;
-  if ((await fillCombobox(el, value, timeoutMs)) === 'no_match' && fallback) await fillCombobox(el, fallback, timeoutMs);
+  // Some sites make a list field free text (live Rockland Trust: Major).
+  if (!el.matches('[role="combobox"]')) return setText(ed, name, value);
+  for (const v of [value, ...fallbacks]) if ((await fillCombobox(el, v, timeoutMs)) !== 'no_match') return;
 }
 
 // A YYYY-MM (or YYYY) date into the editor's Month and Year comboboxes, which share the field's name.
@@ -37,15 +39,18 @@ async function fillWork(ed: Editor, w: WorkEntry, timeoutMs: number) {
   if (w.current && current && !current.checked) current.click();
   if (!w.current) await setDate(ed, 'endDate', w.endDate, timeoutMs);
   setText(ed, 'employerCity', w.location.split(',')[0]!.trim());
-  setText(ed, 'responsibilities', w.description);
+  // Some sites have Achievements in place of Responsibilities (live Rockland Trust).
+  setText(ed, named(ed, 'responsibilities').length ? 'responsibilities' : 'achievements', w.description);
 }
 
 async function fillEdu(ed: Editor, e: EduEntry, timeoutMs: number) {
   await setCombo(ed, 'contentItemId', e.degree, timeoutMs);
   await setCombo(ed, 'major', e.fieldOfStudy, timeoutMs);
-  await setCombo(ed, 'educationalEstablishment', e.school, timeoutMs, 'not listed');
+  // The catch-all is "Not Listed/Other" on some sites, "Other/Autre/Otros/…" on others (live Rockland Trust).
+  await setCombo(ed, 'educationalEstablishment', e.school, timeoutMs, ['not listed', 'Other/Autre']);
   await setDate(ed, 'startDate', e.startDate, timeoutMs);
   await setDate(ed, 'endDate', e.endDate, timeoutMs);
+  setText(ed, 'gpa', e.gpa);
 }
 
 /**
