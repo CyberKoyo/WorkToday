@@ -160,7 +160,7 @@ export function discoverFields(root: ParentNode, skip?: Skip): Discovered[] {
       const items = first.matches(CHOICES) ? [...container.querySelectorAll<HTMLElement>('input[type="radio"],[role="radio"],button[aria-pressed]')] : members;
       d.options = items.map(choiceLabel);
       d.members = items;
-      if (items.some((m) => m.matches('[required]'))) d.required = true;
+      if (items.some((m) => m.matches('[required],[aria-required="true"]'))) d.required = true; // live Eightfold: aria-required radios
     } else if (kind === 'checkbox' && members.length > 1) {
       d.options = members.map(choiceLabel);
       d.members = members;

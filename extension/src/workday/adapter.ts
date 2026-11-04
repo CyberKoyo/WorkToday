@@ -7,7 +7,7 @@ import { fillField, fillFile } from '../fill/fillField';
 
 export const workday: AtsAdapter = {
   id: 'workday',
-  detect: (u) => /(^|\.)myworkday(jobs)?\.com$/.test(u.hostname),
+  detect: (u) => /(^|\.)myworkday(jobs|site)?\.com$/.test(u.hostname),
   isFormPage: (doc) => !!doc.querySelector(SEL.fieldContainer),
   stepKey: (doc) => `${doc.defaultView?.location.pathname ?? ''}|${clean(doc.querySelector(SEL.pageHeader)?.textContent)}`,
   extract: (doc) => extractFields(doc),

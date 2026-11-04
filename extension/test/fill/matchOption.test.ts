@@ -130,6 +130,8 @@ describe('matchOption', () => {
     expect(matchOption('3.8 GPA', ['3.0 – 3.49', '3.5 – 4.0'])).toBe(1);
     expect(matchOption('5', GPA)).toBe(-1);
     expect(matchOption('2019', ['2018-2020', '2017-2021'])).toBe(-1); // two ranges hold it
+    const RTX = ['Select One', 'Below 2.0', '2.0 - 2.49', '2.5 - 2.99', '3.0 - 3.49', '3.5 or higher']; // live Workday RTX
+    expect(['3.6', '3.5', '3.2', '1.8', '4.0/4.0'].map((v) => matchOption(v, RTX))).toEqual([5, 5, 4, 1, 5]);
   });
 
   it('decline reaches "Choose Not to Specify" (live Oracle races)', () => {

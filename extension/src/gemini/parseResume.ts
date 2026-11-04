@@ -17,7 +17,7 @@ export class ResumeParseError extends Error {
 export const MANUAL_ONLY: ScalarKey[] = [
   'workAuthorized', 'requiresSponsorship', 'willingToRelocate', 'desiredSalary', 'earliestStartDate',
   'referralSource', 'gender', 'ethnicity', 'races', 'veteranStatus', 'disabilityStatus',
-  'over18', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent',
+  'over18', 'under40', 'dateOfBirth', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent', 'usCitizen', 'governmentEmployee',
 ];
 const EXTRACTED = SCALAR_KEYS.filter((k) => !MANUAL_ONLY.includes(k));
 

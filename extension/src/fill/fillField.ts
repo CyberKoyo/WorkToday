@@ -38,7 +38,8 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
     const before = listKey();
     const chipsBefore = chips();
     const gained = () => (chips() > chipsBefore ? true : null);
-    rawSet(box, value);
+    // Searching "SIEM (Wazuh)" lists no "SIEM" at all (live RTX); the qualifier stays for picking among results.
+    rawSet(box, value.replace(/\s*\([^)]*\)/g, '').trim() || value);
     box.dispatchEvent(new Event('input', { bubbles: true }));
     pressKey(box, 'Enter', 13);
     // A slow earlier search can land while this one runs; only a list that mentions this value counts.
@@ -113,7 +114,11 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         }
         const el = c.querySelector<HTMLInputElement | HTMLTextAreaElement>(f.kind === 'text' ? SEL.textInput : 'textarea')!;
         if (el.value.trim()) return 'skipped_nonempty';
+        // Workday keeps a typed value only once focus really leaves the box: the step's last box otherwise fails
+        // "is required" on Save and Continue, silently for a scripted click (live RTX).
+        el.focus();
         setNativeValue(el, typeof value === 'boolean' ? (value ? 'Yes' : 'No') : asText(value));
+        el.blur();
         return 'filled';
       }
       case 'select':
@@ -140,6 +145,8 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         if (!m || !year || (month && !m[2])) return 'no_match';
         if (month) typeChars(month, m[2]!);
         typeChars(year, m[1]!);
+        // Workday keeps the date only once focus really leaves it; without this Save reports "From is required" (live RTX).
+        year.blur();
         return 'filled';
       }
       case 'file':
@@ -152,7 +159,7 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
 }
 
 export async function fillFile(
-  f: ExtractedField, file: File, setFiles: (input: HTMLInputElement, file: File) => void = setFilesViaDataTransfer,
+  f: ExtractedField, file: File, setFiles: (input: HTMLInputElement, file: File) => void = setFilesViaDataTransfer, timeoutMs = 30000,
 ): Promise<FillResult> {
   if (f.container.querySelector(SEL.fileUploaded)) return 'skipped_nonempty';
   const input = f.container.querySelector<HTMLInputElement>(SEL.fileInput);
@@ -160,9 +167,10 @@ export async function fillFile(
   try {
     setFiles(input, file);
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    return 'filled';
   } catch (e) {
     console.warn('[workday-filler] file upload failed', e);
     return 'error';
   }
+  // Save and Continue does nothing while the upload runs (live RTX), so the step is not done until Workday confirms it.
+  return (await waitFor(() => f.container.querySelector(SEL.fileUploaded), timeoutMs)) ? 'filled' : 'error';
 }

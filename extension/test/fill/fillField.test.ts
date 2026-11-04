@@ -102,14 +102,32 @@ describe('fillField', () => {
   });
 });
 
+describe('fillField text commit', () => {
+  it('leaves the box for real once filled, so Workday keeps the value (live RTX: last box "is required")', async () => {
+    const f = setup(wrap('<label>Permanent address</label><textarea></textarea>'));
+    f.kind = 'textarea';
+    const box = f.container.querySelector('textarea')!;
+    let blurred = false;
+    box.addEventListener('blur', () => { blurred = true; });
+    expect(await fillField(f, '1 Main St')).toBe('filled');
+    expect(box.value).toBe('1 Main St');
+    expect(blurred).toBe(true);
+    expect(document.activeElement).not.toBe(box);
+  });
+});
+
 describe('fillFile', () => {
-  it('sets files and fires change', async () => {
+  it('sets files, fires change, and is done once Workday confirms the upload', async () => {
     const f = setup(wrap('<label>Resume</label><input type="file">'));
-    const set = vi.fn(); const onChange = vi.fn();
-    f.container.querySelector('input')!.addEventListener('change', onChange);
+    const set = vi.fn();
+    const input = f.container.querySelector('input')!;
+    input.addEventListener('change', () => setTimeout(() => input.insertAdjacentHTML('afterend', '<div data-automation-id="file-upload-successful">r.pdf</div>'), 100));
     expect(await fillFile(f, new File(['x'], 'r.pdf'), set)).toBe('filled');
     expect(set).toHaveBeenCalled();
-    expect(onChange).toHaveBeenCalled();
+  });
+  it('an upload Workday never confirms is an error, not done (live RTX: Save and Continue ignored mid-upload)', async () => {
+    const f = setup(wrap('<label>Resume</label><input type="file">'));
+    expect(await fillFile(f, new File(['x'], 'r.pdf'), vi.fn(), 200)).toBe('error');
   });
   it('skips when a file is already uploaded', async () => {
     const f = setup(wrap('<label>Resume</label><input type="file"><div data-automation-id="file-upload-successful">r.pdf</div>'));

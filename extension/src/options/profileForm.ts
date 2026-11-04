@@ -9,14 +9,16 @@ export const FIELD_LABELS: Record<ScalarKey, string> = {
   referralSource: 'How did you hear about jobs (default answer)', gender: 'Gender', ethnicity: 'Race / ethnicity',
   races: 'Races, comma-separated, for check-all-that-apply lists (e.g. asian, white)',
   veteranStatus: 'Veteran status', disabilityStatus: 'Disability status',
-  over18: '18 or older?', previouslyEmployed: 'Previously worked or interned at the company? (default answer)',
+  over18: '18 or older?', under40: 'Under 40? (tax credit screening opt-out)',
+  dateOfBirth: 'Date of birth, YYYY-MM-DD (only for the tax credit screening opt-out)', previouslyEmployed: 'Previously worked or interned at the company? (default answer)',
   relatedToEmployee: 'Related to a current employee? (default answer)', backgroundCheckConsent: 'Consent to a background check?',
+  usCitizen: 'U.S. citizen?', governmentEmployee: 'Current or former U.S. federal government / military employee?',
 };
 
 const YN = ['', 'yes', 'no'];
 export const CHOICES: Partial<Record<ScalarKey, string[]>> = {
   workAuthorized: YN, requiresSponsorship: YN, willingToRelocate: YN,
-  over18: YN, previouslyEmployed: YN, relatedToEmployee: YN, backgroundCheckConsent: YN,
+  over18: YN, under40: YN, previouslyEmployed: YN, relatedToEmployee: YN, backgroundCheckConsent: YN, usCitizen: YN, governmentEmployee: YN,
   gender: ['', 'male', 'female', 'non-binary', 'decline'],
   ethnicity: ['', 'hispanic or latino', 'white', 'black or african american', 'asian', 'american indian or alaska native',
     'native hawaiian or other pacific islander', 'two or more races', 'decline'],

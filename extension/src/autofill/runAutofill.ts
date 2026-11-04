@@ -1,16 +1,18 @@
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field';
-import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, racesAnswer, standardKey, type Profile, type ProfileValue } from '../profile/profile';
+import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, racesAnswer, standardKey, plausibleKey, type Profile, type ProfileValue } from '../profile/profile';
 import type { AtsAdapter } from '../ats/types';
 import { setNativeValue } from '../fill/dom';
 import { US_STATES } from '../fill/usStates';
-import { answerKey, answerable } from '../answers/remembered';
+import { answerKey, answerable, readAnswer, rememberable } from '../answers/remembered';
 
 /** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it.
  * `recalled`: filled from answers the applicant gave before. `answered`: filled by Gemini, highlighted for checking. */
 export interface AutofillReport {
   filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean;
   recalled?: number; answered?: ExtractedField[]; answerError?: string;
+  /** Nothing was left for the applicant, so Auto-fill pressed Next. */
+  advanced?: boolean;
 }
 export interface AutofillDeps {
   profile: Profile;
@@ -63,17 +65,22 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   const order = d.resumeFirst ? [...fields.filter(isResume), ...fields.filter((f) => !isResume(f))] : fields;
   for (const f of order) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
-    let key = f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id) ?? null;
+    if (f.asked?.() === false) continue; // a follow-up the earlier answers did not call for
+    let key = f.profileKey ?? standardKey(f.label) ?? plausibleKey(mapping.get(f.id) ?? null, f.label);
     // Diversity checkboxes (live Oracle): a list of races, and a lone "I am Hispanic or Latino." box.
     const raceList = f.kind === 'checkbox' && !!f.options && asksRaces(f.label);
     const hispanicBox = f.kind === 'checkbox' && !f.options && /hispanic|latin[oa]/i.test(f.container.textContent ?? '');
     if (raceList || hispanicBox) key = 'ethnicity';
     // A phone number's country list; the mapper reads it as a country code and leaves it out (live Greenhouse).
     if (f.kind === 'select' && f.section === 'Phone' && /^country(\s+code)?$/i.test(f.label)) key = 'country';
+    // The mapper reads "What is your Current Degree Program?" as the field of study (live Workday RTX).
+    if (key === 'edu.fieldOfStudy' && /\bdegree\b/i.test(f.label) && !/\b(major|field|stud(y|ies)|concentration|discipline)\b/i.test(f.label)) key = 'edu.degree';
     // The mapper reads "Pronouns" as the preferred name (live Ashby).
     if (key === 'preferredName' && /\bpronouns?\b/i.test(f.label)) key = null;
     // The mapper (and its cache) can put line 2 here.
     if (key === 'addressLine2' && /\bline\s*[3-9]\b/i.test(f.label)) key = null;
+    // The birth date goes only where an adapter asks for it (ADP's tax credit opt-out), never where the mapper guesses.
+    if (key === 'dateOfBirth' && !f.profileKey) key = null;
     // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.
     if (key === 'resumeFile' && /\b(import|auto-?fill|parse|populate)\b/i.test(f.label)) key = null;
     // One resume per run, and never as the cover letter (live Oracle: the resume was attached twice).
@@ -91,7 +98,9 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       && (/\bphone\b.*\btype\b|\bdevice\s+type\b/i.test(f.label) || (/^type$/i.test(f.label.trim()) && /phone/i.test(f.section ?? '')));
     // The box after a catch-all pick ("If you responded "other"…", "If your institution was not listed…") takes the real answer.
     const followUp = otherAnswer !== null && (f.kind === 'text' || f.kind === 'textarea') && /\b(other|not listed)\b/i.test(f.label);
-    if (followUp) {
+    if (f.answer !== undefined) {
+      result = await d.fill(f, f.answer, undefined, missed);
+    } else if (followUp) {
       result = await d.fill(f, otherAnswer!, undefined, missed);
       otherAnswer = null;
     } else if (homeAddress) {
@@ -107,19 +116,22 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (d.resumeDone) result = 'skipped_nonempty';
       else if (d.resume) result = await d.fillFile(f, d.resume);
       if (result === 'filled') resumeUploaded = true;
-      else if (!d.resumeDone) console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
-    } else if (!key && answerable(f) && d.remembered?.[answerKey(f)] !== undefined) {
+      else if (!d.resumeDone && result !== 'skipped_nonempty') console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
+    } else if (!key && rememberable(f) && d.remembered?.[answerKey(f)] !== undefined) {
       result = await d.fill(f, d.remembered[answerKey(f)]!, undefined, missed);
       if (result === 'filled') report.recalled!++;
     } else if (key) {
       let value: ProfileValue | null = resolveProfileValue(d.profile, key, f.groupIndex);
       if (key === 'ethnicity' && typeof value === 'string' && (hispanicBox || asksHispanicYesNo(f.label))) value = hispanicAnswer(value);
       if (raceList) value = racesAnswer(d.profile);
+      if (value === null && key === 'previouslyEmployed') value = 'no'; // unset: most applicants never worked there; not Gemini's guess
       if (typeof value === 'string' && /^(yes|no)$/.test(value)) value = value === 'yes' ? 'Yes' : 'No'; // as a person types it
       if (key === 'postalCode' && d.profile.city) f.tieBreak = d.profile.city; // one zip can list several towns
       // One town name can be in several states (live Ashby location: "Austin, Texas" and "Austin, Minnesota").
       if (key === 'city' && d.profile.state) f.tieBreak = US_STATES[d.profile.state.trim().toUpperCase()] ?? d.profile.state;
       if (value !== null) result = await d.fill(f, value, undefined, missed);
+      // Nothing in the profile, yet nothing to do: an optional lone box ("I have a preferred name") rightly stays unticked (live RTX).
+      else if (f.kind === 'checkbox' && !f.options && !f.required) result = 'skipped_nonempty';
       // A school or referral source missing from a fixed list takes the list's catch-all; the applicant should know
       // (live Ashby: no career-site choice among "How did you hear", so "Other" and its follow-up box).
       const catchAll = key === 'edu.school' ? 'Not listed' : key === 'referralSource' ? 'Other' : null;
@@ -130,8 +142,11 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
         otherAnswer = value;
       }
     }
+    // Already answered on the page (the site's "+1" phone code, the applicant's own pick): nothing to flag (live RTX).
+    if (result === 'no_match' && readAnswer(f) !== null) result = 'skipped_nonempty';
     report.missed.push(...missed);
-    if (result === 'filled' && missed.length) { report.filled++; report.attention.push(f); flag(f); } // partly filled
+    // Partly filled. A skill the site's catalog lacks is only noted: nothing for the applicant to pick (live RTX).
+    if (result === 'filled' && missed.length && key !== 'skills') { report.filled++; report.attention.push(f); flag(f); }
     else if (result === 'filled') report.filled++;
     else if (result === 'skipped_nonempty') {
       report.skipped++;
@@ -166,5 +181,5 @@ export function formatReport(r: AutofillReport): string {
   const recalled = r.recalled ? ` ${r.recalled} from your saved answers.` : '';
   const answered = r.answered?.length ? ` Gemini answered ${r.answered.length} (blue): check them.` : '';
   const failed = r.answerError ? ` Gemini could not answer the rest: ${r.answerError}` : '';
-  return `Filled ${r.filled} fields.${recalled}${answered} ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed}${failed} Review, then continue.`;
+  return `Filled ${r.filled} fields.${recalled}${answered} ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed}${failed} ${r.advanced ? 'Moving to the next step.' : 'Review, then continue.'}`;
 }

@@ -20,6 +20,15 @@ function rowLabel(c: HTMLElement): string {
   return clean(l?.textContent);
 }
 
+// Live Hubbell: the label only says "Please select one of the options"; the question is the text row above it.
+const GENERIC_LABEL = /^please (select|choose) (one of the options|an option|one)$/i;
+function askedAbove(c: HTMLElement, label: string): string {
+  if (!GENERIC_LABEL.test(label)) return label;
+  const prev = c.closest('tr')?.previousElementSibling;
+  // The veteran and disability rows above are whole legal notices; their opening names the topic.
+  return (prev && !prev.querySelector('input,select,textarea,[role="combobox"]') && clean(prev.textContent).slice(0, 300)) || label;
+}
+
 // The resume slot has no file input of its own; it is offered as one field, already known to be the resume.
 function resumeSlot(f: HTMLElement, id: string): ExtractedField | null {
   const slot = [...f.querySelectorAll<HTMLElement>(SF.attachment)]
@@ -60,7 +69,7 @@ export const successfactors: AtsAdapter = {
   extract: (doc) => {
     const f = form(doc);
     if (!f) return [];
-    const fields = extractGeneric(f, { skip }).map((x) => ({ ...x, label: rowLabel(x.container) || x.label }));
+    const fields = extractGeneric(f, { skip }).map((x) => ({ ...x, label: askedAbove(x.container, rowLabel(x.container) || x.label) }));
     const resume = resumeSlot(f, `wf-${fields.length}`);
     return resume ? [...fields, resume] : fields;
   },

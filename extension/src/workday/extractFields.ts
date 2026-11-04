@@ -49,7 +49,11 @@ export function extractFields(root: ParentNode = document): ExtractedField[] {
     };
     if (section) field.section = section;
     const key = FIELD_KEYS[container.dataset.automationId!.slice('formField-'.length)];
+    // The applicant chose to have Workday's terms consent ticked for them (README); ADP's "Reviewed" works the same way.
+    if (container.dataset.automationId === 'formField-acceptTermsAndAgreements') field.answer = true;
     if (key) field.profileKey = key;
+    // The step's upload is the resume even when it is only "Upload a file (5MB max)" (live RTX); the mapper missed it.
+    else if (kind === 'file' && !/\bcover\b/i.test(`${label} ${section ?? ''}`)) field.profileKey = 'resumeFile';
     if (kind === 'radio') {
       field.options = [...container.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map((r) => radioLabel(container, r));
     }

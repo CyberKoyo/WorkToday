@@ -5,6 +5,7 @@ import { fillCurrentPage } from '@/src/autofill/fillCurrentPage';
 import { pickAdapter } from '@/src/ats/registry';
 import { CONTENT_MATCHES } from '@/src/ats/matches';
 import { resumeReloadPending } from '@/src/autofill/resumeReload';
+import { advancePending } from '@/src/autofill/advance';
 
 export default defineContentScript({
   matches: CONTENT_MATCHES,
@@ -19,7 +20,8 @@ export default defineContentScript({
       banner = showBanner({
         needsSetup: !profile?.reviewed,
         framed: window !== window.top,
-        autoFill: !!adapter.resumeReloadsPage && resumeReloadPending(), // back from the resume upload's reload
+        // Back from the resume upload's reload, on the step Auto-fill moved to, or a page that fills itself (tax opt-out).
+        autoFill: (!!adapter.resumeReloadsPage && resumeReloadPending()) || advancePending() || !!adapter.autoStart,
         onFill: () => fillCurrentPage(adapter),
         onSetup: () => { browser.runtime.sendMessage({ type: 'open-options' }); },
         onDismiss: () => { banner = null; },

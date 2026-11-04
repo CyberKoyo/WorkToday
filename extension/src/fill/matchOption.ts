@@ -49,6 +49,9 @@ function candidatesFor(value: string): string[] {
   if (full) out.push(norm(full));
   const abbr = Object.entries(US_STATES).find(([, name]) => norm(name) === v)?.[0];
   if (abbr) out.push(abbr.toLowerCase());
+  // "SIEM (Wazuh)" is the skill "SIEM" (live Workday RTX); last, so the full wording still wins.
+  const bare = norm(value.replace(/\([^)]*\)/g, ' '));
+  if (bare && bare !== v) out.push(bare);
   return [...new Set(out)];
 }
 
@@ -67,8 +70,14 @@ function inRange(value: string, options: string[]): number {
   if (!v) return -1;
   const n = Number(v[1]);
   return onlyOne(options.flatMap((o, i) => {
-    const r = o.trim().match(/^(\d+(?:\.\d+)?)\s*[-–—]\s*(\d+(?:\.\d+)?)$/);
-    return r && Number(r[1]) <= n && n <= Number(r[2]) ? [i] : [];
+    const t = o.trim();
+    const r = t.match(/^(\d+(?:\.\d+)?)\s*[-–—]\s*(\d+(?:\.\d+)?)$/);
+    if (r) return Number(r[1]) <= n && n <= Number(r[2]) ? [i] : [];
+    // Open-ended ends of the scale: "3.5 or higher", "Below 2.0" (live Workday RTX).
+    const up = t.match(/^(\d+(?:\.\d+)?)\s*(?:\+|or (?:higher|above|more)|and (?:above|up))$/i) ?? t.match(/^(?:above|over)\s+(\d+(?:\.\d+)?)$/i);
+    if (up) return n >= Number(up[1]) ? [i] : [];
+    const down = t.match(/^(?:below|under|less than)\s+(\d+(?:\.\d+)?)$/i);
+    return down && n < Number(down[1]) ? [i] : [];
   }));
 }
 
@@ -85,7 +94,12 @@ export function matchOption(value: string, options: string[], { ties = 'none' }:
   const len = options.map((o) => norm(o.replace(/\([^)]*\)/g, ' ')).length);
   return matchWith(value, options, (hits) => {
     const min = Math.min(...hits.map((i) => len[i]!));
-    return onlyOne(hits.filter((i) => len[i] === min));
+    const shortest = hits.filter((i) => len[i] === min);
+    // "Bash (Scripting Language)" and "Bash (Programming Language)" are one skill under two tags (live Workday RTX).
+    // Not "Java (Programming Language)" vs "Java (Island)": only language tags are the same thing.
+    const bases = new Set(shortest.map((i) => norm(options[i]!.replace(/\([^)]*\)/g, ' '))));
+    const langTags = shortest.every((i) => /\([^)]*\blanguage\)\s*$/i.test(options[i]!));
+    return shortest.length === 1 || (bases.size === 1 && langTags) ? shortest[0]! : -1;
   });
 }
 

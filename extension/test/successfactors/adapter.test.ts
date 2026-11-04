@@ -160,3 +160,12 @@ describe('successfactors resume upload', () => {
     expect(await attachResume(resumeField(), resume, 200, () => {})).toBe('error');
   });
 });
+
+describe('successfactors: Hubbell application (live, reached from careers.hubbell.com)', () => {
+  it('names a "Please select one of the options" picklist by the question in the row above', () => {
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-successfactors-hubbell.html`, 'utf8');
+    const labels = successfactors.extract(document).map((f) => f.label);
+    expect(labels).toContain('Are you at least 18 years of age?');
+    expect(labels.filter((l) => /^please select one of the options$/i.test(l)).length).toBeLessThan(3);
+  });
+});

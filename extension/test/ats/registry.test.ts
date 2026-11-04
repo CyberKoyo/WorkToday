@@ -10,6 +10,7 @@ describe('pickAdapter', () => {
   it('content script covers every adapter host', () => {
     expect(CONTENT_MATCHES).toContain('*://*.myworkdayjobs.com/*');
     expect(CONTENT_MATCHES).toContain('*://*.myworkday.com/*');
+    expect(CONTENT_MATCHES).toContain('*://*.myworkdaysite.com/*');
   });
   it('picks Greenhouse', () => {
     expect(pickAdapter(new URL('https://job-boards.greenhouse.io/acme/jobs/1'))?.id).toBe('greenhouse');
@@ -31,5 +32,19 @@ describe('pickAdapter', () => {
   it('picks Ashby', () => {
     expect(pickAdapter(new URL('https://jobs.ashbyhq.com/openai/240d459b-696d-43eb-8497-fab3e56ecd9b/application'))?.id).toBe('ashby');
     expect(CONTENT_MATCHES).toContain('*://jobs.ashbyhq.com/*');
+  });
+  it('picks ADP Recruiting Management', () => {
+    expect(pickAdapter(new URL('https://recruiting.adp.com/srccar/public/nghome.guid?ncsp=acme&r=5001234342900'))?.id).toBe('adp');
+    expect(CONTENT_MATCHES).toContain('*://recruiting.adp.com/*');
+  });
+  it('picks Eightfold, on its own host or a company domain', () => {
+    expect(pickAdapter(new URL('https://stmicroelectronics.eightfold.ai/careers/apply?pid=563637173607734'))?.id).toBe('eightfold');
+    expect(pickAdapter(new URL('https://careers.qualcomm.com/careers/apply?pid=446720740529'))?.id).toBe('eightfold');
+    expect(CONTENT_MATCHES).toContain('*://*.eightfold.ai/careers*');
+  });
+  it('picks Phenom apply on a company domain', () => {
+    expect(pickAdapter(new URL('https://careers.steris.com/us/en/apply?jobSeqNo=SCZSCCUS56672EXTERNALENUS&step=1&stepname=personalInformation'))?.id).toBe('phenom');
+    expect(pickAdapter(new URL('https://careers.steris.com/us/en/job/56672/Software-Engineering-Intern'))).toBeNull();
+    expect(CONTENT_MATCHES).toContain('*://careers.steris.com/*/apply*');
   });
 });

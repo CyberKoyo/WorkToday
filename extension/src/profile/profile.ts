@@ -89,11 +89,34 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
 const STANDARD: Array<[ScalarKey, RegExp]> = [
   ['over18', /\b(18|eighteen)\b.*\b(years?|age|older)\b|\bat least (18|eighteen)\b/i],
   ['backgroundCheckConsent', /\bbackground (check|screen(ing)?|investigation)\b/i],
-  ['relatedToEmployee', /\brelated to\b.*\bemployee|\b(family|relatives?)\b.*\b(work|employed)\b/i],
+  ['relatedToEmployee', /\brelated to\b.*\b(employees?|works?|working|employed)\b|\b(family|relatives?)\b.*\b(work(s|ing)?|employed)\b/i],
+  // Defense contractors ask both (live RTX); one answer covers "CURRENT ..." and "FORMER ... employee?".
+  ['usCitizen', /\bcitizen of the (u\.?\s?s\.?a?|united states)\b|\b(u\.?\s?s\.?|united states|american) citizen\b/i],
+  ['governmentEmployee', /\b(federal|government)\b.*\b(civilian|military)\b.*\bemployee\b/i],
   // "by / at / here": "Have you ever worked with Python?" is not about this company.
-  ['previouslyEmployed', /\b(previously|ever|formerly|before)\b.*\b(employed|worked|intern(ship|ed)?)\b.*\b(by|at|here|for us)\b|\bformer (employee|intern)\b/i],
+  ['previouslyEmployed', /\b(previously|ever|formerly|before)\b.*\b(employed|worked|intern(ship|ed)?)\b.*\b(by|at|here|for us)\b|\bformer (employee|intern)\b|\b(previously|ever|formerly)\b.*\b(an? )?(employee|intern|contractor) (of|at|with)\b/i],
+  // "worked for" a named company (Workday: "Have you previously worked for Acme?"), not "for a government agency".
+  ['previouslyEmployed', /\b(?:[Pp]reviously|[Ee]ver|[Ff]ormerly)\b.*\bworked for (?:[Tt]he )?[A-Z]|\bworked for (?:[Tt]he )?[A-Z][\w&.'-]*(?: [A-Z][\w&.'-]*)* (?:before|previously)\b/],
 ];
 export const standardKey = (label: string): ScalarKey | null => STANDARD.find(([, re]) => re.test(label))?.[0] ?? null;
+
+// A yes/no answer goes only where the question is about it: the mapper can send "Are you a CURRENT U.S. federal
+// government ... employee?" to one of these and answer it Yes (live RTX).
+const YES_NO_TOPIC: Partial<Record<ScalarKey, RegExp>> = {
+  workAuthorized: /authori[sz]|eligib|legally|permit|right to work/i,
+  requiresSponsorship: /sponsor|visa|h-?1b|immigration/i,
+  over18: /\b(18|eighteen)\b|\bage\b|\bminor\b/i,
+  under40: /\b(40|forty)\b|\bage\b/i,
+  willingToRelocate: /relocat|\bmove\b/i,
+  previouslyEmployed: /\b(previous(ly)?|former(ly)?|ever|before|past)\b.*\b(employ|work|intern)/i,
+  relatedToEmployee: /relat|family|relative|spouse/i,
+  backgroundCheckConsent: /background|screen|check/i,
+  usCitizen: /citizen/i,
+  governmentEmployee: /\b(federal|government|military)\b/i,
+};
+/** The mapper's key, unless it is a yes/no key the question is not about. */
+export const plausibleKey = (key: ProfileKey | null, label: string): ProfileKey | null =>
+  key && YES_NO_TOPIC[key as ScalarKey] && !YES_NO_TOPIC[key as ScalarKey]!.test(label) ? null : key;
 
 // A yes/no "are you Hispanic or Latino?" question (not a race/ethnicity list that includes it), answered from the ethnicity.
 export const asksHispanicYesNo = (label: string) => /hispanic|latin[oa]/i.test(label) && !/\b(race|ethnic\w*)\b/i.test(label);
