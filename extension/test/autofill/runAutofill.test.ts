@@ -73,6 +73,7 @@ describe('runAutofill', () => {
       .toBe('Filled 3 fields. 1 already had values. 1 need your attention (highlighted). Review, then continue.');
     expect(formatReport({ filled: 3, skipped: 0, attention: [{} as never], missed: ['TCP/IP', 'Cobol'] }))
       .toBe('Filled 3 fields. 0 already had values. 1 need your attention (highlighted). Not added, fill in by hand: TCP/IP, Cobol. Review, then continue.');
+    expect(formatReport({ filled: 0, skipped: 0, attention: [], missed: [] })).toBe('Found nothing to fill on this page.');
   });
   it('preset keys skip the mapper; a Hispanic yes/no question is answered from ethnicity', async () => {
     const run = async (ethnicity: string) => {

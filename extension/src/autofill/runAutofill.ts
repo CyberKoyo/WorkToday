@@ -162,6 +162,7 @@ async function answerLeftovers(d: AutofillDeps, fields: ExtractedField[], report
 
 export function formatReport(r: AutofillReport): string {
   if (r.reloading) return 'Resume uploaded. The page will reload with what the site read from it; filling continues after that.';
+  if (!r.filled && !r.skipped && !r.attention.length) return 'Found nothing to fill on this page.';
   const missed = r.missed.length ? ` Not added, fill in by hand: ${r.missed.join(', ')}.` : '';
   const recalled = r.recalled ? ` ${r.recalled} from your saved answers.` : '';
   const answered = r.answered?.length ? ` Gemini answered ${r.answered.length} (blue): check them.` : '';

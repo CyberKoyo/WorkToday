@@ -1,6 +1,6 @@
 # Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors and Ashby job applications from your reviewed resume profile.
+Browser extension (Chrome + Firefox) that fills job applications from your reviewed resume profile: automatically on Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors and Ashby, and on any other site from the toolbar button.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
@@ -16,6 +16,7 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Orac
 | Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Adds and saves work/education history entries. The sign-in / email step is yours. |
 | SAP SuccessFactors | `careerN.successfactors.com`/`.eu`, `careerN.sapsf.com`/`.eu` (`/career?…`) | Fills the one-page apply form and attaches the resume. Password, cover letter, personal website link and the privacy statement are yours. |
 | Ashby | `jobs.ashbyhq.com` (`/…/application`) | Fills the application tab and the EEO survey. The "Autofill from resume" box is left alone. |
+| Any other site | Click the toolbar button on the application page | Uses the generic form reader. Same as iCIMS for extra rows. Click the button again after moving to a new site. |
 
 ## Setup
 
@@ -29,7 +30,8 @@ You need Node.js and a Gemini API key. No server setup is required.
      (temporary add-ons are removed when Firefox restarts).
 4. Open the extension's options page, add your Gemini API key (https://aistudio.google.com), upload your resume (PDF, .docx or .txt),
    review every field (work authorization, sponsorship and EEO answers are never inferred — enter them yourself), and save.
-5. On a supported application, press **Auto-fill** in the banner on each step. Review the highlighted fields, then continue yourself.
+5. On a supported application, press **Auto-fill** in the banner on each step. On any other site, click the extension's toolbar button
+   to bring up the banner first. Review the highlighted fields, then continue yourself.
 
 ### Self-hosting the mapping server (optional)
 
@@ -54,7 +56,8 @@ The extension never overwrites a field that already has a value and never submit
 - Prompts with nested categories (often "How did you hear about us") are left for manual entry.
 - Option matching ignores `+` and `#`, so "C++" or "C#" can match an option named "C".
 - Company career sites that build their own form on top of Greenhouse's API (not the Greenhouse iframe) are not detected.
-- Oracle Taleo (`*.taleo.net`) is not supported.
+- Oracle Taleo (`*.taleo.net`) and other unlisted sites work only through the toolbar button, with the generic reader.
+- From the toolbar button, a form inside a frame from another site (an embedded application on a company page) may not be reached.
 - SuccessFactors career sites on a company's own domain (`jobs.acme.com`) are not detected.
 - SuccessFactors picklist options load only when opened, so the mapper sees the question without its choices.
 - Searchable dropdowns (Greenhouse School, Location) pick a result only when exactly one clearly matches; otherwise the field is highlighted.
