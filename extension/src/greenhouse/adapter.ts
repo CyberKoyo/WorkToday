@@ -1,7 +1,7 @@
 import type { AtsAdapter } from '../ats/types';
 import { GH } from './selectors';
 import { extractGeneric } from '../generic/extract';
-import { fillGeneric, fillFileGeneric } from '../generic/fill';
+import { fillGeneric, fillFileGeneric, optionsGeneric } from '../generic/fill';
 import { growGroups } from '../generic/growGroups';
 
 const form = (doc: Document) => doc.querySelector<HTMLElement>(GH.form);
@@ -22,6 +22,7 @@ export const greenhouse: AtsAdapter = {
   stepKey: (doc) => `${doc.defaultView?.location.pathname ?? ''}${doc.defaultView?.location.search ?? ''}`,
   extract: (doc) => { const f = form(doc); return f ? extractGeneric(f, { sectionOf }) : []; },
   fill: fillGeneric,
+  options: optionsGeneric,
   fillFile: (f, file) => fillFileGeneric(f, file),
   ensureGroups: async (doc, profile) => {
     const box = doc.querySelector<HTMLElement>(GH.educationContainer);

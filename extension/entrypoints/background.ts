@@ -1,10 +1,20 @@
 import { handleMessage } from '@/src/background/handleMessage';
 import { injectManual } from '@/src/background/injectManual';
-import type { BgMessage } from '@/src/messages';
+import { ALL_SITES, type BgMessage } from '@/src/messages';
+import { CONTENT_MATCHES } from '@/src/ats/matches';
+
+// With "Allow on all sites" granted, auto.js watches every page for an application form (in-house careers sites).
+async function registerAuto() {
+  if (!(await browser.permissions.contains(ALL_SITES))) return;
+  await browser.scripting.registerContentScripts([{ id: 'auto', matches: ['*://*/*'], excludeMatches: CONTENT_MATCHES, js: ['auto.js'], allFrames: true }])
+    .catch(() => {}); // already registered: the browser keeps it across restarts
+}
 
 export default defineBackground(() => {
-  browser.runtime.onMessage.addListener((msg: BgMessage, _sender, sendResponse) => {
-    handleMessage(msg).then(sendResponse);
+  browser.permissions.onAdded.addListener(() => { void registerAuto(); });
+  void registerAuto();
+  browser.runtime.onMessage.addListener((msg: BgMessage, sender, sendResponse) => {
+    handleMessage(msg, {}, sender.tab, sender.url).then(sendResponse);
     return true; // keep channel open for async reply (works in Chrome and Firefox)
   });
   // Toolbar button: `action` in MV3, `browserAction` in Firefox MV2.

@@ -1,4 +1,10 @@
-export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean }
+export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean
+  /** Job boards: run the loop, reporting progress through `say` until `stopped()`; resolves to the closing line. */
+  onLoop?: (say: (s: string) => void, stopped: () => boolean) => Promise<string> }
+
+// What the last Auto-fill saw and did on this page, for a bug report. Set by fillCurrentPage.
+let details = '';
+export const setDetails = (s: string) => { details = s; };
 
 const CSS = `
   .box { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 300px; padding: 12px 14px;
@@ -8,6 +14,7 @@ const CSS = `
   .msg { margin: 6px 0 10px; }
   .primary { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
   .primary:disabled { opacity: .6; cursor: default; }
+  .link { background: none; border: 0; color: #2563eb; cursor: pointer; padding: 8px; font: inherit; }
   .close { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; cursor: pointer; }`;
 
 export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): void } {
@@ -17,9 +24,19 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
   shadow.innerHTML = `<style>${CSS}</style><div class="box${opts.framed ? ' framed' : ''}" role="dialog" aria-label="Job Application Filler">
     <strong>Job Application Filler</strong><p class="msg"></p>
     <button class="primary" type="button"></button>
+    <button class="link" type="button">Dashboard</button>
+    <button class="link loop" type="button">Loop jobs</button>
+    <button class="link copy" type="button" hidden>Copy details</button>
     <button class="close" type="button" aria-label="Dismiss">×</button></div>`;
   const msg = shadow.querySelector('.msg')!;
   const primary = shadow.querySelector<HTMLButtonElement>('.primary')!;
+
+  // Something filled wrong: one press puts what the reader saw on the clipboard, to paste into a bug report.
+  const copy = shadow.querySelector<HTMLButtonElement>('.copy')!;
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(details); copy.textContent = 'Copied'; }
+    catch { console.info(details); copy.textContent = 'In the console (F12)'; } // a frame may not write the clipboard
+  };
 
   if (opts.needsSetup) {
     msg.textContent = 'Set up and review your profile first.';
@@ -33,12 +50,27 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
       msg.textContent = 'Filling…';
       try { msg.textContent = await opts.onFill(); }
       catch (e) { msg.textContent = e instanceof Error ? e.message : 'Auto-fill failed.'; }
-      finally { primary.disabled = false; }
+      finally { primary.disabled = false; copy.hidden = !details; copy.textContent = 'Copy details'; }
     };
     if (opts.autoFill) primary.click();
   }
-  shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { host.remove(); opts.onDismiss(); };
+  const link = shadow.querySelector<HTMLButtonElement>('.link')!;
+  link.hidden = opts.needsSetup; // the main button already goes there
+  link.onclick = () => opts.onSetup();
+  const loop = shadow.querySelector<HTMLButtonElement>('.loop')!;
+  let looping = false;
+  loop.hidden = opts.needsSetup || !opts.onLoop;
+  loop.onclick = async () => {
+    if (looping) { looping = false; msg.textContent = 'Stopping after this job…'; return; }
+    looping = true;
+    loop.textContent = 'Stop';
+    try { msg.textContent = await opts.onLoop!((s) => { msg.textContent = s; }, () => !looping); }
+    catch (e) { msg.textContent = e instanceof Error ? e.message : 'Loop failed.'; }
+    finally { looping = false; loop.textContent = 'Loop jobs'; }
+  };
+  const remove = () => { looping = false; host.remove(); }; // a banner that is gone cannot be told to stop, so it stops
+  shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { remove(); opts.onDismiss(); };
   // An iframe sized to its content has no visible bottom edge; put the banner where the form starts.
   if (opts.framed) document.body.prepend(host); else document.body.append(host);
-  return { host, remove: () => host.remove() };
+  return { host, remove };
 }

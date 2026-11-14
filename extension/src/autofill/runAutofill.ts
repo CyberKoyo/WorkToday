@@ -4,13 +4,17 @@ import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, race
 import type { AtsAdapter } from '../ats/types';
 import { setNativeValue } from '../fill/dom';
 import { US_STATES } from '../fill/usStates';
-import { answerKey, answerable } from '../answers/remembered';
+import { answerKey, answerable, essay } from '../answers/remembered';
 
 /** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it.
- * `recalled`: filled from answers the applicant gave before. `answered`: filled by Gemini, highlighted for checking. */
+ * `recalled`: filled from answers the applicant gave before. `answered`: answered for the applicant by Gemini or a built-in default, highlighted for checking. */
 export interface AutofillReport {
   filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean;
   recalled?: number; answered?: ExtractedField[]; answerError?: string;
+  /** Required consent boxes ticked for the applicant, highlighted for reading. */
+  accepted?: number;
+  /** One line per field: what it was taken for and what happened. Labels only, for "Copy details" on the banner. */
+  log?: string[];
 }
 export interface AutofillDeps {
   profile: Profile;
@@ -28,9 +32,19 @@ export interface AutofillDeps {
   remembered?: Record<string, ProfileValue>;
   /** Answers to the questions left over, by field id (Gemini). */
   answer?: (fields: FieldDescriptor[]) => Promise<Map<string, string[]>>;
+  /** The choices of a dropdown that lists them only once opened; read for the questions that go to Gemini. */
+  options?: AtsAdapter['options'];
 }
 
-// Amber: needs an answer. Blue: Gemini answered it; check before submitting.
+// The applicant's own legal, pay and self-identification answers: a blank one is never Gemini's to supply.
+const NEVER_ASKED = new Set<ProfileKey>(['workAuthorized', 'requiresSponsorship', 'desiredSalary', 'gender', 'ethnicity', 'races',
+  'veteranStatus', 'disabilityStatus', 'over18', 'relatedToEmployee', 'backgroundCheckConsent', 'referralSource']);
+const MAX_CHOICES = 60; // a longer list (countries, schools) is a lookup, not a question for Gemini
+
+/** A question for Gemini. `flag`: highlight it when Gemini has no answer either. `keyed`: its profile value already failed. */
+interface Leftover { flag: boolean; keyed: boolean }
+
+// Amber: needs an answer. Blue: answered for the applicant (Gemini, or a default); check before submitting.
 function flag(f: ExtractedField, color = '#f59e0b') {
   f.container.dataset.wfUnfilled = '1';
   f.container.style.outline = `2px solid ${color}`;
@@ -50,8 +64,9 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   await d.ensureGroups(d.profile);
   const fields = d.extract();
   if (fields[0]) unflagAll(fields[0].container.ownerDocument);
-  const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [], recalled: 0, answered: [] };
-  const leftover: ExtractedField[] = [];
+  const report: AutofillReport = { filled: 0, skipped: 0, attention: [], missed: [], recalled: 0, answered: [], accepted: 0, log: [] };
+  const leftover = new Map<ExtractedField, Leftover>();
+  let afterSponsor = false; // the field before this one was the sponsorship question
   if (!fields.length) return report;
   const toMap = fields.filter((f) => !f.profileKey);
   const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
@@ -64,6 +79,15 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   for (const f of order) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
     let key = f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id) ?? null;
+    // A lone checkbox is a consent or a statement. The mapper reads its sentence as some yes/no profile fact, and that
+    // fact's "yes" would tick an optional box while its "no" leaves a required one (reported on Adobe). Only
+    // "I currently work here" is the mapper's to place on one.
+    // (Workday lists no options, so a question with several boxes looks the same; it is not one to tick blindly.)
+    const loneBox = f.kind === 'checkbox' && !f.options && f.container.querySelectorAll('input[type="checkbox"]').length <= 1;
+    if (loneBox && key !== 'work.current' && !f.profileKey && !standardKey(f.label)) key = null;
+    // A box that asks a question in words ("Why are you interested in this role?") is an essay, never a profile field:
+    // a key the mapper once guessed for it would keep the draft from ever being written (its answers are cached).
+    if (f.kind === 'textarea' && !f.profileKey && (/\?\s*$/.test(f.label) || /^(why|describe|explain|tell (us|me))\b/i.test(f.label))) key = null;
     // Diversity checkboxes (live Oracle): a list of races, and a lone "I am Hispanic or Latino." box.
     const raceList = f.kind === 'checkbox' && !!f.options && asksRaces(f.label);
     const hispanicBox = f.kind === 'checkbox' && !f.options && /hispanic|latin[oa]/i.test(f.container.textContent ?? '');
@@ -79,6 +103,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     // One resume per run, and never as the cover letter (live Oracle: the resume was attached twice).
     if (key === 'resumeFile' && (resumeUploaded || /\bcover\b/i.test(f.label))) key = null;
     let result: FillResult = 'no_match';
+    let noValue = false; // the profile field this question maps to is blank
     const missed: string[] = [];
     // A full-name or signature box takes the whole name; the mapper often says first name (live Oracle).
     const fullName = f.kind === 'text' && /\bfull\s+(legal\s+)?name\b|\bsignature\b/i.test(f.label)
@@ -91,9 +116,22 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       && (/\bphone\b.*\btype\b|\bdevice\s+type\b/i.test(f.label) || (/^type$/i.test(f.label.trim()) && /phone/i.test(f.section ?? '')));
     // The box after a catch-all pick ("If you responded "other"…", "If your institution was not listed…") takes the real answer.
     const followUp = otherAnswer !== null && (f.kind === 'text' || f.kind === 'textarea') && /\b(other|not listed)\b/i.test(f.label);
-    if (followUp) {
+    // The detail box after a sponsorship question ("If yes, what type of visa?") when the applicant needs none.
+    const noVisa = d.profile.requiresSponsorship === 'no' && (f.kind === 'text' || f.kind === 'textarea')
+      && (/sponsor|\bvisa\b/i.test(f.label) ? /\b(if|what|which|type|specify|explain|describe|details?|list)\b/i.test(f.label)
+        : afterSponsor && /^\W*if\b/i.test(f.label));
+    afterSponsor = key === 'requiresSponsorship';
+    // A lone box the form will not go on without ("I agree to…", live Adobe: "…may keep me informed…") can only be
+    // ticked. An optional one is a choice and stays the applicant's.
+    const mustAccept = !key && loneBox && f.required;
+    if (mustAccept) {
+      result = await d.fill(f, true, undefined, missed);
+      if (result === 'filled') { report.accepted!++; flag(f, '#3b82f6'); }
+    } else if (followUp) {
       result = await d.fill(f, otherAnswer!, undefined, missed);
       otherAnswer = null;
+    } else if (noVisa) {
+      result = await d.fill(f, 'N/A', undefined, missed);
     } else if (homeAddress) {
       result = await d.fill(f, 'Home', undefined, missed);
     } else if (phoneType) {
@@ -119,7 +157,13 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (key === 'postalCode' && d.profile.city) f.tieBreak = d.profile.city; // one zip can list several towns
       // One town name can be in several states (live Ashby location: "Austin, Texas" and "Austin, Minnesota").
       if (key === 'city' && d.profile.state) f.tieBreak = US_STATES[d.profile.state.trim().toUpperCase()] ?? d.profile.state;
+      // No default answer in the profile: the application is being filled in on the employer's own careers page, so
+      // that is how the applicant came to it. The profile's "How did you hear about jobs" answer replaces this.
+      const assumed = key === 'referralSource' && value === null;
+      if (assumed) value = 'Company career site';
+      noValue = value === null;
       if (value !== null) result = await d.fill(f, value, undefined, missed);
+      if (assumed && result === 'filled') { report.answered!.push(f); flag(f, '#3b82f6'); } // not the applicant's words: to check
       // A school or referral source missing from a fixed list takes the list's catch-all; the applicant should know
       // (live Ashby: no career-site choice among "How did you hear", so "Other" and its follow-up box).
       const catchAll = key === 'edu.school' ? 'Not listed' : key === 'referralSource' ? 'Other' : null;
@@ -131,32 +175,52 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       }
     }
     report.missed.push(...missed);
+    report.log!.push(`${f.id} ${f.kind}${f.required ? '*' : ''} key=${key} -> ${result} | ${f.label.slice(0, 80)}`);
     if (result === 'filled' && missed.length) { report.filled++; report.attention.push(f); flag(f); } // partly filled
     else if (result === 'filled') report.filled++;
     else if (result === 'skipped_nonempty') {
       report.skipped++;
       console.info('[workday-filler] already has a value:', JSON.stringify(f.label), f.kind);
     }
-    else if (!key && d.answer && answerable(f)) leftover.push(f);
+    // Gemini also takes a question the mapper tied to a profile field when that field cannot answer it. A choice whose
+    // list the value is not in: "Will you have a Bachelor's by June 2029?" maps to the degree and "BS" is neither Yes
+    // nor No; a graduation date of 2029-05 is not the list's "May/June 2029" (live Greenhouse). Or a required question
+    // whose field is blank ("Have you worked here before?").
+    else if (d.answer && (answerable(f) || essay(f))
+      && (!key || (!f.profileKey && !NEVER_ASKED.has(key) && (f.kind === 'select' || !!f.options || (noValue && f.required))))) {
+      leftover.set(f, { flag: f.required || !!key, keyed: !!key });
+    }
     else if (f.required || key) { report.attention.push(f); flag(f); }
     if (d.resumeFirst && resumeUploaded) { report.reloading = true; break; }
   }
-  if (leftover.length && !report.reloading) await answerLeftovers(d, leftover, report);
+  if (leftover.size && !report.reloading) await answerLeftovers(d, leftover, report);
   return report;
 }
 
-async function answerLeftovers(d: AutofillDeps, fields: ExtractedField[], report: AutofillReport) {
+async function answerLeftovers(d: AutofillDeps, fields: Map<ExtractedField, Leftover>, report: AutofillReport) {
+  // Gemini picks from a dropdown's own choices; most pages list them only once the dropdown is opened.
+  for (const [f, how] of fields) {
+    if (f.kind !== 'select' || f.options || !d.options) continue;
+    const choices = await d.options(f).catch(() => []);
+    if (choices.length && choices.length <= MAX_CHOICES) f.options = choices;
+    // The profile value already failed against this list; without the list Gemini's would too.
+    else if (how.keyed) { fields.delete(f); report.attention.push(f); flag(f); }
+  }
+  if (!fields.size) return;
   let answers = new Map<string, string[]>();
   try {
-    answers = await d.answer!(fields.map(toDescriptor));
+    // A dropdown that takes several choices is asked like a checkbox list: every option that applies.
+    answers = await d.answer!([...fields.keys()].map((f) => ({ ...toDescriptor(f), ...(f.multi ? { kind: 'checkbox' as const } : {}) })));
   } catch (e) {
     report.answerError = e instanceof Error ? e.message : String(e);
+    report.log!.push(`gemini failed: ${report.answerError}`);
   }
-  for (const f of fields) {
+  for (const [f, how] of fields) {
     const a = answers.get(f.id);
-    const result = a ? await d.fill(f, f.kind === 'checkbox' ? a : a[0]!, undefined, []) : 'no_match';
+    const result = a ? await d.fill(f, f.kind === 'checkbox' || f.multi ? a : a[0]!, undefined, []) : 'no_match';
+    report.log!.push(`gemini ${f.id} choices=${f.options?.length ?? 'none'} -> ${a ? result : 'no answer'}`);
     if (result === 'filled') { report.filled++; report.answered!.push(f); flag(f, '#3b82f6'); }
-    else if (f.required) { report.attention.push(f); flag(f); }
+    else if (how.flag) { report.attention.push(f); flag(f); }
   }
 }
 
@@ -165,7 +229,8 @@ export function formatReport(r: AutofillReport): string {
   if (!r.filled && !r.skipped && !r.attention.length) return 'Found nothing to fill on this page.';
   const missed = r.missed.length ? ` Not added, fill in by hand: ${r.missed.join(', ')}.` : '';
   const recalled = r.recalled ? ` ${r.recalled} from your saved answers.` : '';
-  const answered = r.answered?.length ? ` Gemini answered ${r.answered.length} (blue): check them.` : '';
+  const answered = r.answered?.length ? ` Answered ${r.answered.length} for you (blue): check them.` : '';
   const failed = r.answerError ? ` Gemini could not answer the rest: ${r.answerError}` : '';
-  return `Filled ${r.filled} fields.${recalled}${answered} ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed}${failed} Review, then continue.`;
+  const accepted = r.accepted ? ` Ticked ${r.accepted} required consent box${r.accepted > 1 ? 'es' : ''} (blue): read what you are agreeing to.` : '';
+  return `Filled ${r.filled} fields.${recalled}${answered}${accepted} ${r.skipped} already had values. ${r.attention.length} need your attention (highlighted).${missed}${failed} Review, then continue.`;
 }

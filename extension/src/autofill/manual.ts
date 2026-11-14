@@ -9,5 +9,10 @@ export function startManual(): void {
   if (window !== window.top && !isForm) return; // ads, chat widgets and other frames stay quiet
   const m = known ?? mountBanner(generic);
   // A fresh mount already showed the banner if it saw a form; otherwise answer the press anyway.
-  if (known || !isForm) void m.show();
+  if (!known && isForm) return;
+  // A banner from before the extension was reloaded or updated cannot reach it any more: start over in its place.
+  m.show().catch(() => {
+    document.getElementById('wf-banner-host')?.remove();
+    void mountBanner(adapter).show();
+  });
 }

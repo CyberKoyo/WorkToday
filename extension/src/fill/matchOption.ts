@@ -127,7 +127,8 @@ function matchWith(value: string, rawOptions: string[], pick: Pick): number {
   }
   // "Company" stands for the employer's name: "Company Career Website" is "Ericsson Career Site" (live SuccessFactors).
   if (/\bcompany\b/.test(cands[0]!)) {
-    const loose = (s: string) => s.replace(/\bcareers?\b/g, 'careers?').replace(/\b(?:web ?site|site)\b/g, '(?:web ?site|site)');
+    // (live Greenhouse: "MongoDB Careers Page")
+    const loose = (s: string) => s.replace(/\bcareers?\b/g, 'careers?').replace(/\b(?:web ?site|site)\b/g, '(?:web ?site|site|page)');
     const any = new RegExp(`^${cands[0]!.split(/\bcompany\b/).map(loose).join('.+')}$`);
     const i = uniqueIndex(opts, (o) => any.test(o));
     if (i !== -1) return i;

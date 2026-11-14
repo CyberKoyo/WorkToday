@@ -11,6 +11,13 @@ const PERSONAL = /authori[sz]|sponsor|\bvisa\b|citizen|immigra|gender|\bsex\b|\b
 export const answerable = (f: ExtractedField) =>
   f.kind !== 'file' && f.kind !== 'textarea' && !(f.kind === 'checkbox' && !f.options) && !PERSONAL.test(f.label);
 
+/** An empty free-text box Gemini may draft: prose, about nothing personal or legal. Drafts are never remembered. */
+export function essay(f: ExtractedField): boolean {
+  if (f.kind !== 'textarea' || PERSONAL.test(f.label)) return false;
+  const el = (f.container.matches('textarea') ? f.container : f.container.querySelector('textarea')) as HTMLTextAreaElement | null;
+  return !el?.value.trim(); // what the applicant already wrote stays theirs
+}
+
 export const answerKey = (f: Pick<ExtractedField, 'kind' | 'label'>) => `${f.kind}|${norm(f.label)}`;
 
 const checked = (el: HTMLElement) => (el instanceof HTMLInputElement ? el.checked

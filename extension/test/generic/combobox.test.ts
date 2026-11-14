@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fillCombobox, comboboxValue } from '../../src/generic/combobox';
+import { fillCombobox, comboboxOptions, comboboxValue } from '../../src/generic/combobox';
+import { fillGeneric } from '../../src/generic/fill';
 
 // Minimal react-select stand-in: mousedown opens the menu (unless server-searched), typing filters it, a click selects.
 function fakeSelect(options: string[], { searchOnly = false } = {}) {
@@ -88,6 +89,41 @@ describe('fillCombobox: Oracle cx-select grid', () => {
     expect(await fillCombobox(c, 'NY', 200)).toBe('filled');
     expect((document.getElementById('other') as HTMLInputElement).value).toBe('');
     expect(comboboxValue(c)).toBe('NY');
+  });
+});
+
+describe('reading and multi-select (live Greenhouse: options exist only while the list is open)', () => {
+  it('comboboxOptions opens the list, reads it, closes it and picks nothing', async () => {
+    const c = fakeSelect(['May/June 2029', 'December 2029/January 2030', 'Other']);
+    const input = c.querySelector('input')!;
+    input.addEventListener('keydown', (e) => { if (e.key === 'Escape') c.querySelector('.select__menu')?.remove(); });
+    expect(await comboboxOptions(c, 200)).toEqual(['May/June 2029', 'December 2029/January 2030', 'Other']);
+    expect(c.querySelector('.select__menu')).toBeNull();
+    expect(comboboxValue(c)).toBe('');
+  });
+  it('a multi-select takes each choice in turn and reports the ones it does not list', async () => {
+    document.body.innerHTML = `<div class="select__container"><label id="l-label" for="l">Locations</label>
+      <div class="select__value-container select__value-container--is-multi"><input id="l" role="combobox" class="select__input"></div></div>`;
+    const c = document.querySelector<HTMLElement>('.select__container')!;
+    const input = c.querySelector('input')!;
+    input.addEventListener('mousedown', () => { // react-select: the list closes after each pick and drops what is taken
+      const menu = document.createElement('div');
+      menu.className = 'select__menu';
+      for (const o of ['New York, NY', 'Austin, TX', 'San Francisco, CA'].filter((x) => !c.textContent!.includes(x))) {
+        const d = document.createElement('div');
+        d.setAttribute('role', 'option');
+        d.textContent = o;
+        d.addEventListener('click', () => { menu.remove(); input.insertAdjacentHTML('beforebegin', `<div class="select__multi-value">${o}</div>`); });
+        menu.append(d);
+      }
+      c.append(menu);
+    });
+    const missed: string[] = [];
+    const f = { id: 'wf-0', label: 'Locations', kind: 'select' as const, required: true, groupIndex: 0, container: c, multi: true };
+    expect(await fillGeneric(f, ['New York, NY', 'Austin, TX', 'Remote'], 100, missed)).toBe('filled');
+    expect([...c.querySelectorAll('.select__multi-value')].map((e) => e.textContent)).toEqual(['New York, NY', 'Austin, TX']);
+    expect(missed).toEqual(['Remote']);
+    expect(await fillGeneric(f, ['San Francisco, CA'], 100, [])).toBe('skipped_nonempty'); // what is there stays the applicant's
   });
 });
 

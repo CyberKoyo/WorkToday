@@ -1,39 +1,164 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Job Application Filler — Setup</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="manifest.open_in_tab" content="true" />
+  <title>Job Application Filler</title>
   <style>
-    body { font: 14px system-ui, sans-serif; max-width: 760px; margin: 24px auto; padding: 0 16px; }
-    .row { display: grid; grid-template-columns: 260px 1fr; gap: 8px; margin: 6px 0; align-items: center; }
-    .entry { border: 1px solid #ddd; padding: 8px; margin: 8px 0; border-radius: 6px; }
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f5f7; --surface: #fff; --text: #111827; --muted: #5b6472; --border: #e2e5ea;
+      --accent: #2563eb; --accent-text: #1d4ed8; --notice: #fff7e6;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f1115; --surface: #181b21; --text: #e6e8ec; --muted: #9aa3b2; --border: #2a2f38; --accent-text: #8ab4ff; --notice: #2b2416; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+    nav { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+    nav strong { padding: 0 10px 16px; font-size: 15px; }
+    nav a { padding: 9px 10px; border-radius: 8px; color: var(--text); text-decoration: none; }
+    nav a:hover { background: var(--bg); }
+    nav a[aria-current] { background: var(--accent); color: #fff; font-weight: 600; }
+    main { padding: 28px 32px 80px; max-width: 980px; width: 100%; min-width: 0; }
+    main > section { scroll-margin-top: 80px; }
+    h1 { font-size: 22px; margin: 0 0 18px; }
+    h2 { font-size: 15px; margin: 0 0 10px; }
+    a { color: var(--accent-text); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+    .card > header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .card > header h2 { margin: 0 auto 0 0; }
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+    .tile span { display: block; color: var(--muted); font-size: 12.5px; }
+    .tile b { display: block; font-size: 28px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+    .tile b.word { font-size: 18px; line-height: 34px; }
+    .muted, .note { color: var(--muted); }
+    .note { margin: 8px 0 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+    table:has(tbody:empty) { display: none; }
+    th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); }
+    td:first-child { overflow-wrap: anywhere; }
+    td:not(:first-child) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    tr:last-child td { border-bottom: 0; }
+    ol.steps { margin: 0; padding: 0; list-style: none; }
+    ol.steps li { padding: 6px 0; }
+    button, .button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; }
+    button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button:disabled { opacity: .55; cursor: default; }
+    input[type="text"], input[type="password"], select, textarea { font: inherit; width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+    textarea { min-height: 90px; resize: vertical; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .row { display: grid; grid-template-columns: 260px 1fr; gap: 10px; margin: 8px 0; align-items: center; }
+    .row input[type="checkbox"] { justify-self: start; }
+    fieldset { border: 0; border-top: 1px solid var(--border); padding: 14px 0 6px; margin: 14px 0 0; }
+    legend { font-weight: 600; padding: 0 8px 0 0; }
+    .entry { border: 1px solid var(--border); padding: 10px 12px; margin: 10px 0; border-radius: 10px; }
+    .notice { background: var(--notice); padding: 9px 12px; border-radius: 8px; }
+    .inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .inline input { flex: 1 1 260px; width: auto; }
     /* Sticky so feedback stays visible below the long profile form. */
-    #status { min-height: 1.4em; font-weight: 600; position: sticky; bottom: 0; background: #fff; padding: 8px 0; margin: 0; border-top: 1px solid #ddd; }
+    #status { position: sticky; bottom: 12px; margin: 0; padding: 10px 14px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .12); }
     #status:empty { display: none; }
-    .notice { background: #fff7e6; padding: 8px; border-radius: 6px; }
+    @media (max-width: 720px) {
+      body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      nav { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 12px; position: static; height: auto; }
+      nav strong { padding: 0 10px 0 4px; width: 100%; }
+      th:nth-child(3), td:nth-child(3) { display: none; }
+      main { padding: 16px 16px 80px; }
+      .row { grid-template-columns: 1fr; gap: 4px; }
+    }
   </style>
 </head>
 <body>
-  <h1>Job Application Filler setup</h1>
-  <section>
-    <h2>1. Gemini API key</h2>
-    <input id="apiKey" type="password" size="50" placeholder="Paste key from aistudio.google.com" />
-    <button id="saveKey" type="button">Save key</button>
-  </section>
-  <section>
-    <h2>2. Resume</h2>
-    <p class="notice">Resumes are parsed with Google Gemini using your API key. On Google's free tier, submitted content may be used to improve Google products.</p>
-    <input id="resume" type="file" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" />
-    <button id="parse" type="button">Parse resume</button>
-    <p id="resumeName"></p>
-  </section>
-  <section>
-    <h2>3. Review your profile</h2>
-    <p>Check every field. Fill in the questions Gemini leaves blank (work authorization, EEO, etc.).</p>
-    <div id="form"></div>
-    <button id="save" type="button">Save &amp; mark reviewed</button>
-  </section>
-  <p id="status" role="status"></p>
+  <nav aria-label="Sections">
+    <strong>Job Application Filler</strong>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#profile">Profile</a>
+    <a href="#settings">Settings</a>
+  </nav>
+  <main>
+    <section id="dashboard">
+      <h1>Dashboard</h1>
+      <div class="tiles">
+        <div class="tile"><span>Applications logged</span><b id="statApps">0</b></div>
+        <div class="tile"><span>Last 7 days</span><b id="statWeek">0</b></div>
+        <div class="tile"><span>Saved answers</span><b id="statAnswers">0</b></div>
+        <div class="tile"><span>Profile</span><b class="word" id="statProfile"></b></div>
+      </div>
+      <div class="card" id="setup">
+        <h2>Finish setting up</h2>
+        <ol class="steps" id="setupSteps"></ol>
+      </div>
+      <div class="card">
+        <header>
+          <h2>Applications</h2>
+          <a id="sheetLink" target="_blank" rel="noopener" hidden>Open sheet</a>
+          <button id="sheetBtn" type="button">Connect Google Sheets</button>
+        </header>
+        <table>
+          <thead><tr><th scope="col">Job application</th><th scope="col">Date applied</th><th scope="col">Site</th></tr></thead>
+          <tbody id="apps"></tbody>
+        </table>
+        <p class="muted" id="appsEmpty">Nothing yet. An application is logged here the first time you press Auto-fill on it.</p>
+        <p class="note" id="sheetNote"></p>
+      </div>
+    </section>
+
+    <section id="profile">
+      <h1>Profile</h1>
+      <div class="card">
+        <h2>Resume</h2>
+        <p class="notice">Resumes are parsed with Google Gemini using your API key. On Google's free tier, submitted content may be used to improve Google products.</p>
+        <div class="inline">
+          <input id="resume" type="file" multiple aria-label="Resume files to add" accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" />
+          <button id="parse" type="button">Read resumes</button>
+        </div>
+        <p class="note">Add every version you keep: the profile below is built from all of them, and essay drafts can draw on all of them. One is attached to applications.</p>
+        <ul id="resumes" aria-label="Stored resumes"></ul>
+        <p class="note" id="resumeName"></p>
+      </div>
+      <div class="card">
+        <h2>Review your profile</h2>
+        <p class="muted">Check every field. Fill in the questions Gemini leaves blank (work authorization, EEO, etc.).</p>
+        <div id="form"></div>
+        <p><button id="save" class="primary" type="button">Save &amp; mark reviewed</button></p>
+      </div>
+    </section>
+
+    <section id="settings">
+      <h1>Settings</h1>
+      <div class="card">
+        <h2>Gemini API key</h2>
+        <p class="muted">Free, about a minute, no card needed: open Google AI Studio, sign in with your Google account, press <b>Create API key</b>, copy it and paste it below.</p>
+        <p><a class="button primary" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Get a free key</a></p>
+        <div class="inline">
+          <input id="apiKey" type="password" aria-label="Gemini API key" placeholder="Paste your key here" />
+          <button id="saveKey" type="button">Save key</button>
+        </div>
+        <p class="note">The key stays in this browser. It is used to read your resume and to answer questions your profile does not cover.</p>
+      </div>
+      <div class="card">
+        <h2>All sites</h2>
+        <p class="muted">Employers with their own careers site (Meta, Amazon, Microsoft) are not on the built-in list. Allow all sites and the Auto-fill banner shows by itself on their application forms too; without it, click the toolbar button on the form.</p>
+        <p><button id="loopAllow" type="button">Allow on all sites</button></p>
+      </div>
+      <div class="card">
+        <h2>Job loop</h2>
+        <p class="muted">Needs <b>All sites</b> above. On a job board, click the toolbar button and press <b>Loop jobs</b>: each listed job opens in its own tab (or inside the board, where the board applies in place), is auto-filled, and the loop returns to the board for the next, scrolling for more jobs as the list runs out. It pauses after 25 jobs.</p>
+        <div class="row"><label for="loopEmail">Sign-in email</label><input id="loopEmail" type="text" autocomplete="off" /></div>
+        <div class="row"><label for="loopPassword">Sign-in password</label><input id="loopPassword" type="password" autocomplete="new-password" /></div>
+        <p class="note">Used wherever an application asks you to sign in or create an account first. Stored unencrypted in this browser and sent only to the site that asks: pick a password you use nowhere else.</p>
+        <div class="row"><label for="loopSubmit">Submit applications for me</label><input id="loopSubmit" type="checkbox" /></div>
+        <p class="note">Off: the loop fills and leaves every tab for you. On: it also presses Next and Submit, but only on a step where nothing is left highlighted for you. Gemini's answers and essay drafts are sent as written, unread.</p>
+        <p><button id="saveLoop" type="button">Save job loop settings</button></p>
+      </div>
+    </section>
+
+    <p id="status" role="status"></p>
+  </main>
   <script type="module" src="./main.ts"></script>
 </body>
 </html>
