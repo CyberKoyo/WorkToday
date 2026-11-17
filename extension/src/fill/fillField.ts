@@ -132,6 +132,18 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         return 'filled';
       }
       case 'checkbox': {
+        if (f.options && f.members) {
+          const boxes = f.members as HTMLInputElement[];
+          if (boxes.some((b) => b.checked)) return 'skipped_nonempty';
+          const text = asText(value);
+          let i = matchOption(text, f.options);
+          // The profile says yes / no / decline; the form spells each out ("I do not want to answer").
+          const lead = /^decline/i.test(text) ? /\b(not (want|wish)|decline|prefer not)\b/i : /^(yes|no)$/i.test(text) ? new RegExp(`^${text}\\b`, 'i') : null;
+          if (i === -1 && lead) { const hits = f.options.flatMap((o, n) => (lead.test(o) ? [n] : [])); if (hits.length === 1) i = hits[0]!; }
+          if (i === -1) return 'no_match';
+          boxes[i]!.click();
+          return 'filled';
+        }
         const cb = c.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
         if (cb.checked) return 'skipped_nonempty';
         if (value === true || /^(yes|true|y)$/i.test(asText(value))) cb.click();
@@ -141,9 +153,20 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         const month = c.querySelector<HTMLInputElement>(SEL.dateMonth);
         const year = c.querySelector<HTMLInputElement>(SEL.dateYear);
         if (month?.value || year?.value) return 'skipped_nonempty';
-        const m = asText(value).match(/^(\d{4})(?:-(\d{2}))?$/);
+        const m = asText(value).match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
         if (!m || !year || (month && !m[2])) return 'no_match';
+        const day = c.querySelector<HTMLInputElement>(SEL.dateDay);
+        // A full date is a signing date, today's. Workday shows a typed day but does not keep it ("Date is required",
+        // live SWIB); picking today in its own calendar does.
+        if (day && m[3]) {
+          c.querySelector<HTMLElement>(SEL.dateIcon)?.click();
+          const todayCell = await waitFor(() => c.ownerDocument.querySelector<HTMLElement>(SEL.dateToday), timeoutMs);
+          if (!todayCell) return 'no_match';
+          todayCell.click();
+          return 'filled';
+        }
         if (month) typeChars(month, m[2]!);
+        if (day) typeChars(day, '01'); // profile dates stop at the month
         typeChars(year, m[1]!);
         // Workday keeps the date only once focus really leaves it; without this Save reports "From is required" (live RTX).
         year.blur();

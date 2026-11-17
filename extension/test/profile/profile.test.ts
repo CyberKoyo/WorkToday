@@ -43,6 +43,17 @@ describe('resolveProfileValue', () => {
     expect(resolveProfileValue(p, 'work.title', 5)).toBeNull();
     expect(resolveProfileValue(p, 'edu.school', 0)).toBeNull();
   });
+  it('certification values by group; no proof in the profile', () => {
+    const c = normalizeProfile({ certifications: [{ name: 'CISSP', issuedDate: '2021-03-15' }, { name: 'CCNA', number: 42 }, 'junk'] });
+    expect(c.certifications).toEqual([
+      { name: 'CISSP', number: '', issuedDate: '2021-03', expirationDate: '' },
+      { name: 'CCNA', number: '42', issuedDate: '', expirationDate: '' },
+    ]);
+    expect(resolveProfileValue(c, 'cert.name', 1)).toBe('CCNA');
+    expect(resolveProfileValue(c, 'cert.expirationDate', 0)).toBeNull();
+    expect(resolveProfileValue(c, 'cert.proof', 0)).toBeNull();
+    expect(resolveProfileValue(c, 'cert.name', 5)).toBeNull();
+  });
   it('skills list; resumeFile -> null', () => {
     expect(resolveProfileValue(p, 'skills', 0)).toEqual(['TS', 'Go']);
     expect(resolveProfileValue(p, 'resumeFile', 0)).toBeNull();

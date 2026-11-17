@@ -1,6 +1,6 @@
 # Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors, Ashby, ADP, Eightfold and Phenom job applications from your reviewed resume profile.
+Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors, Ashby, ADP, Eightfold, Phenom, Lever, SmartRecruiters, Dayforce and Tesla job applications from your reviewed resume profile.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
 - `server/` — Cloudflare Worker that maps form labels to profile keys with Llama 3.1 8B on Workers AI. `npm run deploy -w server`.
@@ -10,7 +10,7 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Orac
 
 | ATS | Hosts | Notes |
 | --- | --- | --- |
-| Workday | `*.myworkdayjobs.com`, `*.myworkday.com` | Adds work/education groups to match your profile, uploads the resume, and moves through the steps by itself up to Review (Submit is yours). Ticks "I have read and consent to the terms and conditions" on Voluntary Disclosures, which agrees to them for you. Signing in is yours. |
+| Workday | `*.myworkdayjobs.com`, `*.myworkday.com` | Adds work/education/certification groups to match your profile, uploads the resume and each certification's proof, and moves through the steps by itself up to Review (Submit is yours). Ticks "I have read and consent to the terms and conditions" on Voluntary Disclosures, which agrees to them for you. With an account password saved in setup, creates your account for that employer (or signs in when the email already has one) and ticks the account form's "I agree" box, which agrees to those terms for you; a refused password is tried once, then signing in is yours. Without one, signing in is yours. |
 | Greenhouse | `job-boards.greenhouse.io`, `boards.greenhouse.io`, Greenhouse forms embedded on company sites | Adds education groups. |
 | iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
 | Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Adds and saves work/education history entries. The sign-in / email step is yours. |
@@ -19,6 +19,10 @@ Browser extension (Chrome + Firefox) that fills Workday, Greenhouse, iCIMS, Orac
 | ADP Recruiting Management | `recruiting.adp.com`, `recruiting2.adp.com` (reached from `myjobs.adp.com`) | Fills contact details (Country/State/County lists included), the EEO step from your profile, the source list, the resume upload, and the screening questions as each one appears. A question revealed only by one of Gemini's answers needs another press of Auto-fill. The tax credit (WOTC) screening is opted out of by itself: Opt Out, confirm, "Under 40?" and (if under 40) your date of birth from your profile, Submit. Ticks "Reviewed" under the data protection and electronic signature notices, which agrees to them for you. Signing in on `myjobs.adp.com` is yours. |
 | Eightfold | `*.eightfold.ai/careers/apply?pid=…`, `careers.qualcomm.com` | Fills contact details, country lists and questions, and attaches the resume. A field that appears after an answer (State after Country) needs another press of Auto-fill. Signing in (Qualcomm, Northrop Grumman) is yours. |
 | Phenom apply | `careers.steris.com`, `jobs.cvshealth.com` (`/…/apply?jobSeqNo=…`) | Fills the "My Information" step and attaches the resume. Terms/privacy consent boxes are yours. Later steps go through the generic reader; work/education rows are not added yet. |
+| Lever | `jobs.lever.co`, `jobs.eu.lever.co` (`/…/apply`) | Fills the one-page form, its custom question cards and the EEO section, searches "Current location" for your city, and attaches the resume. Agreement checkboxes and the captcha on Submit are yours. |
+| SmartRecruiters | `jobs.smartrecruiters.com` (`/oneclick-ui/…`) | Fills names, email, phone, profile links and the message box, and attaches the resume. Experience and Education entries ("Add") and the screening step after Next are yours. |
+| Dayforce | `jobs.dayforcehcm.com` ("Apply without an Account") | Fills Candidate Info, its dropdowns, and the open education and employment entry, and attaches the resume. State/Province unlocks after Country, so it needs another press of Auto-fill. Saving each entry (Update), further entries and the privacy statement are yours. |
+| Tesla | `www.tesla.com/careers/search/job/apply/…` | Fills the "Personal Information" step and attaches the resume. Later steps go through the same reader but were not seen live. |
 
 ## Setup
 
@@ -50,6 +54,7 @@ Questions no profile field covers go to Gemini too, under your key, with your pr
 for you to check. Work authorization, sponsorship, demographic, consent, salary and essay questions are never sent.
 Answers you type into highlighted fields are saved in the extension (this browser only) and reused when the same question comes up again,
 written answers included (except "why…" questions, which are about one employer). Written questions are never sent to Gemini.
+The account password is stored unencrypted in the extension (this browser only) and is typed only into a site's own password boxes; it never goes to Gemini or the mapping server. Use one made for job applications.
 Your date of birth stays in this browser and is used only for ADP's tax credit opt-out; it never goes to Gemini or the mapping server, and no other form gets it.
 The extension never overwrites a field that already has a value and never submits an application. It moves to the next step
 only when every field on the current one was filled, and only through a button named Next or Continue (ADP: the pager arrow, never on the last step).

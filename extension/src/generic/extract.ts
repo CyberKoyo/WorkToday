@@ -17,7 +17,8 @@ function isControl(el: HTMLElement, skip?: Skip): boolean {
   // Sites keep a helper input in the markup and toggle it with an inline display:none.
   if (el.style.display === 'none') return false;
   if ((el as HTMLInputElement).disabled) return false;
-  if (el instanceof HTMLInputElement && SKIP_TYPES.has(el.type)) return false;
+  // Ant Design's select is a type="search" input (live Dayforce); elsewhere a search box is a page filter, not a field.
+  if (el instanceof HTMLInputElement && SKIP_TYPES.has(el.type) && !(el.type === 'search' && el.closest('.ant-select'))) return false;
   // The text box of an ARIA 1.1 combobox and the radios of a radiogroup belong to their wrapper.
   return !el.parentElement?.closest(`[role="combobox"],${CHOICES}`);
 }
@@ -112,6 +113,20 @@ function kindOf(el: HTMLElement): FieldKind {
   if (el.matches('textarea')) return 'textarea';
   if (el.matches('input[type="date"],input[type="month"]')) return 'date';
   return 'text';
+}
+
+/** One question per wrapper, named by the site's own label element (Lever, Tesla): the wrapper's controls are one field. */
+export function wrapperField(w: HTMLElement, rawLabel: string, optionText: (el: HTMLElement) => string = choiceLabel): Discovered | null {
+  const members = [...w.querySelectorAll<HTMLElement>('input,select,textarea')].filter((el) => isControl(el));
+  const first = members[0];
+  if (!first) return null;
+  const kind = kindOf(first);
+  const d: Discovered = {
+    container: w, label: clean(rawLabel), kind,
+    required: rawLabel.includes('*') || members.some((m) => m.matches('[required],[aria-required="true"]')),
+  };
+  if (kind === 'radio' || (kind === 'checkbox' && members.length > 1)) { d.options = members.map(optionText); d.members = members; }
+  return d;
 }
 
 export function discoverFields(root: ParentNode, skip?: Skip): Discovered[] {

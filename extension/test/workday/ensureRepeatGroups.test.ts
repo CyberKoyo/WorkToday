@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ensureRepeatGroups } from '../../src/workday/ensureRepeatGroups';
-import { emptyEdu, emptyProfile, emptyWork } from '../../src/profile/profile';
+import { emptyCert, emptyEdu, emptyProfile, emptyWork } from '../../src/profile/profile';
 
 describe('ensureRepeatGroups', () => {
   it('clicks Add until there are enough work groups', async () => {
@@ -26,6 +26,17 @@ describe('ensureRepeatGroups', () => {
       sec.prepend(g);
     });
     await ensureRepeatGroups(document, { ...emptyProfile(), education: [emptyEdu(), emptyEdu()] }, 200);
+    expect(n).toBe(2);
+  });
+  it('adds one certification group per profile certification', async () => {
+    document.body.innerHTML = `<h3 id="Certifications-section">Certifications</h3>
+      <div role="group" aria-labelledby="Certifications-section"><button data-automation-id="add-button">Add</button></div>`;
+    const sec = document.querySelector('[aria-labelledby="Certifications-section"]')!;
+    let n = 0;
+    sec.querySelector('button')!.addEventListener('click', () => {
+      n++; const g = document.createElement('div'); g.setAttribute('role', 'group'); sec.prepend(g);
+    });
+    await ensureRepeatGroups(document, { ...emptyProfile(), certifications: [emptyCert(), emptyCert()] }, 200);
     expect(n).toBe(2);
   });
   it('stops if Add does nothing (no infinite loop)', async () => {

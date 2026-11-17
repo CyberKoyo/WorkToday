@@ -100,6 +100,12 @@ describe('fillField', () => {
     const [m, y] = f.container.querySelectorAll('input');
     expect([m!.value, y!.value]).toEqual(['03', '2020']);
   });
+  it('date: a day box takes the first of the month', async () => {
+    const f = setup(wrap('<label>Date Issued</label><input data-automation-id="dateSectionMonth-input"><input data-automation-id="dateSectionDay-input"><input data-automation-id="dateSectionYear-input">'));
+    expect(await fillField(f, '2020-03')).toBe('filled');
+    const [m, d, y] = f.container.querySelectorAll('input');
+    expect([m!.value, d!.value, y!.value]).toEqual(['03', '01', '2020']);
+  });
 });
 
 describe('fillField text commit', () => {

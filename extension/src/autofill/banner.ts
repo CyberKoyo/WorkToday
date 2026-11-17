@@ -1,4 +1,4 @@
-export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean }
+export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean; onLog?: () => void }
 
 const CSS = `
   .box { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 300px; padding: 12px 14px;
@@ -8,6 +8,7 @@ const CSS = `
   .msg { margin: 6px 0 10px; }
   .primary { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
   .primary:disabled { opacity: .6; cursor: default; }
+  .log { background: none; border: 0; color: #2563eb; padding: 8px; cursor: pointer; text-decoration: underline; }
   .close { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; cursor: pointer; }`;
 
 export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): void } {
@@ -16,7 +17,7 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>${CSS}</style><div class="box${opts.framed ? ' framed' : ''}" role="dialog" aria-label="Job Application Filler">
     <strong>Job Application Filler</strong><p class="msg"></p>
-    <button class="primary" type="button"></button>
+    <button class="primary" type="button"></button>${opts.onLog ? '<button class="log" type="button">Log application</button>' : ''}
     <button class="close" type="button" aria-label="Dismiss">×</button></div>`;
   const msg = shadow.querySelector('.msg')!;
   const primary = shadow.querySelector<HTMLButtonElement>('.primary')!;
@@ -37,6 +38,7 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
     };
     if (opts.autoFill) primary.click();
   }
+  if (opts.onLog) shadow.querySelector<HTMLButtonElement>('.log')!.onclick = () => opts.onLog!();
   shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { host.remove(); opts.onDismiss(); };
   // An iframe sized to its content has no visible bottom edge; put the banner where the form starts.
   if (opts.framed) document.body.prepend(host); else document.body.append(host);

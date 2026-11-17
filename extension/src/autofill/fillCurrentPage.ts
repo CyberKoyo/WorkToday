@@ -1,13 +1,13 @@
 import { browser } from 'wxt/browser';
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
-import { getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
+import { addAccountRefused, getAccountPassword, getAccountRefused, getCertProofs, getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
 import { rememberAnswers } from '../answers/remembered';
 import { storedToFile } from '../storage/fileCodec';
 import type { AtsAdapter } from '../ats/types';
 import { runAutofill, formatReport } from './runAutofill';
 import type { AnswerReply, BgMessage, MapReply } from '../messages';
 import { markResumeReload, resumeReloadPending, clearResumeReload } from './resumeReload';
-import { clearAdvance, complete, markAdvance, nextButton } from './advance';
+import { clearAdvance, complete, markAdvance, markAccountTried, nextButton } from './advance';
 import { waitFor } from '../fill/dom';
 
 const ERRORS: Record<string, string> = {
@@ -29,13 +29,32 @@ async function answerViaBackground(fields: FieldDescriptor[]): Promise<Map<strin
   return new Map(reply.answers);
 }
 
+let accountRunning = false;
+
 export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
   const resumeDone = !!adapter.resumeReloadsPage && resumeReloadPending();
   clearResumeReload(); // before any await, so a second banner on the reloaded page does not fill again
   clearAdvance();
   const profile = await getProfile();
   if (!profile?.reviewed) throw new Error('Review your profile in setup first.');
+  if (adapter.accountPage?.(document) && adapter.account) {
+    const password = await getAccountPassword();
+    if (!password || !profile.email) return 'Sign in or create your account, or save an account password in setup to have it done for you.';
+    if ((await getAccountRefused()).includes(location.host)) return 'Your saved account password was refused on this site before, so it is not tried again. Sign in yourself.';
+    // The step re-renders (Create Account → Sign In) while this runs; the banner that brings must not start a second try.
+    if (accountRunning) return 'Signing in…';
+    accountRunning = true;
+    let problem: string | null;
+    let attempted = false;
+    try { problem = await adapter.account(document, profile.email, password, () => { attempted = true; markAccountTried(); }); } finally { accountRunning = false; }
+    // Only a sent sign-in that came back refused counts; "press Create Account yourself" is not a refusal.
+    if (problem && attempted) await addAccountRefused(location.host);
+    if (problem) return problem;
+    markAdvance(); // the application's first step fills itself
+    return 'Signed in.';
+  }
   const stored = await getResume();
+  const proofs = await getCertProofs();
   let read = 0; // fields the last pass saw
   const deps: Parameters<typeof runAutofill>[0] = {
     profile,
@@ -47,12 +66,26 @@ export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
     fillFile: adapter.resumeReloadsPage
       ? async (f, file) => { markResumeReload(); const r = await adapter.fillFile(f, file); if (r !== 'filled') clearResumeReload(); return r; }
       : adapter.fillFile,
+    proof: async (f) => {
+      const file = proofs[profile.certifications[f.groupIndex]?.name ?? ''];
+      return file ? adapter.fillFile(f, storedToFile(file)) : null;
+    },
     ensureGroups: async (p) => { await adapter.prepare?.(document); await adapter.ensureGroups(document, p); },
     resumeFirst: adapter.resumeReloadsPage,
     resumeDone,
     remembered: await getSavedAnswers(),
     answer: answerViaBackground,
   };
+  // A step Auto-fill just moved to can still be rendering (live Bloomberg: the questions step read as empty and
+  // reported "Filled 0"); wait until the number of fields holds still.
+  let seen = -1;
+  let held = 0;
+  await waitFor(() => {
+    const n = adapter.extract(document).length;
+    held = n === seen ? held + 1 : 0;
+    seen = n;
+    return n > 0 && held >= 8 ? true : null; // 8 polls of 50ms
+  }, 4000);
   let report = await runAutofill(deps);
   // An answer can reveal a follow-up ("What is your Current Degree Program?" after "Yes", live RTX): fill again for it.
   // Workday shows the follow-up a moment after the answer lands.

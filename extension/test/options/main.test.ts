@@ -9,6 +9,8 @@ function setDom() {
   document.body.innerHTML = `
     <input id="apiKey" type="password" />
     <button id="saveKey" type="button"></button>
+    <input id="accountPassword" type="password" />
+    <button id="savePassword" type="button"></button>
     <input id="resume" type="file" />
     <button id="parse" type="button"></button>
     <p id="resumeName"></p>

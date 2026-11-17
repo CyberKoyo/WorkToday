@@ -18,6 +18,10 @@ export async function handleMessage(
     await (deps.openOptions ?? (() => browser.runtime.openOptionsPage()))();
     return undefined;
   }
+  if (msg.type === 'open-tracker') {
+    await browser.tabs.create({ url: browser.runtime.getURL(`/tracker.html?title=${encodeURIComponent(msg.title)}`) });
+    return undefined;
+  }
   if (msg.type === 'answer-fields') {
     try {
       return { ok: true, answers: [...(await (deps.answerFields ?? answerFields)(msg.fields)).entries()] };

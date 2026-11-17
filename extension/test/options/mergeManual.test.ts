@@ -3,6 +3,12 @@ import { keepManualAnswers } from '../../src/options/mergeManual';
 import { emptyProfile } from '../../src/profile/profile';
 
 describe('keepManualAnswers', () => {
+  it('keeps certifications typed by hand that the resume does not list; the resume wins for the same name, under the typed spelling that its proof is stored by', () => {
+    const cert = (name: string, number: string) => ({ name, number, issuedDate: '', expirationDate: '' });
+    const { reviewed, ...current } = { ...emptyProfile(), certifications: [cert('CISSP', 'old'), cert('Security+', 'hand')] };
+    const parsed = { ...emptyProfile(), certifications: [cert('cissp', 'new')] };
+    expect(keepManualAnswers(parsed, current).certifications).toEqual([cert('CISSP', 'new'), cert('Security+', 'hand')]);
+  });
   it('keeps manual-only answers from current and takes everything else from parsed', () => {
     const current = {
       ...emptyProfile(),

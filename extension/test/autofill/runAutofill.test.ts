@@ -26,6 +26,57 @@ function deps(over: Record<string, unknown> = {}) {
   };
 }
 
+describe('runAutofill certifications', () => {
+  const page = (required = '') => `<div role="group" data-automation-id="certificationSection">
+    <div role="group"><h4>Certification 1</h4>
+      <div data-automation-id="formField-a"><label>Name</label><input type="text"></div>
+      <div data-automation-id="formField-b"><label>Date Expired</label><input data-automation-id="dateSectionYear-input"></div>
+      <div data-automation-id="formField-c"><label>Upload proof${required}</label><input type="file"></div>
+    </div></div>`;
+  const certDeps = (over: Record<string, unknown> = {}) => deps({
+    profile: { ...emptyProfile(), reviewed: true, certifications: [{ name: 'CISSP', number: '', issuedDate: '', expirationDate: '' }] },
+    map: vi.fn().mockResolvedValue(new Map()),
+    ...over,
+  });
+  const run = (d: ReturnType<typeof deps>, html: string) => {
+    document.body.innerHTML = html;
+    return runAutofill(d as never);
+  };
+
+  it('uploads the proof, never the resume', async () => {
+    const proof = vi.fn().mockResolvedValue('filled');
+    const d = certDeps({ proof });
+    const r = await run(d, page());
+    expect(proof).toHaveBeenCalledWith(expect.objectContaining({ label: 'Upload proof', groupIndex: 0 }));
+    expect(d.fillFile).not.toHaveBeenCalled();
+    expect(r.filled).toBe(2); // name and proof
+  });
+  it('the resume stays out of the box with no proof stored', async () => {
+    const d = certDeps({ proof: vi.fn().mockResolvedValue(null) });
+    await run(d, page());
+    expect(d.fillFile).not.toHaveBeenCalled();
+  });
+  it('an optional empty expiry or proof is nothing to flag, so hands-free can advance', async () => {
+    const r = await run(certDeps({ proof: vi.fn().mockResolvedValue(null) }), page());
+    expect(r.attention).toEqual([]);
+  });
+  it('a required proof with none stored is flagged', async () => {
+    const r = await run(certDeps({ proof: vi.fn().mockResolvedValue(null) }), page('*'));
+    expect(r.attention.map((f) => f.label)).toEqual(['Upload proof']);
+  });
+  it('a mapper saying resume for a certification box on another site still gets the proof', async () => {
+    const proof = vi.fn().mockResolvedValue('filled');
+    const d = certDeps({
+      proof,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile']])),
+      extract: () => extractFields(document).map((f) => { delete f.profileKey; return f; }),
+    });
+    await run(d, '<div data-automation-id="formField-a"><label>Certification proof</label><input type="file"></div>');
+    expect(proof).toHaveBeenCalled();
+    expect(d.fillFile).not.toHaveBeenCalled();
+  });
+});
+
 describe('runAutofill', () => {
   it('fills mapped, skips non-empty, flags unmatched required, uploads resume', async () => {
     const d = deps();

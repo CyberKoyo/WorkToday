@@ -17,6 +17,27 @@ describe('extractFields', () => {
     ]);
     expect(f[0]!.container.dataset.wfId).toBe('wf-0');
   });
+  it('certification section: keys come from the labels, the upload is the proof and not the resume', () => {
+    document.body.innerHTML = `<h3 id="Certifications-section">Certifications</h3>
+      <div role="group" aria-labelledby="Certifications-section">
+        <div role="group"><h4>Certification 2</h4>
+          <div data-automation-id="formField-a"><label>Name*</label><input type="text"></div>
+          <div data-automation-id="formField-b"><label>Certification Number</label><input type="text"></div>
+          <div data-automation-id="formField-c"><label>Date Issued</label><input data-automation-id="dateSectionYear-input"></div>
+          <div data-automation-id="formField-d"><label>Date Expired</label><input data-automation-id="dateSectionYear-input"></div>
+          <div data-automation-id="formField-e"><label>Upload proof</label><input type="file"></div>
+          <div data-automation-id="formField-f"><label>Anything else</label><input type="text"></div>
+        </div>
+      </div>`;
+    expect(extractFields().map((x) => [x.label, x.profileKey, x.groupIndex])).toEqual([
+      ['Name', 'cert.name', 1],
+      ['Certification Number', 'cert.number', 1],
+      ['Date Issued', 'cert.issuedDate', 1],
+      ['Date Expired', 'cert.expirationDate', 1],
+      ['Upload proof', 'cert.proof', 1],
+      ['Anything else', undefined, 1],
+    ]);
+  });
   it('my experience page: groups, kinds, indexes', () => {
     load('workday-my-experience.html');
     expect(extractFields().map((x) => [x.label, x.kind, x.section, x.groupIndex])).toEqual([
@@ -46,5 +67,45 @@ describe('extractFields', () => {
       + dd('somethingElse', 'Other question');
     expect(extractFields().map((f) => f.profileKey)).toEqual(['gender', 'ethnicity', 'ethnicity', 'veteranStatus', undefined]);
     expect(toDescriptor(extractFields()[0]!)).not.toHaveProperty('profileKey');
+  });
+});
+
+// Live SWIB Self Identify step (2026-11-17): Date and the three boxes were left empty and the step called complete.
+describe('workday disability form', () => {
+  const FORM = `
+    <div data-automation-id="formField-name" data-fkit-id="selfIdentifiedDisabilityData--name"><label>Name*</label><input type="text"></div>
+    <div data-automation-id="formField-dateSignedOn" data-fkit-id="selfIdentifiedDisabilityData--dateSignedOn"><fieldset><legend><label>Date*</label></legend>
+      <input data-automation-id="dateSectionMonth-input"><input data-automation-id="dateSectionDay-input"><input data-automation-id="dateSectionYear-input"></fieldset></div>
+    <div data-automation-id="formField-disabilityStatus" data-fkit-id="selfIdentifiedDisabilityData--disabilityStatus"><fieldset><legend><label>Please check one of the boxes below:*</label></legend>
+      <input id="a-ds" type="checkbox"><label for="a-ds">Yes, I have a disability, or have had one in the past</label>
+      <input id="b-ds" type="checkbox"><label for="b-ds">No, I do not have a disability and have not had one in the past</label>
+      <input id="c-ds" type="checkbox"><label for="c-ds">I do not want to answer</label></fieldset></div>`;
+  it('signs with the whole name, dates it today and reads the boxes as one choice', async () => {
+    document.body.innerHTML = FORM;
+    const [name, date, status] = extractFields(document);
+    expect(name!.label).toBe('Signature (full name)');
+    expect(date!.answer).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(status).toMatchObject({ kind: 'checkbox', profileKey: 'disabilityStatus', required: true });
+    expect(status!.options).toHaveLength(3);
+    const { fillField } = await import('../../src/fill/fillField');
+    // The day is picked in Workday's calendar: a typed one shows but is not kept.
+    date!.container.insertAdjacentHTML('beforeend', '<button data-automation-id="dateIcon"></button>');
+    let picked = false;
+    date!.container.querySelector('[data-automation-id="dateIcon"]')!.addEventListener('click', () => {
+      document.body.insertAdjacentHTML('beforeend', '<div data-automation-id="datePicker"><button data-automation-id="datePickerSelectedToday">17</button></div>');
+      document.querySelector('[data-automation-id="datePickerSelectedToday"]')!.addEventListener('click', () => { picked = true; });
+    });
+    expect(await fillField(date!, '2026-11-17')).toBe('filled');
+    expect(picked).toBe(true);
+    expect(await fillField(status!, 'decline')).toBe('filled');
+    expect((status!.members![2] as HTMLInputElement).checked).toBe(true);
+    expect(await fillField(status!, 'No')).toBe('skipped_nonempty');
+  });
+  it('picks No by its leading word', async () => {
+    document.body.innerHTML = FORM;
+    const status = extractFields(document)[2]!;
+    const { fillField } = await import('../../src/fill/fillField');
+    expect(await fillField(status, 'No')).toBe('filled');
+    expect((status.members![1] as HTMLInputElement).checked).toBe(true);
   });
 });

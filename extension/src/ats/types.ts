@@ -2,7 +2,7 @@ import type { ExtractedField, FillResult } from './field';
 import type { Profile, ProfileValue } from '../profile/profile';
 
 export interface AtsAdapter {
-  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby' | 'adp' | 'adp-tax' | 'eightfold' | 'phenom';
+  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby' | 'adp' | 'adp-tax' | 'eightfold' | 'phenom' | 'lever' | 'tesla' | 'smartrecruiters' | 'dayforce';
   detect(url: URL): boolean;
   /** An application form with fields is on screen in this document. */
   isFormPage(doc: Document): boolean;
@@ -20,6 +20,10 @@ export interface AtsAdapter {
   prepare?(doc: Document): Promise<void>;
   /** Fills as soon as the page loads, without the Auto-fill press (ADP's tax screening: the applicant opts out by default). */
   autoStart?: boolean;
+  /** On the site's create-account / sign-in step: fills it with the applicant's standard password and signs in (`onAttempt` fires before a sign-in is sent). Null once through it; otherwise what to tell the applicant. */
+  account?(doc: Document, email: string, password: string, onAttempt: () => void): Promise<string | null>;
+  /** The create-account / sign-in step is on screen. */
+  accountPage?(doc: Document): boolean;
   /** Click "Add" until there is one work/education group per profile entry. */
   ensureGroups(doc: Document, profile: Profile): Promise<void>;
 }

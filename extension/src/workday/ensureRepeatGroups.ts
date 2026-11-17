@@ -11,4 +11,5 @@ async function growSection(root: ParentNode, sectionSel: string, wanted: number,
 export async function ensureRepeatGroups(root: ParentNode, profile: Profile, timeoutMs = 3000): Promise<void> {
   await growSection(root, SEL.workSection, profile.work.length, timeoutMs);
   await growSection(root, SEL.educationSection, profile.education.length, timeoutMs);
+  await growSection(root, SEL.certificationSection, profile.certifications.length, timeoutMs);
 }

@@ -31,11 +31,14 @@ const RESPONSE_SCHEMA = object({
     title: S, company: S, location: S, startDate: S, endDate: S, current: { type: 'BOOLEAN' }, description: S }) },
   education: { type: 'ARRAY', items: object({
     school: S, degree: S, fieldOfStudy: S, startDate: S, endDate: S, gpa: S }) },
+  certifications: { type: 'ARRAY', items: object({
+    name: S, number: S, issuedDate: S, expirationDate: S }) },
 });
 
 const PROMPT = `Extract the candidate's details from this resume into the JSON schema.
 Use "" for anything not stated. Dates as YYYY-MM (or YYYY if month unknown).
 For a current job set current=true and endDate="". state: 2-letter code if US.
+certifications: professional certifications and licenses only, not degrees or courses.
 Do not invent information. Keep description to the resume's bullet text for that role.`;
 
 function inferMimeType(file: StoredFile): string {

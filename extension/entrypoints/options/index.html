@@ -15,10 +15,17 @@
 </head>
 <body>
   <h1>Job Application Filler setup</h1>
+  <p><a href="/tracker.html">Applications log</a></p>
   <section>
     <h2>1. Gemini API key</h2>
     <input id="apiKey" type="password" size="50" placeholder="Paste key from aistudio.google.com" />
     <button id="saveKey" type="button">Save key</button>
+  </section>
+  <section>
+    <h2>Account password (optional)</h2>
+    <p class="notice">Workday makes you create an account for every employer. Save one password here and the extension creates the account (or signs in) with your profile's email and this password, and agrees to the account terms for you. It is stored unencrypted in this browser only. Use a password made for job applications, not one you use anywhere else.</p>
+    <input id="accountPassword" type="password" size="50" autocomplete="off" />
+    <button id="savePassword" type="button">Save password</button>
   </section>
   <section>
     <h2>2. Resume</h2>

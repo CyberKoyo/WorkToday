@@ -21,6 +21,8 @@ export interface AutofillDeps {
   map: (fields: FieldDescriptor[]) => Promise<Map<string, ProfileKey | null>>;
   fill: AtsAdapter['fill'];
   fillFile: (f: ExtractedField, file: File) => Promise<FillResult>;
+  /** Uploads this certification group's proof; null when none is stored. */
+  proof?: (f: ExtractedField) => Promise<FillResult | null>;
   ensureGroups: (p: Profile) => Promise<void>;
   /** Uploading the resume reloads the page (iCIMS): upload it before anything else and stop there. */
   resumeFirst?: boolean;
@@ -83,6 +85,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     if (key === 'dateOfBirth' && !f.profileKey) key = null;
     // A resume-import box re-parses the resume and resets the form (live Oracle); it is never the resume upload.
     if (key === 'resumeFile' && /\b(import|auto-?fill|parse|populate)\b/i.test(f.label)) key = null;
+    // A certification's upload wants its proof, never the resume (the mapper or its cache can say resume).
+    if (key === 'resumeFile' && /\b(certifi|licen[sc]e)/i.test(`${f.label} ${f.section ?? ''}`)) key = 'cert.proof';
     // One resume per run, and never as the cover letter (live Oracle: the resume was attached twice).
     if (key === 'resumeFile' && (resumeUploaded || /\bcover\b/i.test(f.label))) key = null;
     let result: FillResult = 'no_match';
@@ -117,6 +121,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       else if (d.resume) result = await d.fillFile(f, d.resume);
       if (result === 'filled') resumeUploaded = true;
       else if (!d.resumeDone && result !== 'skipped_nonempty') console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
+    } else if (key === 'cert.proof') {
+      result = (await d.proof?.(f)) ?? (f.required ? 'no_match' : 'skipped_nonempty');
     } else if (!key && rememberable(f) && d.remembered?.[answerKey(f)] !== undefined) {
       result = await d.fill(f, d.remembered[answerKey(f)]!, undefined, missed);
       if (result === 'filled') report.recalled!++;
@@ -132,6 +138,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (value !== null) result = await d.fill(f, value, undefined, missed);
       // Nothing in the profile, yet nothing to do: an optional lone box ("I have a preferred name") rightly stays unticked (live RTX).
       else if (f.kind === 'checkbox' && !f.options && !f.required) result = 'skipped_nonempty';
+      // A certification with no number or expiry has nothing to enter; flagging it would stop hands-free advance.
+      else if (key.startsWith('cert.') && !f.required) result = 'skipped_nonempty';
       // A school or referral source missing from a fixed list takes the list's catch-all; the applicant should know
       // (live Ashby: no career-site choice among "How did you hear", so "Other" and its follow-up box).
       const catchAll = key === 'edu.school' ? 'Not listed' : key === 'referralSource' ? 'Other' : null;

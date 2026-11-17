@@ -33,3 +33,12 @@ export function nextButton(doc: Document): HTMLElement | null {
     .find((b) => shown(b) && !(b as HTMLButtonElement).disabled
       && NEXT.test(clean(b instanceof HTMLInputElement ? b.value : b.textContent))) ?? null;
 }
+
+// The account step is done by itself once per tab: a second wrong password could lock the applicant's account.
+const ACCOUNT_KEY = 'wf:account-tried';
+export function markAccountTried(): void {
+  try { sessionStorage.setItem(ACCOUNT_KEY, '1'); } catch { /* storage blocked: the step just is not automatic */ }
+}
+export function accountTried(): boolean {
+  try { return sessionStorage.getItem(ACCOUNT_KEY) === '1'; } catch { return true; }
+}

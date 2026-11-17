@@ -12,6 +12,11 @@ export const MATCHES = {
   eightfold: ['*://*.eightfold.ai/careers*', '*://careers.qualcomm.com/careers*'],
   // Phenom runs only on companies' own career domains; shortcut: listed as seen live, add new ones the same way.
   phenom: ['*://careers.steris.com/*/apply*', '*://jobs.cvshealth.com/*/apply*'],
+  lever: ['*://jobs.lever.co/*', '*://jobs.eu.lever.co/*'],
+  dayforce: ['*://jobs.dayforcehcm.com/*'],
+  smartrecruiters: ['*://jobs.smartrecruiters.com/*'],
+  // The job page opens the form in place, so the script must already be there.
+  tesla: ['*://www.tesla.com/careers/search/job/*'],
 } as const;
 
 export const CONTENT_MATCHES: string[] = Object.values(MATCHES).flat();

@@ -1,6 +1,6 @@
 import { PROFILE_KEYS, type ProfileKey } from '@wf/shared';
 
-export type ScalarKey = Exclude<ProfileKey, `work.${string}` | `edu.${string}` | 'skills' | 'resumeFile'>;
+export type ScalarKey = Exclude<ProfileKey, `work.${string}` | `edu.${string}` | `cert.${string}` | 'skills' | 'resumeFile'>;
 export const SCALAR_KEYS = PROFILE_KEYS.filter(
   (k) => !k.includes('.') && k !== 'skills' && k !== 'resumeFile',
 ) as ScalarKey[];
@@ -12,17 +12,21 @@ export interface WorkEntry {
 export interface EduEntry {
   school: string; degree: string; fieldOfStudy: string; startDate: string; endDate: string; gpa: string;
 }
+export interface CertEntry {
+  name: string; number: string; issuedDate: string; expirationDate: string;
+}
 export type Profile = Record<ScalarKey, string> & {
-  work: WorkEntry[]; education: EduEntry[]; skills: string[]; reviewed: boolean;
+  work: WorkEntry[]; education: EduEntry[]; certifications: CertEntry[]; skills: string[]; reviewed: boolean;
 };
 export type ProfileValue = string | boolean | string[];
 
 export const emptyWork = (): WorkEntry => ({ title: '', company: '', location: '', startDate: '', endDate: '', current: false, description: '' });
 export const emptyEdu = (): EduEntry => ({ school: '', degree: '', fieldOfStudy: '', startDate: '', endDate: '', gpa: '' });
+export const emptyCert = (): CertEntry => ({ name: '', number: '', issuedDate: '', expirationDate: '' });
 
 export function emptyProfile(): Profile {
   const scalars = Object.fromEntries(SCALAR_KEYS.map((k) => [k, ''])) as Record<ScalarKey, string>;
-  return { ...scalars, work: [], education: [], skills: [], reviewed: false };
+  return { ...scalars, work: [], education: [], certifications: [], skills: [], reviewed: false };
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -30,7 +34,7 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 export function normalizeMonth(s: string): string {
   const t = s.trim().toLowerCase();
   let m: RegExpMatchArray | null;
-  if ((m = t.match(/^(\d{4})-(\d{2})$/))) return `${m[1]!}-${m[2]!}`;
+  if ((m = t.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/))) return `${m[1]!}-${m[2]!}`;
   if ((m = t.match(/^(\d{4})$/))) return m[1]!;
   if ((m = t.match(/^(\d{1,2})\/(\d{4})$/))) return `${m[2]!}-${m[1]!.padStart(2, '0')}`;
   if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{4})$/))) {
@@ -66,6 +70,10 @@ export function normalizeProfile(raw: unknown): Profile {
     school: str(e.school), degree: str(e.degree), fieldOfStudy: str(e.fieldOfStudy),
     startDate: normalizeMonth(str(e.startDate)), endDate: normalizeMonth(str(e.endDate)), gpa: str(e.gpa),
   }));
+  p.certifications = objs(r.certifications).map((e) => ({
+    name: str(e.name), number: str(e.number),
+    issuedDate: normalizeMonth(str(e.issuedDate)), expirationDate: normalizeMonth(str(e.expirationDate)),
+  }));
   return p;
 }
 
@@ -74,7 +82,7 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
   if (key === 'skills') return p.skills.length ? p.skills : null;
   const [group, sub] = key.split('.') as [string, string | undefined];
   if (sub) {
-    const list = (group === 'work' ? p.work : p.education) as unknown as Array<Record<string, unknown>>;
+    const list = (group === 'work' ? p.work : group === 'cert' ? p.certifications : p.education) as unknown as Array<Record<string, unknown>>;
     const entry = list[groupIndex];
     if (!entry) return null;
     const v = entry[sub];

@@ -9,6 +9,7 @@ export const PROFILE_KEYS = [
   'resumeFile', 'skills',
   'work.title', 'work.company', 'work.location', 'work.startDate', 'work.endDate', 'work.current', 'work.description',
   'edu.school', 'edu.degree', 'edu.fieldOfStudy', 'edu.startDate', 'edu.endDate', 'edu.gpa',
+  'cert.name', 'cert.number', 'cert.issuedDate', 'cert.expirationDate', 'cert.proof',
 ] as const;
 export type ProfileKey = (typeof PROFILE_KEYS)[number];
 

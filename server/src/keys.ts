@@ -27,4 +27,7 @@ export const KEY_DESCRIPTIONS: Record<ProfileKey, string> = {
   'edu.school': 'school or university', 'edu.degree': 'degree', 'edu.fieldOfStudy': 'field of study / major',
   'edu.startDate': 'education start / from date', 'edu.endDate': 'education end / to / graduation date',
   'edu.gpa': 'GPA / overall result',
+  'cert.name': 'name of a certification or license', 'cert.number': 'certification or license number / ID',
+  'cert.issuedDate': 'date a certification was issued', 'cert.expirationDate': 'date a certification expires',
+  'cert.proof': 'file upload proving a certification (kind "file" only)',
 };
