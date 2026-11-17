@@ -1,4 +1,4 @@
-import { SCALAR_KEYS, emptyEdu, emptyWork, type EduEntry, type Profile, type ScalarKey, type WorkEntry } from '../profile/profile';
+import { SCALAR_KEYS, emptyEdu, emptyProject, emptyWork, type EduEntry, type Profile, type ProjectEntry, type ScalarKey, type WorkEntry } from '../profile/profile';
 
 export const FIELD_LABELS: Record<ScalarKey, string> = {
   firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', email: 'Email', phone: 'Phone',
@@ -26,6 +26,7 @@ export const CHOICES: Partial<Record<ScalarKey, string[]>> = {
 
 const WORK_FIELDS: Array<keyof WorkEntry> = ['title', 'company', 'location', 'startDate', 'endDate', 'current', 'description'];
 const EDU_FIELDS: Array<keyof EduEntry> = ['school', 'degree', 'fieldOfStudy', 'startDate', 'endDate', 'gpa'];
+const PROJECT_FIELDS: Array<keyof ProjectEntry> = ['name', 'url', 'description'];
 type Entry = Record<string, string | boolean>;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...kids: Node[]): HTMLElementTagNameMap[K] {
@@ -64,7 +65,7 @@ function entryBlock(fields: string[], entry: Entry): HTMLElement {
   return box;
 }
 
-function listSection(list: 'work' | 'education', title: string, fields: string[], entries: object[], blank: () => object) {
+function listSection(list: 'work' | 'education' | 'projects', title: string, fields: string[], entries: object[], blank: () => object) {
   const wrap = el('div');
   wrap.dataset.list = list;
   for (const e of entries) wrap.append(entryBlock(fields, e as Entry));
@@ -84,6 +85,7 @@ export function renderProfileForm(root: HTMLElement, p: Profile): void {
     about,
     listSection('work', 'Work experience', WORK_FIELDS, p.work, emptyWork),
     listSection('education', 'Education', EDU_FIELDS, p.education, emptyEdu),
+    listSection('projects', 'Personal projects', PROJECT_FIELDS, p.projects, emptyProject),
     row('Skills (comma separated)', skills),
   );
 }
@@ -108,6 +110,7 @@ export function readProfileForm(root: HTMLElement): Omit<Profile, 'reviewed'> {
     ...scalars,
     work: readEntries<WorkEntry>(root, 'work'),
     education: readEntries<EduEntry>(root, 'education'),
+    projects: readEntries<ProjectEntry>(root, 'projects').filter((e) => e.name || e.description),
     skills: skillsRaw.split(',').map((s) => s.trim()).filter(Boolean),
   };
 }

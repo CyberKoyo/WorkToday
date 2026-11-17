@@ -63,7 +63,7 @@ describe('runAutofill', () => {
       fill: vi.fn(async (_f: unknown, _v: unknown, _t: unknown, missed: string[]) => { missed.push('TCP/IP'); return 'filled'; }),
     });
     const r = await runAutofill(d as never);
-    expect(r.filled).toBe(1);
+    expect(r.filled).toBe(2); // First Name, and the upload box: on Workday that is the resume whatever the mapper says
     expect(r.missed).toEqual(['TCP/IP']);
     expect(r.attention.map((f) => f.label)).toContain('First Name');
     expect(r.attention.find((f) => f.label === 'First Name')!.container.dataset.wfUnfilled).toBe('1');
@@ -73,6 +73,7 @@ describe('runAutofill', () => {
       .toBe('Filled 3 fields. 1 already had values. 1 need your attention (highlighted). Review, then continue.');
     expect(formatReport({ filled: 3, skipped: 0, attention: [{} as never], missed: ['TCP/IP', 'Cobol'] }))
       .toBe('Filled 3 fields. 0 already had values. 1 need your attention (highlighted). Not added, fill in by hand: TCP/IP, Cobol. Review, then continue.');
+    expect(formatReport({ filled: 0, skipped: 0, attention: [], missed: [] })).toBe('Found nothing to fill on this page.');
   });
   it('preset keys skip the mapper; a Hispanic yes/no question is answered from ethnicity', async () => {
     const run = async (ethnicity: string) => {
@@ -136,7 +137,68 @@ describe('runAutofill', () => {
     expect(r.answered!.map((f) => f.id)).toEqual(['wf-1']);
     expect(box('b').style.outline).toContain('#3b82f6');
     expect(r.attention.map((f) => f.id)).toEqual(['wf-3', 'wf-2']);
-    expect(formatReport(r)).toBe('Filled 2 fields. 1 from your saved answers. Gemini answered 1 (blue): check them. 0 already had values. 2 need your attention (highlighted). Review, then continue.');
+    expect(formatReport(r)).toBe('Filled 2 fields. 1 from your saved answers. Answered 1 for you (blue): check them. 0 already had values. 2 need your attention (highlighted). Review, then continue.');
+  });
+  it('asks Gemini to draft an empty essay box (blue); one already written or about pay is left alone', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div id="a"><textarea></textarea></div><div id="b"><textarea>My own words</textarea></div><div id="c"><textarea></textarea></div>';
+    const box = (id: string) => document.getElementById(id)!;
+    const fields = [
+      { id: 'wf-0', label: 'Why do you want to work here?', kind: 'textarea', required: true, groupIndex: 0, container: box('a') },
+      { id: 'wf-1', label: 'Tell us about a project you are proud of', kind: 'textarea', required: false, groupIndex: 0, container: box('b') },
+      { id: 'wf-2', label: 'Explain your salary expectations', kind: 'textarea', required: false, groupIndex: 0, container: box('c') },
+    ];
+    const fill = vi.fn().mockResolvedValue('filled');
+    const answer = vi.fn().mockResolvedValue(new Map([['wf-0', ['Because of my work on data tools.']]]));
+    // A profile key the mapper guessed for the question (and cached) must not stand in the draft's way.
+    const r = await runAutofill({ ...base, extract: () => fields, fill, answer, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'work.description']])) } as never);
+    expect(answer.mock.calls[0]![0].map((f: { id: string }) => f.id)).toEqual(['wf-0']);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'Because of my work on data tools.']]);
+    expect(r.answered!.map((f) => f.id)).toEqual(['wf-0']);
+    expect(box('a').style.outline).toContain('#3b82f6');
+  });
+  it('needing no sponsorship answers its detail boxes N/A; a mapped choice the profile value does not fit goes to Gemini', async () => {
+    const base = deps();
+    const box = () => document.body.appendChild(document.createElement('div'));
+    const yn = { kind: 'radio', required: false, options: ['Yes', 'No'], groupIndex: 0 };
+    const fields = [
+      { ...yn, id: 'wf-0', label: 'Will you require visa sponsorship?', container: box() },
+      { id: 'wf-1', label: 'If yes, please specify', kind: 'text', required: false, groupIndex: 0, container: box() },
+      { id: 'wf-2', label: 'What type of visa do you hold?', kind: 'textarea', required: false, groupIndex: 0, container: box() },
+      { ...yn, id: 'wf-3', label: "Will you have a Bachelor's degree in CS by June 2029?", container: box() },
+      { ...yn, id: 'wf-4', label: 'Are you available to start in January 2027?', container: box() },
+    ];
+    const fill = vi.fn(async (f: { id: string; options?: string[] }, v: string) => (f.options && !f.options.includes(v) ? 'no_match' : 'filled'));
+    const answer = vi.fn().mockResolvedValue(new Map([['wf-3', ['Yes']]]));
+    const r = await runAutofill({ ...base, extract: () => fields, fill, answer,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'requiresSponsorship'], ['wf-3', 'edu.degree'], ['wf-4', 'earliestStartDate']])),
+      profile: { ...emptyProfile(), requiresSponsorship: 'no', education: [{ ...emptyEdu(), degree: 'BS', endDate: '2029-05' }], reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'No'], ['wf-1', 'N/A'], ['wf-2', 'N/A'], ['wf-3', 'BS'], ['wf-3', 'Yes']]);
+    expect(answer.mock.calls[0]![0].map((f: { id: string }) => f.id)).toEqual(['wf-3', 'wf-4']);
+    expect(r.answered!.map((f) => f.id)).toEqual(['wf-3']);
+    expect(r.attention.map((f) => f.id)).toEqual(['wf-4']); // no start date in the profile: still highlighted
+  });
+  it('ticks a required consent box and says so; an optional one is left to the applicant', async () => {
+    const base = deps();
+    const box = () => document.body.appendChild(document.createElement('div'));
+    const fields = [
+      { id: 'wf-0', label: 'The Adobe family of companies may keep me informed with personalized emails', kind: 'checkbox', required: true, groupIndex: 0, container: box() },
+      { id: 'wf-1', label: 'Send me the newsletter', kind: 'checkbox', required: false, groupIndex: 0, container: box() },
+      // The mapper's guesses for a consent sentence must not decide it: a profile "yes" ticked the optional box, a "no" left the required one.
+      { id: 'wf-2', label: 'Keep me informed about opportunities', kind: 'checkbox', required: false, groupIndex: 0, container: box() },
+      { id: 'wf-3', label: 'Yes, I have read and consent to the terms and conditions', kind: 'checkbox', required: true, groupIndex: 0, container: box() },
+      { id: 'wf-4', label: 'I currently work here', kind: 'checkbox', required: false, groupIndex: 0, container: box() },
+    ];
+    const fill = vi.fn().mockResolvedValue('filled');
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const r = await runAutofill({ ...base, extract: () => fields, fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-2', 'over18'], ['wf-3', 'workAuthorized'], ['wf-4', 'work.current']])),
+      profile: { ...emptyProfile(), over18: 'yes', workAuthorized: 'no', reviewed: true,
+        work: [{ title: '', company: '', location: '', startDate: '', endDate: '', current: true, description: '' }] } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', true], ['wf-3', true], ['wf-4', true]]);
+    expect(fields[0]!.container.style.outline).toContain('#3b82f6');
+    expect(r.attention).toEqual([]);
+    expect(formatReport(r)).toBe('Filled 3 fields. Ticked 2 required consent boxes (blue): read what you are agreeing to. 0 already had values. 0 need your attention (highlighted). Review, then continue.');
   });
   it('a Gemini failure leaves the leftovers highlighted and says why', async () => {
     const base = deps();

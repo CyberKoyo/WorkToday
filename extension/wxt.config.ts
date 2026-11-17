@@ -7,12 +7,17 @@ export default defineConfig({
     const env = loadEnv(mode, process.cwd(), 'WXT_');
     return {
       name: 'Job Application Filler',
-      description: 'Auto-fill Workday, Greenhouse, iCIMS and Oracle job applications from your reviewed resume profile.',
-      permissions: ['storage', 'unlimitedStorage'],
-      host_permissions: [`${env.WXT_API_BASE || DEFAULT_API_BASE}/*`, 'https://generativelanguage.googleapis.com/*'],
+      description: 'Auto-fill job applications from your reviewed resume profile and keep a log of where you applied.',
+      // activeTab + scripting: the toolbar button runs Auto-fill on sites not listed below, with no install-time host access.
+      // identity + the Sheets host only in builds with a Google client ID (application tracking to Google Sheets).
+      permissions: ['storage', 'unlimitedStorage', 'activeTab', 'scripting', ...(env.WXT_GOOGLE_CLIENT_ID ? ['identity'] : [])],
+      action: { default_title: 'Auto-fill this job application' },
+      host_permissions: [`${env.WXT_API_BASE || DEFAULT_API_BASE}/*`, 'https://generativelanguage.googleapis.com/*',
+        ...(env.WXT_GOOGLE_CLIENT_ID ? ['https://sheets.googleapis.com/*'] : [])],
+      // The job loop fills whatever site a board's Apply button opens. Optional: granted from the dashboard, not at install.
       ...(browser === 'firefox'
-        ? { browser_specific_settings: { gecko: { id: 'workday-filler@local' } } }
-        : {}),
+        ? { optional_permissions: ['<all_urls>'], browser_specific_settings: { gecko: { id: 'workday-filler@local' } } }
+        : { optional_host_permissions: ['<all_urls>'] }),
     };
   },
 });

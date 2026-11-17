@@ -5,10 +5,7 @@ import { discoverFields, extractGeneric } from '../generic/extract';
 import { fillGeneric, fillFileGeneric } from '../generic/fill';
 import { adaptForLabel } from '../fill/dateParts';
 import { ajaxWidget, fillAjaxSelect } from './dropdown';
-
-// Search, login and job-alert forms sit beside the application and have enough fields to pass for one.
-const notApplication = (f: HTMLFormElement) => !!f.querySelector('input[type="password"]')
-  || /search|login|signin|sign-in|alert/i.test(`${f.id} ${f.className} ${f.getAttribute('action') ?? ''} ${f.getAttribute('role') ?? ''}`);
+import { notApplication } from '../generic/adapter';
 
 const widget = (el: HTMLElement) => el.matches(IC.widgetChrome);
 

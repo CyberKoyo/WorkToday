@@ -17,11 +17,10 @@ export function comboboxValue(c: HTMLElement): string {
   return (el as HTMLInputElement | null)?.value.trim() ?? '';
 }
 
-/** `tieBreak` picks among options that match `value` equally well: the one that also names it. */
-export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 3000, tieBreak?: string): Promise<FillResult> {
+// Open the combobox's list. `fresh` reads the options now on show.
+async function openList(c: HTMLElement, timeoutMs: number) {
   const box = findBox(c);
-  if (!box) return 'error';
-  if (comboboxValue(c)) return 'skipped_nonempty';
+  if (!box) return null;
   const input = box instanceof HTMLInputElement ? box : box.querySelector('input');
   const target = input ?? box;
   const doc = c.ownerDocument;
@@ -34,6 +33,33 @@ export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 30
     const popup = popupId ? doc.getElementById(popupId) : null;
     return popup ? [...popup.querySelectorAll<HTMLElement>(OPTION)] : [...doc.querySelectorAll<HTMLElement>(OPTION)].filter((o) => !before.has(o));
   };
+  target.focus();
+  for (const open of [
+    () => target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })),
+    () => safeClick(target),
+    () => pressKey(target, 'ArrowDown', 40),
+  ]) {
+    open();
+    if (await waitFor(() => (fresh().length ? true : null), Math.min(timeoutMs, 500))) break;
+  }
+  return { input, target, fresh };
+}
+
+/** The choices a closed combobox offers: opened, read, closed again. A list that waits for typing (School) reads as empty. */
+export async function comboboxOptions(c: HTMLElement, timeoutMs = 3000): Promise<string[]> {
+  const list = await openList(c, timeoutMs);
+  if (!list) return [];
+  const labels = list.fresh().map((o) => clean(o.textContent)).filter(Boolean);
+  pressKey(list.target, 'Escape', 27);
+  return labels;
+}
+
+/** `tieBreak` picks among options that match `value` equally well: the one that also names it.
+ * `append`: a multi-select that already holds a choice takes another. */
+export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 3000, tieBreak?: string, append = false): Promise<FillResult> {
+  if (!findBox(c)) return 'error';
+  if (!append && comboboxValue(c)) return 'skipped_nonempty';
+  const { input, target, fresh } = (await openList(c, timeoutMs))!;
   const pick = () => {
     const l = fresh();
     const i = matchOption(value, l.map((o) => clean(o.textContent)));
@@ -44,16 +70,6 @@ export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 30
     const j = matchOption(value, named.map((o) => clean(o.textContent)));
     return j === -1 ? null : named[j]!;
   };
-
-  target.focus();
-  for (const open of [
-    () => target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })),
-    () => safeClick(target),
-    () => pressKey(target, 'ArrowDown', 40),
-  ]) {
-    open();
-    if (await waitFor(() => (fresh().length ? true : null), Math.min(timeoutMs, 500))) break;
-  }
   let hit = pick();
   if (!hit && input) {
     // Long or server-searched lists (Greenhouse School, Location) only show the match after typing.

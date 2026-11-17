@@ -31,12 +31,15 @@ const RESPONSE_SCHEMA = object({
     title: S, company: S, location: S, startDate: S, endDate: S, current: { type: 'BOOLEAN' }, description: S }) },
   education: { type: 'ARRAY', items: object({
     school: S, degree: S, fieldOfStudy: S, startDate: S, endDate: S, gpa: S }) },
+  projects: { type: 'ARRAY', items: object({ name: S, url: S, description: S }) },
 });
 
 const PROMPT = `Extract the candidate's details from this resume into the JSON schema.
 Use "" for anything not stated. Dates as YYYY-MM (or YYYY if month unknown).
 For a current job set current=true and endDate="". state: 2-letter code if US.
-Do not invent information. Keep description to the resume's bullet text for that role.`;
+Do not invent information. Keep description to the resume's bullet text for that role.
+projects: personal, course, research or side projects the resume lists apart from jobs, with the bullet text as description
+and the project's own link as url when one is given. A job is never a project.`;
 
 function inferMimeType(file: StoredFile): string {
   // Browsers can label a .docx application/octet-stream (or leave it blank); the extension then decides.
@@ -48,12 +51,13 @@ function inferMimeType(file: StoredFile): string {
   return '';
 }
 
-export async function parseResume(file: StoredFile, apiKey: string, fetchImpl: typeof fetch = fetch): Promise<Profile> {
+/** The resume as a Gemini request part (a Word file goes as its text), with the links a Word file carries. */
+export async function resumePart(file: StoredFile, hasKey = true): Promise<{ part: unknown; mimeType: string; links: string[] }> {
   const mimeType = inferMimeType(file);
   if (!SUPPORTED_RESUME_TYPES.includes(mimeType)) {
     throw new ResumeParseError('unsupported_type', 'Upload a PDF, .docx or .txt resume (old .doc files are not supported — save as .docx or PDF).');
   }
-  if (!apiKey) throw new ResumeParseError('bad_key', 'Enter your Gemini API key first.');
+  if (!hasKey) throw new ResumeParseError('bad_key', 'Enter your Gemini API key first.');
   const decodedSize = Math.floor(file.dataBase64.length * 3 / 4);
   if (decodedSize > MAX_RESUME_BYTES) {
     throw new ResumeParseError('too_large', 'Resume is too large (max 14 MB). Export a smaller PDF.');
@@ -66,7 +70,24 @@ export async function parseResume(file: StoredFile, apiKey: string, fetchImpl: t
     data = bytesToBase64(new TextEncoder().encode(doc.text));
     links = doc.links;
   }
-  const text = await generate(apiKey, [{ inline_data: { mime_type: mime, data } }, { text: PROMPT }], RESPONSE_SCHEMA, fetchImpl);
+  return { part: { inline_data: { mime_type: mime, data } }, mimeType, links };
+}
+
+const MERGE = `
+These files are versions of one candidate's resume. Merge them into one profile: each job and each school once, with the
+fullest wording any version gives it; every skill once; contact details from whichever version states them.`;
+
+/** One profile from the resume, or from every version of it the applicant keeps. */
+export async function parseResume(file: StoredFile | StoredFile[], apiKey: string, fetchImpl: typeof fetch = fetch): Promise<Profile> {
+  const files = [file].flat();
+  const read = [];
+  for (const f of files) read.push(await resumePart(f, !!apiKey));
+  // The limit is the request's, so the versions share it.
+  if (files.reduce((n, f) => n + f.dataBase64.length * 3 / 4, 0) > MAX_RESUME_BYTES) {
+    throw new ResumeParseError('too_large', 'These resumes are too large together (max 14 MB). Remove one or export smaller PDFs.');
+  }
+  let links = read.flatMap((r) => r.links);
+  const text = await generate(apiKey, [...read.map((r) => r.part), { text: files.length > 1 ? PROMPT + MERGE : PROMPT }], RESPONSE_SCHEMA, fetchImpl);
   let parsed: Profile;
   try {
     const profile = normalizeProfile(JSON.parse(text));
@@ -75,7 +96,9 @@ export async function parseResume(file: StoredFile, apiKey: string, fetchImpl: t
   } catch {
     throw new ResumeParseError('bad_response', 'Gemini returned an unreadable result. Try again.');
   }
-  if (mimeType === 'application/pdf') links = await extractPdfLinks(base64ToBytes(file.dataBase64)).catch(() => []);
+  for (const [i, f] of files.entries()) {
+    if (read[i]!.mimeType === 'application/pdf') links = [...links, ...await extractPdfLinks(base64ToBytes(f.dataBase64)).catch(() => [])];
+  }
   fillLinkFields(parsed, links);
   return parsed;
 }
@@ -91,6 +114,16 @@ function bytesToBase64(bytes: Uint8Array): string {
   let bin = '';
   for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(bin);
+}
+
+/** Whether Google accepts the key, without spending any quota. A network failure counts as unknown (true). */
+export async function keyWorks(apiKey: string, fetchImpl: typeof fetch = fetch): Promise<boolean> {
+  try {
+    const res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}`, { headers: { 'x-goog-api-key': apiKey } });
+    return res.status !== 400 && res.status !== 401 && res.status !== 403;
+  } catch {
+    return true;
+  }
 }
 
 /** One structured-output Gemini call; returns the reply's JSON text. */

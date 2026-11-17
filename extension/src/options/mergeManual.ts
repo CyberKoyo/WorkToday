@@ -6,5 +6,7 @@ import type { Profile } from '../profile/profile';
 export function keepManualAnswers(parsed: Profile, current: Omit<Profile, 'reviewed'>): Profile {
   const merged = { ...parsed };
   for (const k of MANUAL_ONLY) merged[k] = current[k];
+  // Projects typed in by hand are on no resume; a parse that finds none must not wipe them.
+  if (!parsed.projects.length) merged.projects = current.projects;
   return merged;
 }

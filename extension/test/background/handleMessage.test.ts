@@ -16,6 +16,35 @@ describe('handleMessage', () => {
     await handleMessage({ type: 'open-options' }, { openOptions });
     expect(openOptions).toHaveBeenCalled();
   });
+  it('track logs the tab, falling back to the frame that asked', async () => {
+    const track = vi.fn().mockResolvedValue(undefined);
+    const msg = { type: 'track' as const, name: 'Apply', url: 'https://boards.greenhouse.io/embed/job_app?token=1' };
+    await handleMessage(msg, { track }, { title: 'Engineer - Acme', url: 'https://acme.com/careers/1' });
+    await handleMessage(msg, { track }, {});
+    expect(track.mock.calls).toEqual([['Engineer - Acme', 'https://acme.com/careers/1'], ['Apply', msg.url]]);
+  });
+  it('sync-sheet ok and error -> message', async () => {
+    const syncSheet = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Google sign-in expired. Connect again.'));
+    expect(await handleMessage({ type: 'sync-sheet' }, { syncSheet })).toEqual({ ok: true });
+    expect(await handleMessage({ type: 'sync-sheet' }, { syncSheet })).toEqual({ ok: false, message: 'Google sign-in expired. Connect again.' });
+  });
+  it('answer-fields passes the job text along', async () => {
+    const answerFields = vi.fn().mockResolvedValue(new Map());
+    await handleMessage({ type: 'answer-fields', fields: [], job: 'Engineer - Acme' }, { answerFields });
+    expect(answerFields).toHaveBeenCalledWith([], 'Engineer - Acme');
+    // A form in a frame knows only itself; the tab's title names the role and employer.
+    await handleMessage({ type: 'answer-fields', fields: [], job: 'First name Last name' }, { answerFields }, { title: 'Software Engineering Intern | MongoDB' });
+    expect(answerFields).toHaveBeenLastCalledWith([], 'Software Engineering Intern | MongoDB\nFirst name Last name');
+    // Where the site offers the posting itself, it replaces the form's own text.
+    const posting = vi.fn().mockResolvedValue('Software Engineering Intern\nInterns push production-level code.');
+    const frame = 'https://job-boards.greenhouse.io/embed/job_app?for=mongodb&token=8209134';
+    await handleMessage({ type: 'answer-fields', fields: [], job: 'First name Last name' }, { answerFields, posting }, { title: 'Intern | MongoDB' }, frame);
+    expect(posting).toHaveBeenCalledWith(frame);
+    expect(answerFields).toHaveBeenLastCalledWith([], 'Intern | MongoDB\nSoftware Engineering Intern\nInterns push production-level code.');
+    // No essay on the page (no job text asked for): nothing is fetched.
+    await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields, posting }, {}, frame);
+    expect(posting).toHaveBeenCalledTimes(1);
+  });
   it('answer-fields ok and error -> message', async () => {
     const answerFields = vi.fn().mockResolvedValueOnce(new Map([['wf-0', ['Yes']]])).mockRejectedValueOnce(new Error('Gemini rejected the API key.'));
     expect(await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields })).toEqual({ ok: true, answers: [['wf-0', ['Yes']]] });

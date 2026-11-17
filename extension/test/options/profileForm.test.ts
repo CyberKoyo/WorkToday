@@ -8,6 +8,7 @@ beforeEach(() => { document.body.innerHTML = '<div id="r"></div>'; root = docume
 const sample = () => ({
   ...emptyProfile(), firstName: 'Ada', workAuthorized: 'yes', skills: ['TS', 'Go'],
   work: [{ title: 'Eng', company: 'X', location: 'NYC', startDate: '2020-01', endDate: '', current: true, description: 'Built <b>things</b>' }],
+  projects: [{ name: 'Chess engine', url: 'https://github.com/ada/chess', description: 'Alpha-beta search in Rust' }],
 });
 
 describe('profileForm', () => {
@@ -16,6 +17,15 @@ describe('profileForm', () => {
     renderProfileForm(root, p);
     const { reviewed, ...rest } = p;
     expect(readProfileForm(root)).toEqual(rest);
+  });
+  it('adds a personal project; one left blank is not saved', () => {
+    renderProfileForm(root, sample());
+    const add = root.querySelector<HTMLButtonElement>('[data-add="projects"]')!;
+    add.click();
+    add.click();
+    const boxes = root.querySelectorAll<HTMLElement>('[data-list="projects"] .entry');
+    boxes[1]!.querySelector<HTMLInputElement>('[data-entry-key="name"]')!.value = 'Course scheduler';
+    expect(readProfileForm(root).projects.map((p) => p.name)).toEqual(['Chess engine', 'Course scheduler']);
   });
   it('reads edits', () => {
     renderProfileForm(root, sample());

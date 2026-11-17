@@ -196,6 +196,8 @@ export function extractGeneric(root: ParentNode, opts: GenericOptions = {}): Ext
     if (section) f.section = section;
     if (d.options) f.options = d.options;
     if (d.members) f.members = d.members;
+    // react-select marks the box that holds several choices (live Greenhouse: "Which locations are you open to").
+    if (d.kind === 'select' && d.container.querySelector('[class*="is-multi"],[aria-multiselectable="true"]')) f.multi = true;
     return f;
   });
 }

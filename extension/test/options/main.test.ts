@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { getApiKey, getProfile, saveApiKey, saveProfile } from '../../src/storage/store';
+import { getApiKey, getLoopSettings, getProfile, getResume, getResumes, saveApiKey, saveApplications, saveProfile } from '../../src/storage/store';
 import { emptyProfile } from '../../src/profile/profile';
 
 const ok = (obj: unknown) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] }), { status: 200 });
@@ -9,12 +9,18 @@ function setDom() {
   document.body.innerHTML = `
     <input id="apiKey" type="password" />
     <button id="saveKey" type="button"></button>
+    <button id="loopAllow" type="button"></button>
+    <input id="loopEmail" /><input id="loopPassword" type="password" /><input id="loopSubmit" type="checkbox" /><button id="saveLoop" type="button"></button>
     <input id="resume" type="file" />
     <button id="parse" type="button"></button>
-    <p id="resumeName"></p>
+    <ul id="resumes"></ul><p id="resumeName"></p>
     <div id="form"></div>
     <button id="save" type="button"></button>
     <p id="status"></p>
+    <b id="statApps"></b><b id="statWeek"></b><b id="statAnswers"></b><b id="statProfile"></b>
+    <div id="setup"><ol id="setupSteps"></ol></div>
+    <a id="sheetLink"></a><button id="sheetBtn" type="button"></button>
+    <table><tbody id="apps"></tbody></table><p id="appsEmpty"></p><p id="sheetNote"></p>
   `;
 }
 
@@ -37,9 +43,25 @@ beforeEach(() => {
   setDom();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  fakeBrowser.permissions.contains = async () => allSites; // the fake browser has no permissions
+  fakeBrowser.permissions.request = async () => (allSites = true);
+  allSites = false;
 });
+let allSites = false;
 
 describe('options main', () => {
+  it('shows whether all sites are allowed, and saves the job loop settings', async () => {
+    await loadMain();
+    expect($<HTMLButtonElement>('loopAllow').disabled).toBe(false);
+    $('loopAllow').click();
+    await vi.waitFor(() => expect($('loopAllow').textContent).toBe('✓ Allowed on all sites'));
+    expect($<HTMLButtonElement>('loopAllow').disabled).toBe(true);
+    $<HTMLInputElement>('loopEmail').value = ' ada@x.com ';
+    $<HTMLInputElement>('loopPassword').value = 'pw';
+    $<HTMLInputElement>('loopSubmit').checked = true;
+    $('saveLoop').click();
+    await vi.waitFor(async () => expect(await getLoopSettings()).toEqual({ email: 'ada@x.com', password: 'pw', submit: true }));
+  });
   it('disables save and parse until init resolves, then enables them', async () => {
     await loadMain();
     expect($<HTMLButtonElement>('save').disabled).toBe(false);
@@ -75,6 +97,71 @@ describe('options main', () => {
     expect($('status').textContent).toBe('Could not save: quota exceeded');
   });
 
+  it('checks a saved key with Google and says whether it works', async () => {
+    await loadMain();
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response('{}', { status: 200 })).mockResolvedValueOnce(new Response('{}', { status: 400 }));
+    vi.stubGlobal('fetch', fetchMock);
+    $<HTMLInputElement>('apiKey').value = ' good-key ';
+    $('saveKey').click();
+    await vi.waitFor(() => expect($('status').textContent).toBe('Key saved. Google accepts it.'));
+    expect(fetchMock.mock.calls[0]![1].headers['x-goog-api-key']).toBe('good-key');
+    $<HTMLInputElement>('apiKey').value = 'bad-key';
+    $('saveKey').click();
+    await vi.waitFor(() => expect($('status').textContent).toBe('Key saved, but Google rejects it. Copy it again from AI Studio.'));
+    expect(await getApiKey()).toBe('bad-key');
+  });
+
+  it('dashboard: counts, setup steps left, and the applications newest first, titles as text', async () => {
+    const today = new Date().toLocaleDateString('en-CA');
+    await saveApplications([
+      { name: 'Old job', url: 'https://old.example.com/1', date: '2020-01-01' },
+      { name: '<img src=x onerror=alert(1)>', url: 'https://acme.com/jobs/2', date: today },
+    ]);
+    await saveApiKey('K');
+    await loadMain();
+    expect([$('statApps').textContent, $('statWeek').textContent, $('statAnswers').textContent]).toEqual(['2', '1', '0']);
+    expect($('statProfile').textContent).toBe('○ Not set up');
+    expect($('setup').hidden).toBe(false);
+    expect([...$('setupSteps').children].map((li) => li.textContent)).toEqual(
+      ['✓ Add your Gemini API key (done)', '○ Upload your resume', '○ Review and save your profile']);
+    const rows = [...$('apps').querySelectorAll('tr')];
+    expect(rows.map((r) => [...r.children].map((c) => c.textContent))).toEqual([
+      ['<img src=x onerror=alert(1)>', today, 'acme.com'], ['Old job', '2020-01-01', 'old.example.com']]);
+    expect($('apps').querySelector('img')).toBeNull();
+    expect(rows[0]!.querySelector('a')!.href).toBe('https://acme.com/jobs/2');
+    expect($('appsEmpty').hidden).toBe(true);
+    expect($<HTMLButtonElement>('sheetBtn').disabled).toBe(true); // no Google client ID in this build
+    // An application logged from a job tab shows up without a reload.
+    await saveApplications([{ name: 'Only', url: 'https://acme.com/jobs/3', date: today }]);
+    await vi.waitFor(() => expect($('statApps').textContent).toBe('1'));
+  });
+
+  it('keeps several resume versions: all are read together, one is attached, any can be removed', async () => {
+    await saveApiKey('k');
+    await loadMain();
+    expect($('resumeName').textContent).toBe('No resume stored.');
+    const fetchMock = vi.fn().mockImplementation(async () => ok({ firstName: 'Ada' }));
+    vi.stubGlobal('fetch', fetchMock);
+    const input = $<HTMLInputElement>('resume');
+    Object.defineProperty(input, 'files', { configurable: true, value: [fileWith('swe.pdf', 'application/pdf', '%PDF-1.4 a'), fileWith('data.pdf', 'application/pdf', '%PDF-1.4 b')] });
+    $('parse').click();
+    await vi.waitFor(() => expect($('status').textContent).toBe('Parsed. Review below, then Save.'));
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body).contents[0].parts).toHaveLength(3); // both files and the prompt
+    const rows = () => [...$('resumes').children].map((li) => li.textContent);
+    expect(rows()).toEqual(['swe.pdf (attached to applications) Remove', 'data.pdf Attach this oneRemove'.replace('oneRemove', 'one Remove')]);
+    expect((await getResume())!.name).toBe('swe.pdf');
+    $('resumes').querySelector<HTMLButtonElement>('[aria-label="Attach data.pdf to applications"]')!.click();
+    await vi.waitFor(async () => expect((await getResume())!.name).toBe('data.pdf'));
+    await vi.waitFor(() => expect(rows()[0]).toBe('data.pdf (attached to applications) Remove'));
+    // Adding a file again replaces its older copy; with nothing chosen, the stored ones are read again.
+    Object.defineProperty(input, 'files', { configurable: true, value: [] });
+    $('resumes').querySelector<HTMLButtonElement>('[aria-label="Remove swe.pdf"]')!.click();
+    await vi.waitFor(async () => expect((await getResumes()).map((r) => r.name)).toEqual(['data.pdf']));
+    fetchMock.mockClear();
+    $('parse').click();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body).contents[0].parts).toHaveLength(2);
+  });
   it('saves an unsaved typed API key on parse and uses it', async () => {
     await loadMain();
     expect(await getApiKey()).toBe('');

@@ -12,17 +12,20 @@ export interface WorkEntry {
 export interface EduEntry {
   school: string; degree: string; fieldOfStudy: string; startDate: string; endDate: string; gpa: string;
 }
+/** A personal, course or side project. No form asks for these by field; Gemini draws on them for answers and essays. */
+export interface ProjectEntry { name: string; url: string; description: string }
 export type Profile = Record<ScalarKey, string> & {
-  work: WorkEntry[]; education: EduEntry[]; skills: string[]; reviewed: boolean;
+  work: WorkEntry[]; education: EduEntry[]; projects: ProjectEntry[]; skills: string[]; reviewed: boolean;
 };
 export type ProfileValue = string | boolean | string[];
 
 export const emptyWork = (): WorkEntry => ({ title: '', company: '', location: '', startDate: '', endDate: '', current: false, description: '' });
 export const emptyEdu = (): EduEntry => ({ school: '', degree: '', fieldOfStudy: '', startDate: '', endDate: '', gpa: '' });
+export const emptyProject = (): ProjectEntry => ({ name: '', url: '', description: '' });
 
 export function emptyProfile(): Profile {
   const scalars = Object.fromEntries(SCALAR_KEYS.map((k) => [k, ''])) as Record<ScalarKey, string>;
-  return { ...scalars, work: [], education: [], skills: [], reviewed: false };
+  return { ...scalars, work: [], education: [], projects: [], skills: [], reviewed: false };
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -66,6 +69,7 @@ export function normalizeProfile(raw: unknown): Profile {
     school: str(e.school), degree: str(e.degree), fieldOfStudy: str(e.fieldOfStudy),
     startDate: normalizeMonth(str(e.startDate)), endDate: normalizeMonth(str(e.endDate)), gpa: str(e.gpa),
   }));
+  p.projects = objs(r.projects).map((e) => ({ name: str(e.name), url: str(e.url), description: str(e.description) }));
   return p;
 }
 
@@ -82,6 +86,8 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
     return typeof v === 'string' && v !== '' ? v : null;
   }
   const v = p[key as ScalarKey];
+  // Someone with no other name goes by their first ("Chosen Name", required on live Greenhouse).
+  if (key === 'preferredName' && !v) return p.firstName || null;
   return v ? v : null;
 }
 
