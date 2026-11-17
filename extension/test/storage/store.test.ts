@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
-import { getProfile, saveProfile, getApiKey, saveApiKey, getResume, saveResume, getMapCache, saveMapCache, MAP_CACHE_MAX, getSavedAnswers, saveAnswer } from '../../src/storage/store';
+import { getProfile, saveProfile, getApiKey, saveApiKey, getResume, getResumes, saveResumes, getMapCache, saveMapCache, MAP_CACHE_MAX, getSavedAnswers, saveAnswer } from '../../src/storage/store';
 import { fileToStored, storedToFile } from '../../src/storage/fileCodec';
 import { emptyProfile } from '../../src/profile/profile';
 
@@ -18,10 +18,17 @@ describe('store', () => {
     await saveApiKey(' k1 ');
     expect(await getApiKey()).toBe('k1');
   });
-  it('resume roundtrip', async () => {
+  it('resumes roundtrip: the first is the one attached; a resume stored before there was a list is kept', async () => {
     const s = { name: 'r.pdf', type: 'application/pdf', dataBase64: 'AAEC' };
-    await saveResume(s);
-    expect(await getResume()).toEqual(s);
+    const t = { name: 'r-data.pdf', type: 'application/pdf', dataBase64: 'AAED' };
+    expect(await getResumes()).toEqual([]);
+    expect(await getResume()).toBeNull();
+    await fakeBrowser.storage.local.set({ resumeFile: s }); // as earlier versions stored it
+    expect(await getResumes()).toEqual([s]);
+    await saveResumes([t, s]);
+    expect(await getResumes()).toEqual([t, s]);
+    expect(await getResume()).toEqual(t);
+    expect(await fakeBrowser.storage.local.get('resumeFile')).toEqual({}); // not kept twice
   });
   it('map cache resets when over limit', async () => {
     const big = Object.fromEntries(Array.from({ length: MAP_CACHE_MAX + 1 }, (_, i) => [`k${i}`, 'email' as const]));

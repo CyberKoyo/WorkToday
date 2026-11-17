@@ -13,7 +13,8 @@ describe('parseResume', () => {
     expect(JSON.parse(f.mock.calls[0]![1].body).generationConfig.responseSchema.properties.certifications).toBeDefined();
   });
   it('sends inline file with key header and JSON schema; returns normalized profile', async () => {
-    const f = vi.fn().mockResolvedValue(ok({ firstName: 'Ada', gender: 'female', work: [{ title: 'Eng', startDate: '2020-01' }] }));
+    const f = vi.fn().mockResolvedValue(ok({ firstName: 'Ada', gender: 'female', work: [{ title: 'Eng', startDate: '2020-01' }],
+      projects: [{ name: 'Chess engine', url: 'https://github.com/ada/chess', description: 'Alpha-beta search', stars: 9 }] }));
     const p = await parseResume(pdf, 'KEY', f);
     const [url, init] = f.mock.calls[0]!;
     expect(url).toContain('models/gemini-3.5-flash-lite:generateContent');
@@ -28,6 +29,8 @@ describe('parseResume', () => {
     expect(p.firstName).toBe('Ada');
     expect(p.gender).toBe('');            // manual-only fields are discarded even if returned
     expect(p.work[0]!.title).toBe('Eng');
+    expect(body.generationConfig.responseSchema.properties.projects.items.required).toEqual(['name', 'url', 'description']);
+    expect(p.projects).toEqual([{ name: 'Chess engine', url: 'https://github.com/ada/chess', description: 'Alpha-beta search' }]);
     expect(p.reviewed).toBe(false);
   });
   it('fills URL fields from PDF link annotations when the model returns link text', async () => {
@@ -92,6 +95,26 @@ describe('parseResume', () => {
     const f = vi.fn();
     const bigBase64 = 'A'.repeat(Math.ceil((MAX_RESUME_BYTES + 1) / 3) * 4);
     await expect(parseResume({ ...pdf, dataBase64: bigBase64 }, 'K', f)).rejects.toMatchObject({ code: 'too_large' });
+    expect(f).not.toHaveBeenCalled();
+  });
+  it('several versions go in one request and come back as one profile, with the links of each', async () => {
+    const a = { ...pdf, name: 'swe.pdf', dataBase64: Buffer.from('%PDF-1.4 <</S/URI/URI(https://github.com/ada)>>').toString('base64') };
+    const b = { ...pdf, name: 'data.pdf', dataBase64: Buffer.from('%PDF-1.4 <</S/URI/URI(https://www.linkedin.com/in/ada)>>').toString('base64') };
+    const f = vi.fn().mockImplementation(async () => ok({ firstName: 'Ada', githubUrl: 'GitHub', linkedinUrl: 'LinkedIn' }));
+    const p = await parseResume([a, b], 'K', f);
+    const parts = JSON.parse(f.mock.calls[0]![1].body).contents[0].parts;
+    expect(parts.slice(0, 2).map((x: { inline_data: { data: string } }) => x.inline_data.data)).toEqual([a.dataBase64, b.dataBase64]);
+    expect(parts[2].text).toContain('versions of one candidate');
+    expect(p.githubUrl).toBe('https://github.com/ada');
+    expect(p.linkedinUrl).toBe('https://www.linkedin.com/in/ada');
+    f.mockClear();
+    await parseResume(pdf, 'K', f);
+    expect(JSON.parse(f.mock.calls[0]![1].body).contents[0].parts[1].text).not.toContain('versions of one candidate');
+  });
+  it('versions too large together -> too_large without calling fetch', async () => {
+    const f = vi.fn();
+    const half = { ...pdf, dataBase64: 'A'.repeat(Math.ceil((MAX_RESUME_BYTES * 0.6) / 3) * 4) };
+    await expect(parseResume([half, { ...half, name: 'b.pdf' }], 'K', f)).rejects.toMatchObject({ code: 'too_large' });
     expect(f).not.toHaveBeenCalled();
   });
   it('infers mime type from extension when file.type is empty', async () => {

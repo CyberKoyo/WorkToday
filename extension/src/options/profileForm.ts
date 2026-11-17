@@ -1,4 +1,4 @@
-import { SCALAR_KEYS, emptyCert, emptyEdu, emptyWork, type CertEntry, type EduEntry, type Profile, type ScalarKey, type WorkEntry } from '../profile/profile';
+import { SCALAR_KEYS, emptyCert, emptyEdu, emptyProject, emptyWork, type CertEntry, type EduEntry, type Profile, type ProjectEntry, type ScalarKey, type WorkEntry } from '../profile/profile';
 import { fileToStored, type StoredFile } from '../storage/fileCodec';
 
 export const FIELD_LABELS: Record<ScalarKey, string> = {
@@ -30,6 +30,7 @@ export const CHOICES: Partial<Record<ScalarKey, string[]>> = {
 const WORK_FIELDS: Array<keyof WorkEntry> = ['title', 'company', 'location', 'startDate', 'endDate', 'current', 'description'];
 const EDU_FIELDS: Array<keyof EduEntry> = ['school', 'degree', 'fieldOfStudy', 'startDate', 'endDate', 'gpa'];
 const CERT_FIELDS: Array<keyof CertEntry> = ['name', 'number', 'issuedDate', 'expirationDate'];
+const PROJECT_FIELDS: Array<keyof ProjectEntry> = ['name', 'url', 'description'];
 type Entry = Record<string, string | boolean>;
 type Proofs = Record<string, StoredFile>;
 
@@ -76,7 +77,7 @@ function entryBlock(fields: string[], entry: Entry, proofs?: Proofs): HTMLElemen
   return box;
 }
 
-function listSection(list: 'work' | 'education' | 'certifications', title: string, fields: string[], entries: object[], blank: () => object, proofs?: Proofs) {
+function listSection(list: 'work' | 'education' | 'certifications' | 'projects', title: string, fields: string[], entries: object[], blank: () => object, proofs?: Proofs) {
   const wrap = el('div');
   wrap.dataset.list = list;
   for (const e of entries) wrap.append(entryBlock(fields, e as Entry, proofs));
@@ -97,6 +98,7 @@ export function renderProfileForm(root: HTMLElement, p: Profile, proofs: Proofs 
     listSection('work', 'Work experience', WORK_FIELDS, p.work, emptyWork),
     listSection('education', 'Education', EDU_FIELDS, p.education, emptyEdu),
     listSection('certifications', 'Certifications', CERT_FIELDS, p.certifications, emptyCert, proofs),
+    listSection('projects', 'Personal projects', PROJECT_FIELDS, p.projects, emptyProject),
     row('Skills (comma separated)', skills),
   );
 }
@@ -122,6 +124,7 @@ export function readProfileForm(root: HTMLElement): Omit<Profile, 'reviewed'> {
     work: readEntries<WorkEntry>(root, 'work'),
     education: readEntries<EduEntry>(root, 'education'),
     certifications: readEntries<CertEntry>(root, 'certifications'),
+    projects: readEntries<ProjectEntry>(root, 'projects').filter((e) => e.name || e.description),
     skills: skillsRaw.split(',').map((s) => s.trim()).filter(Boolean),
   };
 }

@@ -44,4 +44,11 @@ describe('keepManualAnswers', () => {
     expect(merged.veteranStatus).toBe('not a veteran');
     expect(merged.disabilityStatus).toBe('no');
   });
+  it('projects come from the resume when it lists any; ones typed by hand survive a resume that lists none', () => {
+    const typed = [{ name: 'Chess engine', url: '', description: 'Alpha-beta search' }];
+    const { reviewed, ...current } = { ...emptyProfile(), projects: typed };
+    expect(keepManualAnswers(emptyProfile(), current).projects).toEqual(typed);
+    const found = [{ name: 'Scheduler', url: '', description: '' }];
+    expect(keepManualAnswers({ ...emptyProfile(), projects: found }, current).projects).toEqual(found);
+  });
 });

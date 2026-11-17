@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { showBanner } from '../../src/autofill/banner';
+import { setDetails, showBanner } from '../../src/autofill/banner';
 
 const btn = (host: HTMLElement, sel: string) => host.shadowRoot!.querySelector<HTMLButtonElement>(sel)!;
 const msg = (host: HTMLElement) => host.shadowRoot!.querySelector('.msg')!.textContent;
@@ -12,6 +12,18 @@ describe('banner', () => {
     btn(host, '.primary').click();
     await vi.waitFor(() => expect(msg(host)).toBe('Filled 3 fields.'));
   });
+  it('after a fill, Copy details puts what the reader saw on the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    const { host } = showBanner({ needsSetup: false, onFill: async () => { setDetails('wf-0 checkbox* key=null -> filled | I agree'); return 'Filled 1 fields.'; }, onSetup: vi.fn(), onDismiss: vi.fn() });
+    expect(btn(host, '.copy').hidden).toBe(true);
+    btn(host, '.primary').click();
+    await vi.waitFor(() => expect(btn(host, '.copy').hidden).toBe(false));
+    btn(host, '.copy').click();
+    await vi.waitFor(() => expect(btn(host, '.copy').textContent).toBe('Copied'));
+    expect(writeText).toHaveBeenCalledWith('wf-0 checkbox* key=null -> filled | I agree');
+    vi.unstubAllGlobals();
+  });
   it('shows error message on failure and re-enables', async () => {
     const { host } = showBanner({ needsSetup: false, onFill: vi.fn().mockRejectedValue(new Error('Busy')), onSetup: vi.fn(), onDismiss: vi.fn() });
     btn(host, '.primary').click();
@@ -23,6 +35,13 @@ describe('banner', () => {
     const { host } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn(), autoFill: true });
     await vi.waitFor(() => expect(msg(host)).toBe('Filled 3 fields.'));
     expect(onFill).toHaveBeenCalledTimes(1);
+  });
+  it('offers the dashboard beside Auto-fill', () => {
+    const onSetup = vi.fn();
+    const { host } = showBanner({ needsSetup: false, onFill: vi.fn(), onSetup, onDismiss: vi.fn() });
+    btn(host, '.link').click();
+    expect(onSetup).toHaveBeenCalledTimes(1);
+    expect(btn(showBanner({ needsSetup: true, onFill: vi.fn(), onSetup, onDismiss: vi.fn() }).host, '.link').hidden).toBe(true);
   });
   it('setup mode', () => {
     const onSetup = vi.fn();

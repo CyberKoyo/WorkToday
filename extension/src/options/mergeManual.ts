@@ -14,5 +14,7 @@ export function keepManualAnswers(parsed: Profile, current: Omit<Profile, 'revie
     ...parsed.certifications.map((c) => ({ ...c, name: typed.get(c.name.toLowerCase()) ?? c.name })),
     ...current.certifications.filter((c) => !parsedNames.has(c.name.toLowerCase())),
   ];
+  // Projects typed in by hand are on no resume; a parse that finds none must not wipe them.
+  if (!parsed.projects.length) merged.projects = current.projects;
   return merged;
 }

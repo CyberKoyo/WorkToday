@@ -3,7 +3,7 @@ import type { ProfileValue } from '../profile/profile';
 import { TEXT_INPUT, safeClick, setNativeValue, setFilesViaDataTransfer } from '../fill/dom';
 import { matchOption } from '../fill/matchOption';
 import { adaptForLabel, formatForPlaceholder } from '../fill/dateParts';
-import { fillCombobox } from './combobox';
+import { comboboxOptions, comboboxValue, fillCombobox } from './combobox';
 
 const own = <T extends Element>(c: HTMLElement, sel: string) => (c.matches(sel) ? c : c.querySelector(sel)) as T | null;
 const all = <T extends Element>(c: HTMLElement, sel: string) => [...(c.matches(sel) ? [c as unknown as T] : []), ...c.querySelectorAll<T>(sel)];
@@ -43,6 +43,12 @@ function fillChecks(boxes: HTMLInputElement[], options: string[], values: string
   return 'filled';
 }
 
+/** The choices a dropdown offers, for a question that has to go to Gemini. A combobox lists them only once opened. */
+export async function optionsGeneric(f: ExtractedField): Promise<string[]> {
+  const sel = own<HTMLSelectElement>(f.container, 'select');
+  return sel ? [...sel.options].filter((o) => o.value !== '').map((o) => o.text.trim()) : comboboxOptions(f.container);
+}
+
 export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeoutMs = 3000, missed: string[] = []): Promise<FillResult> {
   const c = f.container;
   const text = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : Array.isArray(value) ? value.join(', ') : adaptForLabel(f.label, value);
@@ -59,7 +65,13 @@ export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeou
       }
       case 'select': {
         const sel = own<HTMLSelectElement>(c, 'select');
-        return sel ? fillNativeSelect(sel, text) : await fillCombobox(c, text, timeoutMs, f.tieBreak);
+        if (sel) return fillNativeSelect(sel, text);
+        if (!f.multi || !Array.isArray(value)) return await fillCombobox(c, text, timeoutMs, f.tieBreak);
+        // A multi-select takes its choices one at a time; its list closes after each.
+        if (comboboxValue(c)) return 'skipped_nonempty';
+        let picked = 0;
+        for (const v of value) if ((await fillCombobox(c, v, timeoutMs, f.tieBreak, true)) === 'filled') picked++; else missed.push(v);
+        return picked ? 'filled' : 'no_match';
       }
       case 'radio':
         return fillRadio(c, f.options ?? [], text, f.members);

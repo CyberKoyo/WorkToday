@@ -53,6 +53,25 @@ describe('extractFields', () => {
     load('real-education-degree.html');
     expect(extractFields().map(toDescriptor)).toEqual([{ id: 'wf-0', label: 'Degree', kind: 'select', required: true }]);
   });
+  it('finds the resume drop zone and an agreement box whatever box they sit in; another document is not the resume', () => {
+    document.body.innerHTML = `
+      <div role="group" aria-labelledby="rs"><h3 id="rs">Resume/CV</h3>
+        <div data-automation-id="formField-attachments"><div data-automation-id="file-upload-drop-zone"><button type="button">Select files</button><input type="file"></div></div></div>
+      <div data-automation-id="formField-coverLetter"><label>Cover Letter</label><input type="file"></div>
+      <div data-automation-id="formField-name"><label>Name*</label><input type="text"></div>
+      <div><p>Terms</p><div><input type="checkbox" id="agree" aria-required="true"><label for="agree">Yes, I have read and consent to the terms and conditions</label></div></div>
+      <div><div><div data-automation-id="file-upload-drop-zone"><input type="file" style="display:none"></div></div></div>`;
+    expect(extractFields().map((f) => [f.label, f.kind, f.required, f.profileKey])).toEqual([
+      ['Resume/CV', 'file', false, 'resumeFile'],
+      ['Cover Letter', 'file', false, undefined],
+      ['Name', 'text', true, undefined],
+      ['Yes, I have read and consent to the terms and conditions', 'checkbox', true, undefined],
+      ['Resume/CV', 'file', false, 'resumeFile'],
+    ]);
+    const stray = extractFields()[3]!.container;
+    expect(stray.querySelector('input[type="checkbox"]')).not.toBeNull();
+    expect(stray.textContent).toContain('Terms'); // the sentence the box agrees to comes with it
+  });
   it('re-extraction reassigns stable ids', () => {
     load('workday-my-info.html');
     extractFields();

@@ -4,11 +4,12 @@ import { addAccountRefused, getAccountPassword, getAccountRefused, getCertProofs
 import { rememberAnswers } from '../answers/remembered';
 import { storedToFile } from '../storage/fileCodec';
 import type { AtsAdapter } from '../ats/types';
-import { runAutofill, formatReport } from './runAutofill';
+import { runAutofill, formatReport, type AutofillReport } from './runAutofill';
 import type { AnswerReply, BgMessage, MapReply } from '../messages';
 import { markResumeReload, resumeReloadPending, clearResumeReload } from './resumeReload';
 import { clearAdvance, complete, markAdvance, markAccountTried, nextButton } from './advance';
 import { waitFor } from '../fill/dom';
+import { setDetails } from './banner';
 
 const ERRORS: Record<string, string> = {
   rate_limited: 'Mapping service is busy. Try again in a minute.',
@@ -23,15 +24,20 @@ async function mapViaBackground(fields: FieldDescriptor[]): Promise<Map<string, 
   return new Map(reply.mappings);
 }
 
+// What a prose answer can draw on: the job page's own words (title, and the posting when it shares the page).
+const JOB_TEXT_MAX = 6000;
+
 async function answerViaBackground(fields: FieldDescriptor[]): Promise<Map<string, string[]>> {
-  const reply = (await browser.runtime.sendMessage({ type: 'answer-fields', fields } satisfies BgMessage)) as AnswerReply;
+  const job = fields.some((f) => f.kind === 'textarea') ? `${document.title}\n${document.body.innerText}`.slice(0, JOB_TEXT_MAX) : '';
+  const reply = (await browser.runtime.sendMessage({ type: 'answer-fields', fields, job } satisfies BgMessage)) as AnswerReply;
   if (!reply?.ok) throw new Error(reply?.message ?? 'Gemini could not answer.');
   return new Map(reply.answers);
 }
 
+/** `onReport`: the run's result as data, for the job loop to decide whether the step can be sent. */
 let accountRunning = false;
 
-export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
+export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: AutofillReport) => void): Promise<string> {
   const resumeDone = !!adapter.resumeReloadsPage && resumeReloadPending();
   clearResumeReload(); // before any await, so a second banner on the reloaded page does not fill again
   clearAdvance();
@@ -75,6 +81,7 @@ export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
     resumeDone,
     remembered: await getSavedAnswers(),
     answer: answerViaBackground,
+    options: adapter.options,
   };
   // A step Auto-fill just moved to can still be rendering (live Bloomberg: the questions step read as empty and
   // reported "Filled 0"); wait until the number of fields holds still.
@@ -97,7 +104,12 @@ export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
   }
   // What the applicant now types into the fields left to them (or corrects after Gemini) is kept for the next form.
   rememberAnswers([...report.attention, ...(report.answered ?? [])], (k, v) => { saveAnswer(k, v).catch((e) => console.warn('[workday-filler] could not save answer', e)); });
-  // Nothing left for the applicant: press Next, and the step it lands on fills itself (apply.content.ts).
+  if (report.filled) {
+    browser.runtime.sendMessage({ type: 'track', name: document.title, url: location.href } satisfies BgMessage)
+      .catch((e) => console.warn('[workday-filler] application not logged', e));
+  }
+  setDetails(details(adapter.id, !!stored, report));
+  // Nothing left for the applicant: press Next, and the step it lands on fills itself (mount.ts).
   const next = complete(report) ? (adapter.nextButton ?? nextButton)(document) : null;
   if (next) {
     await new Promise((r) => setTimeout(r, 500)); // let the site's own checks of the last field settle
@@ -106,5 +118,21 @@ export async function fillCurrentPage(adapter: AtsAdapter): Promise<string> {
     next.click();
     report.advanced = true;
   }
+  onReport?.(report);
   return formatReport(report);
+}
+
+// For a bug report ("Copy details" on the banner): what the reader saw and did on this page. Labels and markup shape
+// only; value attributes are dropped so nothing the applicant typed goes along.
+function details(reader: string, resume: boolean, r: AutofillReport): string {
+  const shape = (el: Element) => el.outerHTML.replace(/\s(class|style|value|d)="[^"]*"/g, '').replace(/\s+/g, ' ').slice(0, 600);
+  const boxes = [...document.querySelectorAll<HTMLElement>('input[type="file"],input[type="checkbox"]')];
+  const seen = [...new Set(boxes.map((el) => el.closest<HTMLElement>('[data-wf-id]')).filter((c) => !!c))];
+  const unseen = boxes.filter((el) => !el.closest('[data-wf-id]'));
+  return [
+    `${location.host}${location.pathname} | reader=${reader} | resume stored=${resume}`,
+    ...(r.log ?? []),
+    ...seen.slice(0, 8).map((c) => `MARKUP ${c!.dataset.wfId} ${shape(c!)}`),
+    ...unseen.slice(0, 8).map((el) => `UNSEEN ${shape(el.parentElement?.parentElement ?? el)}`),
+  ].join('\n');
 }

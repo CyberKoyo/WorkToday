@@ -2,7 +2,7 @@ import type { ExtractedField, FillResult } from './field';
 import type { Profile, ProfileValue } from '../profile/profile';
 
 export interface AtsAdapter {
-  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby' | 'adp' | 'adp-tax' | 'eightfold' | 'phenom' | 'lever' | 'tesla' | 'smartrecruiters' | 'dayforce';
+  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby' | 'adp' | 'adp-tax' | 'eightfold' | 'phenom' | 'lever' | 'tesla' | 'smartrecruiters' | 'dayforce' | 'generic';
   detect(url: URL): boolean;
   /** An application form with fields is on screen in this document. */
   isFormPage(doc: Document): boolean;
@@ -12,6 +12,8 @@ export interface AtsAdapter {
   /** `missed` collects values a multi-value field could not take (reported to the user by name). */
   fill(f: ExtractedField, value: ProfileValue, timeoutMs?: number, missed?: string[]): Promise<FillResult>;
   fillFile(f: ExtractedField, file: File): Promise<FillResult>;
+  /** The choices of a dropdown the page lists only once it is opened, for questions that go to Gemini. */
+  options?(f: ExtractedField): Promise<string[]>;
   /** Uploading the resume reloads the page with the ATS's own parse of it (iCIMS), so it goes first and alone. */
   resumeReloadsPage?: boolean;
   /** The button that moves to the next step, never the final submit. Default: one named Next/Continue (`autofill/advance`). */
