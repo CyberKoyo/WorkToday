@@ -2,6 +2,7 @@ import { browser } from 'wxt/browser';
 import type { ProfileKey } from '@wf/shared';
 import { normalizeProfile, type Profile, type ProfileValue } from '../profile/profile';
 import type { StoredFile } from './fileCodec';
+import { moveTrackedRows } from '../tracker/store';
 
 const K = { profile: 'profile', apiKey: 'geminiApiKey', resume: 'resumeFile', certProofs: 'certProofs', mapCache: 'mapCache', answers: 'savedAnswers', accountPassword: 'accountPassword', accountRefused: 'accountRefused', apps: 'applications', sheet: 'sheet' } as const;
 export const MAP_CACHE_MAX = 2000;
@@ -46,7 +47,7 @@ export const saveMapCache = (c: Record<string, ProfileKey>) =>
 
 /** One logged application. `synced`: its row is in the Google Sheet. */
 export interface Application { name: string; url: string; date: string; synced?: boolean }
-export const getApplications = async () => (await get<Application[]>(K.apps)) ?? [];
+export const getApplications = async () => { await moveTrackedRows(); return (await get<Application[]>(K.apps)) ?? []; };
 export const saveApplications = (a: Application[]) => set(K.apps, a);
 
 /** The connected spreadsheet and the Google access token for it (valid until `expires`, ms). */

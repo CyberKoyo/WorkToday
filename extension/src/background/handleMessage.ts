@@ -6,6 +6,7 @@ import { syncSheet as realSync, trackApplication } from '../sheets/track';
 import type { AnswerReply, BgMessage, LoopReply, MapReply, SyncReply } from '../messages';
 import { loopJob, loopStart } from './loop';
 import { greenhousePosting } from '../greenhouse/posting';
+import { companyFromUrl } from '../tracker/company';
 
 const JOB_TEXT_MAX = 8000; // what an essay draft gets to read about the job
 
@@ -29,7 +30,8 @@ export async function handleMessage(
     return undefined;
   }
   if (msg.type === 'open-tracker') {
-    await browser.tabs.create({ url: browser.runtime.getURL(`/tracker.html?title=${encodeURIComponent(msg.title)}`) });
+    const q = new URLSearchParams({ title: msg.title, company: companyFromUrl(tab?.url ?? '') });
+    await browser.tabs.create({ url: browser.runtime.getURL(`/tracker.html?${q}`) });
     return undefined;
   }
   if (msg.type === 'track') {

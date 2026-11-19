@@ -1,0 +1,26 @@
+import { describe, it, expect } from 'vitest';
+import { likelyApplied } from '../../src/tracker/seen';
+
+const CME = 'https://cmegroup.wd1.myworkdayjobs.com/en-US/cme_careers/job/Chicago/Cyber-Defense-Response-Intern_35062-1/apply';
+
+describe('likelyApplied', () => {
+  it('same company, the closer title first; other companies left out', () => {
+    const tracked = [
+      { title: 'Software Engineering Intern', company: 'CME Group', date: '2026-01-05', status: 'Rejected' },
+      { title: 'Cyber Defense Intern', company: 'CME Group', date: '2025-10-01', status: 'Applied' },
+      { title: 'Cyber Defense Response Intern', company: 'Globex', date: '2026-02-01', status: 'Applied' },
+    ];
+    expect(likelyApplied('Cyber Defense Response Intern - Summer 2026', CME, '2026-11-19', [], tracked).map((s) => s.title))
+      .toEqual(['Cyber Defense Intern', 'Software Engineering Intern']);
+  });
+  it("this visit's own logged row is not a past application; an older one at that address is", () => {
+    const row = { name: 'Cyber Defense Response Intern', url: CME, date: '2026-11-19' };
+    expect(likelyApplied('Cyber Defense Response Intern', CME, '2026-11-19', [row], [])).toEqual([]);
+    expect(likelyApplied('Cyber Defense Response Intern', CME, '2026-11-20', [row], [])).toHaveLength(1);
+  });
+  it('an address with no company: only a near word-for-word title', () => {
+    const url = 'https://eofe.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/job/1/apply';
+    const tracked = [{ title: 'SOC Analyst Intern', company: 'Tenet', date: '2026-03-01' }, { title: 'Data Analyst', company: 'Acme', date: '2026-03-02' }];
+    expect(likelyApplied('SOC Analyst Intern - Tenet Careers', url, '2026-11-19', [], tracked).map((s) => s.title)).toEqual(['SOC Analyst Intern']);
+  });
+});

@@ -39,7 +39,7 @@ export function odsRows(xml: string): string[][] {
 
 const COLUMNS: Array<[keyof Row, RegExp]> = [
   ['title', /title|position|role|job/i], ['company', /company|employer/i], ['date', /date|applied/i],
-  ['salary', /salary|pay|compensation/i], ['location', /location|city/i],
+  ['salary', /salary|pay|compensation/i], ['location', /location|city/i], ['status', /status|stage/i],
 ];
 
 // shortcut: slash dates are read as US month/day/year, switch on locale if a day-first sheet turns up.
@@ -60,7 +60,7 @@ export function toApplications(rows: string[][]): Row[] {
   if (at.title === undefined && at.company === undefined) throw new Error('The first row needs a Title or Company column.');
   const cell = (r: string[], k: keyof Row) => (at[k] === undefined ? '' : r[at[k]] ?? '').trim();
   return body
-    .map((r) => ({ title: cell(r, 'title'), company: cell(r, 'company'), date: isoDate(cell(r, 'date')), salary: cell(r, 'salary'), location: cell(r, 'location') }))
+    .map((r) => ({ title: cell(r, 'title'), company: cell(r, 'company'), date: isoDate(cell(r, 'date')), salary: cell(r, 'salary'), location: cell(r, 'location'), status: cell(r, 'status') }))
     .filter((a) => a.title || a.company);
 }
 

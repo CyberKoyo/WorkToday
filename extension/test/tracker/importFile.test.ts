@@ -18,8 +18,8 @@ describe('tracker import', () => {
   it('maps columns by header in any order and normalises dates', () => {
     const apps = toApplications(csvRows('Company,Salary,Job Title,Date\nAcme,"$90,000",Engineer,7/3/26\nGlobex,,Analyst,2026-01-02\n,,,\n'));
     expect(apps).toEqual([
-      { title: 'Engineer', company: 'Acme', date: '2026-07-03', salary: '$90,000', location: '' },
-      { title: 'Analyst', company: 'Globex', date: '2026-01-02', salary: '', location: '' },
+      { title: 'Engineer', company: 'Acme', date: '2026-07-03', salary: '$90,000', location: '', status: '' },
+      { title: 'Analyst', company: 'Globex', date: '2026-01-02', salary: '', location: '', status: '' },
     ]);
   });
   it('rejects a sheet with no title or company column', () => {
@@ -27,8 +27,8 @@ describe('tracker import', () => {
   });
   it('ods: first sheet, ISO date values, repeated empty cells keep columns aligned', () => {
     expect(toApplications(odsRows(ODS))).toEqual([
-      { title: 'Risk & Security Intern', company: 'Acme', date: '2026-08-18', salary: '', location: 'Boston, MA' },
-      { title: 'Analyst', company: '', date: '', salary: '', location: 'Remote' },
+      { title: 'Risk & Security Intern', company: 'Acme', date: '2026-08-18', salary: '', location: 'Boston, MA', status: 'Applied' },
+      { title: 'Analyst', company: '', date: '', salary: '', location: 'Remote', status: '' },
     ]);
   });
   it('readImport sniffs flat-XML ods vs csv', async () => {
@@ -39,6 +39,10 @@ describe('tracker import', () => {
   it.skipIf(!existsSync('../Tracker.ods'))('reads the real Tracker.ods', async () => {
     const apps = await readImport(new File([readFileSync('../Tracker.ods')], 'Tracker.ods'));
     expect(apps.length).toBeGreaterThan(5);
-    expect(apps[0]).toMatchObject({ company: 'Labelbox', date: '2026-07-13', location: 'SF, CA' });
+    expect(apps[0]).toMatchObject({ company: 'Labelbox', date: '2026-07-13', location: 'SF, CA', status: 'Applied' });
+  });
+  it("reads the user's own sheet header (Name of Positions, Company Name, Date Applied, Location, Status)", () => {
+    expect(toApplications([['Name of Positions', 'Company Name', 'Date Applied', 'Location', 'Status'], ['SOC Intern', 'Acme', '07/13/26', 'Boston, MA', 'Rejected']]))
+      .toEqual([{ title: 'SOC Intern', company: 'Acme', date: '2026-07-13', salary: '', location: 'Boston, MA', status: 'Rejected' }]);
   });
 });

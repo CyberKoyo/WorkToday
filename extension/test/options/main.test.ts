@@ -119,23 +119,25 @@ describe('options main', () => {
       { name: 'Old job', url: 'https://old.example.com/1', date: '2020-01-01' },
       { name: '<img src=x onerror=alert(1)>', url: 'https://acme.com/jobs/2', date: today },
     ]);
+    await fakeBrowser.storage.local.set({ tracker: [{ id: 't', title: 'Analyst', company: 'Globex', date: '2021-06-01', salary: '', location: 'Chicago, IL', status: 'Interview Scheduled' }] });
     await saveApiKey('K');
     await loadMain();
-    expect([$('statApps').textContent, $('statWeek').textContent, $('statAnswers').textContent]).toEqual(['2', '1', '0']);
+    expect([$('statApps').textContent, $('statWeek').textContent, $('statAnswers').textContent]).toEqual(['3', '1', '0']);
     expect($('statProfile').textContent).toBe('○ Not set up');
     expect($('setup').hidden).toBe(false);
     expect([...$('setupSteps').children].map((li) => li.textContent)).toEqual(
       ['✓ Add your Gemini API key (done)', '○ Upload your resume', '○ Review and save your profile']);
     const rows = [...$('apps').querySelectorAll('tr')];
     expect(rows.map((r) => [...r.children].map((c) => c.textContent))).toEqual([
-      ['<img src=x onerror=alert(1)>', today, 'acme.com'], ['Old job', '2020-01-01', 'old.example.com']]);
+      ['<img src=x onerror=alert(1)>', 'Acme', today, 'acme.com', 'Applied'], ['Analyst', 'Globex', '2021-06-01', 'Chicago, IL', 'Interview Scheduled'],
+      ['Old job', 'Example', '2020-01-01', 'old.example.com', 'Applied']]);
     expect($('apps').querySelector('img')).toBeNull();
     expect(rows[0]!.querySelector('a')!.href).toBe('https://acme.com/jobs/2');
     expect($('appsEmpty').hidden).toBe(true);
     expect($<HTMLButtonElement>('sheetBtn').disabled).toBe(true); // no Google client ID in this build
     // An application logged from a job tab shows up without a reload.
     await saveApplications([{ name: 'Only', url: 'https://acme.com/jobs/3', date: today }]);
-    await vi.waitFor(() => expect($('statApps').textContent).toBe('1'));
+    await vi.waitFor(() => expect($('statApps').textContent).toBe('2'));
   });
 
   it('keeps several resume versions: all are read together, one is attached, any can be removed', async () => {

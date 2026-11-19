@@ -1,0 +1,72 @@
+/* The extension pages' one look: the options page (Dashboard, Profile, Settings) and the Applications log. */
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7; --surface: #fff; --text: #111827; --muted: #5b6472; --border: #e2e5ea;
+  --accent: #2563eb; --accent-text: #1d4ed8; --notice: #fff7e6;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0f1115; --surface: #181b21; --text: #e6e8ec; --muted: #9aa3b2; --border: #2a2f38; --accent-text: #8ab4ff; --notice: #2b2416; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 system-ui, sans-serif; background: var(--bg); color: var(--text); display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+nav { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
+nav strong { padding: 0 10px 16px; font-size: 15px; }
+nav a { padding: 9px 10px; border-radius: 8px; color: var(--text); text-decoration: none; }
+nav a:hover { background: var(--bg); }
+nav a[aria-current] { background: var(--accent); color: #fff; font-weight: 600; }
+main { padding: 28px 32px 80px; max-width: 980px; width: 100%; min-width: 0; }
+main > section { scroll-margin-top: 80px; }
+h1 { font-size: 22px; margin: 0 0 18px; }
+h2 { font-size: 15px; margin: 0 0 10px; }
+a { color: var(--accent-text); }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+.card > header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.card > header h2 { margin: 0 auto 0 0; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+.tile span { display: block; color: var(--muted); font-size: 12.5px; }
+.tile b { display: block; font-size: 28px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.tile b.word { font-size: 18px; line-height: 34px; }
+.muted, .note { color: var(--muted); }
+.note { margin: 8px 0 0; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+table:has(tbody:empty) { display: none; }
+th, td { padding: 9px 8px; border-bottom: 1px solid var(--border); }
+td:first-child { overflow-wrap: anywhere; }
+td:not(:first-child) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: 0; }
+/* The Applications log: seven columns in a card. Words wrap; only the date and the buttons keep to one line. */
+.scroll { overflow-x: auto; }
+table.log td { white-space: normal; overflow-wrap: anywhere; }
+table.log td:first-child { min-width: 14em; }
+table.log td:nth-child(3), table.log td:last-child { white-space: nowrap; overflow-wrap: normal; }
+.search { display: flex; align-items: center; gap: 6px; }
+input[type="search"] { font: inherit; width: 260px; max-width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+ol.steps { margin: 0; padding: 0; list-style: none; }
+ol.steps li { padding: 6px 0; }
+button, .button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; text-decoration: none; display: inline-block; }
+button.primary, .button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button:disabled { opacity: .55; cursor: default; }
+input[type="text"], input[type="password"], input[type="date"], select, textarea { font: inherit; width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); }
+textarea { min-height: 90px; resize: vertical; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: grid; grid-template-columns: 260px 1fr; gap: 10px; margin: 8px 0; align-items: center; }
+.row input[type="checkbox"] { justify-self: start; }
+fieldset { border: 0; border-top: 1px solid var(--border); padding: 14px 0 6px; margin: 14px 0 0; }
+legend { font-weight: 600; padding: 0 8px 0 0; }
+.entry { border: 1px solid var(--border); padding: 10px 12px; margin: 10px 0; border-radius: 10px; }
+.notice { background: var(--notice); padding: 9px 12px; border-radius: 8px; }
+.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.inline input { flex: 1 1 260px; width: auto; }
+/* Sticky so feedback stays visible below the long profile form. A page's message line is its p[role=status]. */
+p[role="status"] { position: sticky; bottom: 12px; margin: 0; padding: 10px 14px; font-weight: 600; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 6px 20px rgba(0, 0, 0, .12); }
+p[role="status"]:empty { display: none; }
+@media (max-width: 720px) {
+  body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  nav { flex-direction: row; flex-wrap: wrap; align-items: center; border-right: 0; border-bottom: 1px solid var(--border); padding: 10px 12px; position: static; height: auto; }
+  nav strong { padding: 0 10px 0 4px; width: 100%; }
+  table.sites th:nth-child(4), table.sites td:nth-child(4) { display: none; }
+  main { padding: 16px 16px 80px; }
+  .row { grid-template-columns: 1fr; gap: 4px; }
+}
