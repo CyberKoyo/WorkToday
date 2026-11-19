@@ -391,6 +391,15 @@ describe('runAutofill', () => {
       profile: { ...emptyProfile(), postalCode: '11372', city: 'Jackson Heights', reviewed: true } } as never);
     expect(fill.mock.calls[0]![0].tieBreak).toBe('Jackson Heights');
   });
+  it('an address line is given the ZIP to choose among the same street in other states', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Address Line 1</label><input type="text"></div>';
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'addressLine1']])),
+      profile: { ...emptyProfile(), addressLine1: '74-12 35th Ave', postalCode: '11372', reviewed: true } } as never);
+    expect(fill.mock.calls[0]![0].tieBreak).toBe('11372');
+  });
   it('a city is given the state, by name, to choose among same-name towns', async () => {
     const base = deps();
     document.body.innerHTML = '<div data-automation-id="formField-a"><label>City</label><input type="text"></div>';

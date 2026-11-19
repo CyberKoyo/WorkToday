@@ -171,6 +171,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (value === null && key === 'previouslyEmployed') value = 'no'; // unset: most applicants never worked there; not Gemini's guess
       if (typeof value === 'string' && /^(yes|no)$/.test(value)) value = value === 'yes' ? 'Yes' : 'No'; // as a person types it
       if (key === 'postalCode' && d.profile.city) f.tieBreak = d.profile.city; // one zip can list several towns
+      if (key === 'addressLine1' && d.profile.postalCode) f.tieBreak = d.profile.postalCode; // one street, many states
       // One town name can be in several states (live Ashby location: "Austin, Texas" and "Austin, Minnesota").
       if (key === 'city' && d.profile.state) f.tieBreak = US_STATES[d.profile.state.trim().toUpperCase()] ?? d.profile.state;
       // No default answer in the profile: the application is being filled in on the employer's own careers page, so
