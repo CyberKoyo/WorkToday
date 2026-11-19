@@ -54,6 +54,21 @@ describe('fillField', () => {
     expect(await fillField(f, 'CA')).toBe('filled');
     expect(btn.textContent).toBe('California');
   });
+  it('select: waits out a list that fills in stages (live CME Degree)', async () => {
+    const f = setup(wrap('<label>Degree</label><button aria-haspopup="listbox" type="button">Select One</button>'));
+    const btn = f.container.querySelector('button')!;
+    btn.addEventListener('click', () => {
+      const lb = document.createElement('div'); lb.setAttribute('role', 'listbox');
+      lb.innerHTML = '<div role="option">Select One</div>';
+      document.body.append(lb);
+      setTimeout(() => {
+        lb.insertAdjacentHTML('beforeend', '<div role="option">Doctorate</div><div role="option">Masters / Advanced Degree</div><div role="option">Bachelors Degree</div><div role="option">Associate Degree</div>');
+        lb.querySelectorAll<HTMLElement>('[role="option"]').forEach((o) => o.addEventListener('click', () => { btn.textContent = o.textContent; lb.remove(); }));
+      }, 200);
+    });
+    expect(await fillField(f, 'BS')).toBe('filled');
+    expect(btn.textContent).toBe('Bachelors Degree');
+  });
   it('select: no match closes with Escape, leaves placeholder', async () => {
     const f = setup(wrap('<label>State</label><button aria-haspopup="listbox" type="button">Select One</button>'));
     const btn = f.container.querySelector('button')!;
@@ -63,7 +78,7 @@ describe('fillField', () => {
       const lb = document.createElement('div'); lb.setAttribute('role', 'listbox');
       lb.innerHTML = '<div role="option">Alabama</div>'; document.body.append(lb);
     });
-    expect(await fillField(f, 'Mars')).toBe('no_match');
+    expect(await fillField(f, 'Mars', 300)).toBe('no_match');
     expect(onKey).toHaveBeenCalled();
     expect(btn.textContent).toBe('Select One');
   });

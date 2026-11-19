@@ -85,17 +85,20 @@ async function fillSelect(c: HTMLElement, value: string, timeoutMs: number): Pro
   // Other listboxes (e.g. multiselect chips) may already be on the page; only options this click opens count.
   const before = new Set(doc.querySelectorAll(SEL.listboxOption));
   btn.click();
-  const opts = await waitFor(() => {
-    const l = [...doc.querySelectorAll<HTMLElement>(SEL.listboxOption)].filter((o) => !before.has(o));
-    return l.length ? l : null;
+  let opts: HTMLElement[] = [];
+  let i = -1;
+  // The list can fill in stages (live CME Degree: matched against a partial list): match as it grows, until the timeout.
+  await waitFor(() => {
+    opts = [...doc.querySelectorAll<HTMLElement>(SEL.listboxOption)].filter((o) => !before.has(o));
+    i = opts.length ? matchOption(value, opts.map((o) => o.textContent ?? '')) : -1;
+    return i !== -1 ? true : null;
   }, timeoutMs);
-  if (!opts) {
+  if (!opts.length) {
     console.warn('[workday-filler] dropdown did not open:', JSON.stringify(value));
     return 'error';
   }
-  const i = matchOption(value, opts.map((o) => o.textContent ?? ''));
   if (i === -1) {
-    console.warn('[workday-filler] no dropdown option for', JSON.stringify(value));
+    console.warn('[workday-filler] no dropdown option for', JSON.stringify(value), 'in', JSON.stringify(opts.slice(0, 40).map((o) => clean(o.textContent))));
     btn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     return 'no_match';
   }
