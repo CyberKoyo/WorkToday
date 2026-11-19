@@ -10,7 +10,9 @@ export const OR = {
   educationTile: '.beautiful-timeline__column--right [data-profile-item-tile]',
   editorSave: 'button.save-btn',
   editorCancel: 'button.cancel-btn',
-  // Licenses and certificates (live 2026-11-18); the same block type may hold other profile items on other sites.
+  pill: '[role="radio"].cx-select-pill-section',
+  pillSelected: '.cx-select-pill-section--selected',
+  // The tile layout (live 2026-11-18/19): Experience, Education, Licenses each a block with its own Add button.
   profileItems: '.apply-flow-block--tile-profile-items',
   profileItemsAdd: 'button[id^="profileItemsAddButton"]',
   currentJob: 'input[type="checkbox"][id*="currentJobFlag"]',

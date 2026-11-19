@@ -1,8 +1,9 @@
 import type { Profile, WorkEntry, EduEntry } from '../profile/profile';
 import { safeClick, setNativeValue, waitFor } from '../fill/dom';
-import { MONTH_NAMES } from '../fill/dateParts';
+import { MONTH_NAMES, today } from '../fill/dateParts';
 import { comboboxValue, fillCombobox } from '../generic/combobox';
-import { norm } from '../fill/matchOption';
+import { matchOption, norm } from '../fill/matchOption';
+import { clean } from '../ats/field';
 import { OR } from './selectors';
 
 const MAX_ENTRIES = 10;
@@ -36,7 +37,7 @@ async function setDate(ed: Editor, name: string, value: string, timeoutMs: numbe
   if (year) await fillCombobox(year, m[1]!, timeoutMs);
 }
 
-async function fillWork(ed: Editor, w: WorkEntry, timeoutMs: number) {
+async function fillWork(ed: Editor, w: WorkEntry, country: string, timeoutMs: number) {
   setText(ed, 'employerName', w.company);
   setText(ed, 'jobTitle', w.title);
   await setDate(ed, 'startDate', w.startDate, timeoutMs);
@@ -44,18 +45,28 @@ async function fillWork(ed: Editor, w: WorkEntry, timeoutMs: number) {
   if (w.current && current && !current.checked) current.click();
   if (!w.current) await setDate(ed, 'endDate', w.endDate, timeoutMs);
   setText(ed, 'employerCity', w.location.split(',')[0]!.trim());
+  await setCombo(ed, 'countryCode', country, timeoutMs); // the applicant's own (live Tenet: Employer Country)
   // Some sites have Achievements in place of Responsibilities (live Rockland Trust).
   setText(ed, named(ed, 'responsibilities').length ? 'responsibilities' : 'achievements', w.description);
 }
 
-async function fillEdu(ed: Editor, e: EduEntry, timeoutMs: number) {
+async function fillEdu(ed: Editor, e: EduEntry, country: string, timeoutMs: number) {
   await setCombo(ed, 'contentItemId', e.degree, timeoutMs);
   await setCombo(ed, 'major', e.fieldOfStudy, timeoutMs);
   // The catch-all is "Not Listed/Other" on some sites, "Other/Autre/Otros/…" on others (live Rockland Trust).
   await setCombo(ed, 'educationalEstablishment', e.school, timeoutMs, ['not listed', 'Other/Autre']);
   await setDate(ed, 'startDate', e.startDate, timeoutMs);
   await setDate(ed, 'endDate', e.endDate, timeoutMs);
+  // Live Tenet has this in place of an end date. It is a graduation still to come: Oracle will not save a past one
+  // (live: the editor saved once the date was left out).
+  if (e.endDate > today().slice(0, e.endDate.length)) await setDate(ed, 'projectedCompletionDate', e.endDate, timeoutMs);
+  await setCombo(ed, 'countryCode', country, timeoutMs);
   setText(ed, 'gpa', e.gpa);
+  // Some sites ask the degree as a row of buttons, and will not save without one (live Tenet: "Bachelor's Degree
+  // (±16 years)"). Last, just before Save: picking the country redraws the editor and dropped an earlier pick.
+  const pills = [...ed.querySelectorAll<HTMLElement>(OR.pill)];
+  const i = e.degree && !pills.some((p) => p.matches(OR.pillSelected)) ? matchOption(e.degree, pills.map((p) => clean(p.textContent))) : -1;
+  if (i !== -1 && safeClick(pills[i]!)) await waitFor(() => (ed.querySelector(OR.pillSelected) ? true : null), timeoutMs);
 }
 
 /**
@@ -67,8 +78,8 @@ export async function addTimelineEntries(doc: Document, profile: Profile, timeou
   const block = doc.querySelector<HTMLElement>(OR.timeline);
   if (!block) return;
   const kinds = [
-    { add: OR.addExperience, tiles: OR.experienceTile, entries: profile.work, fill: (ed: Editor, i: number) => fillWork(ed, profile.work[i]!, timeoutMs) },
-    { add: OR.addEducation, tiles: OR.educationTile, entries: profile.education, fill: (ed: Editor, i: number) => fillEdu(ed, profile.education[i]!, timeoutMs) },
+    { add: OR.addExperience, tiles: OR.experienceTile, entries: profile.work, fill: (ed: Editor, i: number) => fillWork(ed, profile.work[i]!, profile.country, timeoutMs) },
+    { add: OR.addEducation, tiles: OR.educationTile, entries: profile.education, fill: (ed: Editor, i: number) => fillEdu(ed, profile.education[i]!, profile.country, timeoutMs) },
   ];
   for (const k of kinds) {
     const count = () => block.querySelectorAll(k.tiles).length;
@@ -88,34 +99,50 @@ export async function addTimelineEntries(doc: Document, profile: Profile, timeou
 }
 
 /**
- * Licenses and certificates (live 2026-11-18): an "Add License" button opens an editor whose License or Certificate
- * list is searched by name. One the list lacks, or one already saved as a tile, is cancelled; the rest are saved.
+ * The tile layout (live 2026-11-18/19): Experience, Education and Licenses are each a block whose "Add …" button
+ * opens an editor that saves into a tile. Saved tiles are known by their text, so a rerun adds no duplicate.
+ * `fill` returns false to cancel the entry. An editor Oracle will not save is left open, and nothing more is added.
  */
-export async function addCertifications(doc: Document, profile: Profile, timeoutMs = 3000): Promise<void> {
-  const first = [...doc.querySelectorAll<HTMLElement>(OR.profileItemsAdd)].find((b) => /licen|certif/i.test(b.textContent ?? ''));
+async function addTiles<T>(doc: Document, label: RegExp, entries: T[], names: (e: T) => string[],
+  fill: (ed: Editor, e: T, saved: string) => Promise<boolean>, timeoutMs: number) {
+  const first = [...doc.querySelectorAll<HTMLElement>(OR.profileItemsAdd)].find((b) => label.test(b.textContent ?? ''));
   const block = first?.closest<HTMLElement>(OR.profileItems);
   if (!block) return;
   const closed = () => (!block.querySelector(OR.editorSave) ? true : null);
-  for (const cert of profile.certifications.slice(0, MAX_ENTRIES)) {
+  for (const e of entries.slice(0, MAX_ENTRIES)) {
     const saved = norm(block.textContent ?? ''); // the tiles' text, read while no editor is open
-    if (!cert.name || saved.includes(norm(cert.name))) continue;
+    const keys = names(e).map(norm).filter(Boolean);
+    if (!keys.length || keys.every((k) => saved.includes(k))) continue;
     const add = block.querySelector<HTMLElement>(OR.profileItemsAdd);
     if (!add || block.querySelector(OR.editorSave) || !safeClick(add)) return;
     const save = await waitFor(() => block.querySelector<HTMLButtonElement>(OR.editorSave), timeoutMs);
     if (!save) return;
-    const box = named(block, 'contentItemId')[0];
-    const picked = box && (await fillCombobox(box, cert.name, timeoutMs)) === 'filled' ? norm(comboboxValue(box)) : '';
-    if (!picked || saved.includes(picked)) {
-      console.info('[workday-filler] certification', picked ? 'already saved:' : 'not in the list, cancelled:', JSON.stringify(cert.name));
+    if (!(await fill(block, e, saved))) {
       // Cancel only closes the editor; like Save, it is type="submit" but Oracle handles it.
       block.querySelector<HTMLButtonElement>(OR.editorCancel)?.click();
       if (!(await waitFor(closed, timeoutMs))) return;
       continue;
     }
-    setText(block, 'certificationNumber', cert.number);
-    await setDate(block, 'issueDate', cert.issuedDate, timeoutMs);
-    await setDate(block, 'expirationDate', cert.expirationDate, timeoutMs);
-    save.click(); // see addTimelineEntries
+    // Found again: the editor can be redrawn while it is filled (live Tenet: Education's Save went unpressed).
+    (block.querySelector<HTMLButtonElement>(OR.editorSave) ?? save).click(); // see addTimelineEntries
     if (!(await waitFor(closed, timeoutMs))) return; // Oracle wants more; left open for the applicant
   }
+}
+
+/** Experience, Education, and Licenses (searched by name; one the list lacks or already saved is cancelled). */
+export async function addProfileTiles(doc: Document, profile: Profile, timeoutMs = 3000): Promise<void> {
+  await addTiles(doc, /experience/i, profile.work, (w) => [w.company, w.title], async (ed, w) => { await fillWork(ed, w, profile.country, timeoutMs); return true; }, timeoutMs);
+  await addTiles(doc, /education/i, profile.education, (e) => [e.school], async (ed, e) => { await fillEdu(ed, e, profile.country, timeoutMs); return true; }, timeoutMs);
+  await addTiles(doc, /licen|certif/i, profile.certifications, (c) => [c.name], async (ed, cert, saved) => {
+    const box = named(ed, 'contentItemId')[0];
+    const picked = box && (await fillCombobox(box, cert.name, timeoutMs)) === 'filled' ? norm(comboboxValue(box)) : '';
+    if (!picked || saved.includes(picked)) {
+      console.info('[workday-filler] certification', picked ? 'already saved:' : 'not in the list, cancelled:', JSON.stringify(cert.name));
+      return false;
+    }
+    setText(ed, 'certificationNumber', cert.number);
+    await setDate(ed, 'issueDate', cert.issuedDate, timeoutMs);
+    await setDate(ed, 'expirationDate', cert.expirationDate, timeoutMs);
+    return true;
+  }, timeoutMs);
 }
