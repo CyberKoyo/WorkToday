@@ -27,11 +27,20 @@ export const shown = (el: Element) => el.getClientRects().length > 0;
 // Only these exact names move to the next step: "Submit", "Apply" or "Finish Later" can never match.
 const NEXT = /^(next( step)?|continue|save (and|&) (continue|next))$/i;
 
+const BUTTON = 'button,input[type="submit"],input[type="button"],[role="button"]';
+const isNext = (b: HTMLElement) => NEXT.test(clean(b instanceof HTMLInputElement ? b.value : b.textContent));
+
 /** The step's Next button, never the final submit. */
 export function nextButton(doc: Document): HTMLElement | null {
-  return [...doc.querySelectorAll<HTMLElement>('button,input[type="submit"],input[type="button"],[role="button"]')]
-    .find((b) => shown(b) && !(b as HTMLButtonElement).disabled
-      && NEXT.test(clean(b instanceof HTMLInputElement ? b.value : b.textContent))) ?? null;
+  return [...doc.querySelectorAll<HTMLElement>(BUTTON)].find((b) => shown(b) && !(b as HTMLButtonElement).disabled && isNext(b)) ?? null;
+}
+
+/** The applicant's own press of Next: the step it lands on fills itself, as after Auto-fill's (never Submit: NEXT cannot match it). */
+export function watchManualNext(doc: Document): void {
+  doc.addEventListener('click', (e) => {
+    const b = (e.target as Element | null)?.closest?.<HTMLElement>(BUTTON);
+    if (b && isNext(b)) markAdvance();
+  }, true);
 }
 
 // The account step is done by itself once per tab: a second wrong password could lock the applicant's account.

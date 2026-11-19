@@ -63,4 +63,13 @@ describe('banner', () => {
     expect(host.shadowRoot!.querySelector('.box')!.classList.contains('framed')).toBe(true);
     expect(host.shadowRoot!.querySelector('strong')!.textContent).toBe('Job Application Filler');
   });
+  it('shows past applications this job may be, and nothing when there are none', () => {
+    const seen = (notice?: string) => {
+      const { host } = showBanner({ needsSetup: false, onFill: vi.fn(), onSetup: vi.fn(), onDismiss: vi.fn(), notice });
+      return host.shadowRoot!.querySelector<HTMLElement>('.seen')!;
+    };
+    expect(seen('You may have applied here before:\n• Analyst at Acme (2026-01-02, Rejected)').hidden).toBe(false);
+    expect(seen().hidden).toBe(true);
+  });
 });
+

@@ -5,11 +5,21 @@ import { showBanner } from './banner';
 import { startWatcher } from './watcher';
 import { fillCurrentPage } from './fillCurrentPage';
 import { resumeReloadPending } from './resumeReload';
-import { accountTried, advancePending } from './advance';
+import { accountTried, advancePending, watchManualNext } from './advance';
 import { runLoop } from './loop';
 import { loopStep as step, type Filled, type Step } from './loopPage';
 import type { AutofillReport } from './runAutofill';
 import { asksIdentity } from '../generic/adapter';
+import { getApplications } from '../storage/store';
+import { getApplications as getTracked, today } from '../tracker/store';
+import { likelyApplied } from '../tracker/seen';
+
+// Past applications this job may be, as a line for the banner. Read once per page: the steps after it reuse it.
+async function seenNotice(): Promise<string> {
+  const logged = await getApplications(); // first and alone: it moves old tracker rows out, once
+  const hits = likelyApplied(document.title, location.href, today(), logged, await getTracked());
+  return hits.length ? `You may have applied here before:\n${hits.map((h) => `• ${h.title}${h.company ? ` at ${h.company}` : ''} (${[h.date, h.status].filter(Boolean).join(', ')})`).join('\n')}` : '';
+}
 
 export interface Mounted {
   adapter: AtsAdapter;
@@ -30,6 +40,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
   let report: AutofillReport | null = null;   // what that fill found
   let looping = false;                        // this page is a board whose loop is running in the banner
   const top = window === window.top;
+  let notice: Promise<string> | null = null;
   const fill = () => (filling = fillCurrentPage(adapter, (r) => { report = r; }).finally(() => { filling = null; }));
   const show = async (auto = false) => {
     if (looping) return; // an application opening inside the board must not replace the banner that runs the loop
@@ -37,10 +48,12 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     // The account step does itself once per tab, and only with a saved password: a second try could lock the account.
     const account = !!adapter.accountPage?.(document) && !accountTried() && !!(await getAccountPassword())
       && !(await getAccountRefused()).includes(location.host);
+    const seen = await (notice ??= seenNotice().catch(() => ''));
     banner?.remove(); // after the await, so two quick calls still leave one banner
     banner = showBanner({
       needsSetup: !profile?.reviewed,
       framed: !top,
+      notice: seen,
       // The loop, back from the resume upload's reload, on the step Auto-fill moved to, or a page that fills itself (tax opt-out).
       autoFill: auto || (!!adapter.resumeReloadsPage && resumeReloadPending()) || advancePending() || !!adapter.autoStart || account,
       onFill: fill,
@@ -76,6 +89,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
 export function mountBanner(adapter: AtsAdapter): Mounted {
   const m: Mounted = { adapter, ...bannerFor(adapter) };
   holder[KEY] = m;
+  watchManualNext(document);
   startWatcher(document, adapter, () => { void m.show(); });
   return m;
 }

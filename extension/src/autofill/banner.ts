@@ -1,4 +1,6 @@
 export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean; onLog?: () => void
+  /** Shown under the message: past applications this job may be (tracker/seen.ts). */
+  notice?: string
   /** Job boards: run the loop, reporting progress through `say` until `stopped()`; resolves to the closing line. */
   onLoop?: (say: (s: string) => void, stopped: () => boolean) => Promise<string> }
 
@@ -12,6 +14,7 @@ const CSS = `
     font: 14px system-ui, sans-serif; }
   .box.framed { position: static; width: auto; margin: 8px 0; }
   .msg { margin: 6px 0 10px; }
+  .seen { margin: 0 0 10px; padding: 8px 10px; background: #fff7e6; border-radius: 6px; white-space: pre-line; font-size: 13px; }
   .primary { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
   .primary:disabled { opacity: .6; cursor: default; }
   .log { background: none; border: 0; color: #2563eb; padding: 8px; cursor: pointer; text-decoration: underline; }
@@ -23,13 +26,16 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
   host.id = 'wf-banner-host';
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>${CSS}</style><div class="box${opts.framed ? ' framed' : ''}" role="dialog" aria-label="Job Application Filler">
-    <strong>Job Application Filler</strong><p class="msg"></p>
+    <strong>Job Application Filler</strong><p class="msg"></p><p class="seen" hidden></p>
     <button class="primary" type="button"></button>${opts.onLog ? '<button class="log" type="button">Log application</button>' : ''}
     <button class="link" type="button">Dashboard</button>
     <button class="link loop" type="button">Loop jobs</button>
     <button class="link copy" type="button" hidden>Copy details</button>
     <button class="close" type="button" aria-label="Dismiss">×</button></div>`;
   const msg = shadow.querySelector('.msg')!;
+  const seen = shadow.querySelector<HTMLElement>('.seen')!;
+  seen.textContent = opts.notice ?? '';
+  seen.hidden = !opts.notice;
   const primary = shadow.querySelector<HTMLButtonElement>('.primary')!;
 
   // Something filled wrong: one press puts what the reader saw on the clipboard, to paste into a bug report.

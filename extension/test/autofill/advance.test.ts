@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { complete, nextButton, markAdvance, advancePending, clearAdvance } from '../../src/autofill/advance';
+import { complete, nextButton, markAdvance, advancePending, clearAdvance, watchManualNext } from '../../src/autofill/advance';
 import type { AutofillReport } from '../../src/autofill/runAutofill';
 
 // jsdom lays nothing out; a control is on screen unless an ancestor hides it.
@@ -45,5 +45,18 @@ describe('advance marker', () => {
     expect(advancePending()).toBe(true);
     clearAdvance();
     expect(advancePending()).toBe(false);
+  });
+});
+
+describe('watchManualNext', () => {
+  it("the applicant's own Next marks the step to fill itself; Submit never does", () => {
+    clearAdvance();
+    document.body.innerHTML = '<button id="s"><span>Submit</span></button><button id="n"><span>Save and Continue</span></button>';
+    watchManualNext(document);
+    document.querySelector<HTMLElement>('#s span')!.click();
+    expect(advancePending()).toBe(false);
+    document.querySelector<HTMLElement>('#n span')!.click();
+    expect(advancePending()).toBe(true);
+    clearAdvance();
   });
 });
