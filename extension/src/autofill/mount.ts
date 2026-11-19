@@ -1,10 +1,11 @@
 import { browser } from 'wxt/browser';
-import { getLoopSettings, getProfile } from '../storage/store';
+import { getAccountPassword, getAccountRefused, getLoopSettings, getProfile } from '../storage/store';
 import type { AtsAdapter } from '../ats/types';
 import { showBanner } from './banner';
 import { startWatcher } from './watcher';
 import { fillCurrentPage } from './fillCurrentPage';
 import { resumeReloadPending } from './resumeReload';
+import { accountTried, advancePending } from './advance';
 import { runLoop } from './loop';
 import { loopStep as step, type Filled, type Step } from './loopPage';
 import type { AutofillReport } from './runAutofill';
@@ -33,13 +34,18 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
   const show = async (auto = false) => {
     if (looping) return; // an application opening inside the board must not replace the banner that runs the loop
     const profile = await getProfile();
+    // The account step does itself once per tab, and only with a saved password: a second try could lock the account.
+    const account = !!adapter.accountPage?.(document) && !accountTried() && !!(await getAccountPassword())
+      && !(await getAccountRefused()).includes(location.host);
     banner?.remove(); // after the await, so two quick calls still leave one banner
     banner = showBanner({
       needsSetup: !profile?.reviewed,
       framed: !top,
-      autoFill: auto || (!!adapter.resumeReloadsPage && resumeReloadPending()), // the loop, or back from the resume upload's reload
+      // The loop, back from the resume upload's reload, on the step Auto-fill moved to, or a page that fills itself (tax opt-out).
+      autoFill: auto || (!!adapter.resumeReloadsPage && resumeReloadPending()) || advancePending() || !!adapter.autoStart || account,
       onFill: fill,
       onSetup: () => { browser.runtime.sendMessage({ type: 'open-options' }); },
+      onLog: () => { browser.runtime.sendMessage({ type: 'open-tracker', title: document.title }); },
       onDismiss: () => { banner = null; },
       // A page of jobs, not an application.
       onLoop: top && !adapter.isFormPage(document) ? async (say, stopped) => {
@@ -57,7 +63,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     if (!filling) return null; // profile not reviewed: nothing ran
     try { await filling; } catch { return 'attention'; }
     const r = report as AutofillReport | null;
-    if (r?.reloading) return 'reloading';
+    if (r?.reloading || r?.advanced) return 'reloading'; // Auto-fill already pressed Next: the loop must not press again
     if (!r || (!r.filled && !r.skipped && !r.attention.length)) return 'nothing';
     return !r.attention.length && !r.answerError ? 'clean' : 'attention';
   };

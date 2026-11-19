@@ -9,6 +9,10 @@ const req: MapRequest = { fields: [
 ] };
 
 describe('sanitizeMappings', () => {
+  it('cert.proof goes only on a file box', () => {
+    const out = sanitizeMappings({ mappings: [{ id: 'wf-0', profileKey: 'cert.proof' }, { id: 'wf-1', profileKey: 'cert.proof' }] }, req);
+    expect(out.mappings.map((m) => m.profileKey)).toEqual([null, 'cert.proof', null]);
+  });
   it('keeps valid mappings, fills missing ids with null, in request order', () => {
     expect(sanitizeMappings({ mappings: [{ id: 'wf-1', profileKey: 'resumeFile' }, { id: 'wf-0', profileKey: 'firstName' }] }, req))
       .toEqual({ mappings: [

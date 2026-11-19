@@ -13,7 +13,7 @@ export function sanitizeMappings(raw: unknown, req: MapRequest): MapResponse {
     if (typeof id !== 'string' || !kindById.has(id)) continue;
     if (got.has(id)) { got.set(id, null); continue; } // model contradicted itself → distrust
     let key: ProfileKey | null = typeof profileKey === 'string' && KEYS.has(profileKey) ? (profileKey as ProfileKey) : null;
-    if (key && (kindById.get(id) === 'file') !== (key === 'resumeFile')) key = null;
+    if (key && (kindById.get(id) === 'file') !== (key === 'resumeFile' || key === 'cert.proof')) key = null;
     got.set(id, key);
   }
   return { mappings: req.fields.map((f) => ({ id: f.id, profileKey: got.get(f.id) ?? null })) };

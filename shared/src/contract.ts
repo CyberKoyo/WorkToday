@@ -5,10 +5,11 @@ export const PROFILE_KEYS = [
   'workAuthorized', 'requiresSponsorship', 'willingToRelocate',
   'desiredSalary', 'earliestStartDate', 'referralSource',
   'gender', 'ethnicity', 'races', 'veteranStatus', 'disabilityStatus',
-  'over18', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent',
+  'over18', 'under40', 'dateOfBirth', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent', 'usCitizen', 'governmentEmployee',
   'resumeFile', 'skills',
   'work.title', 'work.company', 'work.location', 'work.startDate', 'work.endDate', 'work.current', 'work.description',
   'edu.school', 'edu.degree', 'edu.fieldOfStudy', 'edu.startDate', 'edu.endDate', 'edu.gpa',
+  'cert.name', 'cert.number', 'cert.issuedDate', 'cert.expirationDate', 'cert.proof',
 ] as const;
 export type ProfileKey = (typeof PROFILE_KEYS)[number];
 

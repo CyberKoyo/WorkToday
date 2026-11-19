@@ -3,13 +3,18 @@ import { TEXT_INPUT } from '../fill/dom';
 import { norm } from '../fill/matchOption';
 import { comboboxValue } from '../generic/combobox';
 import type { ProfileValue } from '../profile/profile';
+import { SEL } from '../workday/selectors';
 
 // Legal, consent and self-identification answers stay the applicant's: never remembered across forms, never asked of Gemini.
-const PERSONAL = /authori[sz]|sponsor|\bvisa\b|citizen|immigra|gender|\bsex\b|\brac(e|es|ial)\b|ethnic|hispanic|latin[oa]|veteran|military|armed forces|disab|transgender|lgbt|sexual|orientation|pronoun|religio|criminal|convict|felony|background check|acknowledg|consent|\bagree|certify|attest|signature|terms|privacy|salary|compensation/i;
+const PERSONAL = /authori[sz]|sponsor|\bvisa\b|citizen|immigra|gender|\bsex\b|\brac(e|es|ial)\b|ethnic|hispanic|latin[oa]|veteran|military|armed forces|disab|transgender|lgbt|sexual|orientation|pronoun|religio|criminal|convict|felony|background check|acknowledg|consent|\bagree|certify|attest|signature|terms|privacy|salary|compensation|\bage\b|birth/i;
 
 /** A question someone can answer once for every form: a short answer or a choice, about nothing personal or legal. */
 export const answerable = (f: ExtractedField) =>
   f.kind !== 'file' && f.kind !== 'textarea' && !(f.kind === 'checkbox' && !f.options) && !PERSONAL.test(f.label);
+
+/** Also kept: what the applicant writes in a text box (never asked of Gemini). A "why…" answer is about one employer. */
+export const rememberable = (f: ExtractedField) =>
+  answerable(f) || (f.kind === 'textarea' && !PERSONAL.test(f.label) && !/\bwhy\b/i.test(f.label));
 
 /** An empty free-text box Gemini may draft: prose, about nothing personal or legal. Drafts are never remembered. */
 export function essay(f: ExtractedField): boolean {
@@ -26,10 +31,20 @@ const checked = (el: HTMLElement) => (el instanceof HTMLInputElement ? el.checke
 /** The answer now on the page, in the form `fill` takes; null when there is none. */
 export function readAnswer(f: ExtractedField): ProfileValue | null {
   const c = f.container;
+  // Workday shows a prompt's choice as a chip (its text box stays empty) and a dropdown's as the button text (live RTX).
+  const chip = c.querySelector(SEL.multiSelectChip);
+  if (chip) return clean(chip.textContent) || null;
+  // Only a button that shows text: another site's empty dropdown toggle says nothing about the answer.
+  const shown = clean(c.querySelector(SEL.dropdownButton)?.textContent);
+  if (shown) return shown === SEL.dropdownPlaceholder ? null : shown;
   switch (f.kind) {
     case 'text':
     case 'date': {
       const el = (c.matches('input') ? c : c.querySelector(TEXT_INPUT)) as HTMLInputElement | null;
+      return el?.value.trim() || null;
+    }
+    case 'textarea': {
+      const el = (c.matches('textarea') ? c : c.querySelector('textarea')) as HTMLTextAreaElement | null;
       return el?.value.trim() || null;
     }
     case 'select': {
@@ -53,7 +68,7 @@ const watched = new WeakSet<HTMLElement>();
 
 /** Saves what the applicant enters in these fields, once they settle on it. */
 export function rememberAnswers(fields: ExtractedField[], save: (key: string, value: ProfileValue) => void) {
-  for (const f of fields.filter(answerable)) {
+  for (const f of fields.filter(rememberable)) {
     if (watched.has(f.container)) continue;
     watched.add(f.container);
     let timer: ReturnType<typeof setTimeout> | undefined;

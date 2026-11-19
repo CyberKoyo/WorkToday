@@ -6,6 +6,12 @@ const pdf = { name: 'r.pdf', type: 'application/pdf', dataBase64: 'JVBERi0=' };
 const ok = (obj: unknown) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] }), { status: 200 });
 
 describe('parseResume', () => {
+  it('asks for certifications and returns them normalized', async () => {
+    const f = vi.fn().mockResolvedValue(ok({ firstName: 'Ada', certifications: [{ name: 'CISSP', number: '1', issuedDate: 'Mar 2021', expirationDate: '2024-03-15' }] }));
+    const p = await parseResume(pdf, 'KEY', f);
+    expect(p.certifications).toEqual([{ name: 'CISSP', number: '1', issuedDate: '2021-03', expirationDate: '2024-03-15' }]);
+    expect(JSON.parse(f.mock.calls[0]![1].body).generationConfig.responseSchema.properties.certifications).toBeDefined();
+  });
   it('sends inline file with key header and JSON schema; returns normalized profile', async () => {
     const f = vi.fn().mockResolvedValue(ok({ firstName: 'Ada', gender: 'female', work: [{ title: 'Eng', startDate: '2020-01' }],
       projects: [{ name: 'Chess engine', url: 'https://github.com/ada/chess', description: 'Alpha-beta search', stars: 9 }] }));

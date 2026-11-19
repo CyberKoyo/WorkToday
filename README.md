@@ -1,6 +1,6 @@
 # Job Application Filler
 
-Browser extension (Chrome + Firefox) that fills job applications from your reviewed resume profile: automatically on Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors and Ashby, and on any other site from the toolbar button. It logs each application you fill (name, date, link) on its dashboard and,
+Browser extension (Chrome + Firefox) that fills job applications from your reviewed resume profile: automatically on Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors, Ashby, ADP, Eightfold, Phenom, Lever, SmartRecruiters, Dayforce and Tesla, and on any other site from the toolbar button. It logs each application you fill (name, date, link) on its dashboard and,
 once connected, in a Google Sheet, and drafts answers to essay questions for you to edit.
 
 - `extension/` — WXT extension. `npm run dev -w extension` (Chrome) / `npm run dev:firefox -w extension`.
@@ -11,12 +11,19 @@ once connected, in a Google Sheet, and drafts answers to essay questions for you
 
 | ATS | Hosts | Notes |
 | --- | --- | --- |
-| Workday | `*.myworkdayjobs.com`, `*.myworkday.com` | Adds work/education groups to match your profile. |
+| Workday | `*.myworkdayjobs.com`, `*.myworkday.com` | Adds work/education/certification groups to match your profile, uploads the resume and each certification's proof, and moves through the steps by itself up to Review (Submit is yours). Ticks "I have read and consent to the terms and conditions" on Voluntary Disclosures, which agrees to them for you. With an account password saved in setup, creates your account for that employer (or signs in when the email already has one) and ticks the account form's "I agree" box, which agrees to those terms for you; a refused password is tried once, then signing in is yours. Without one, signing in is yours. |
 | Greenhouse | `job-boards.greenhouse.io`, `boards.greenhouse.io`, Greenhouse forms embedded on company sites | Adds education groups. |
 | iCIMS | `*.icims.com` (form runs inside an iframe) | Extra work/education rows: add them yourself, then press Auto-fill again. |
 | Oracle Recruiting Cloud | `*.oraclecloud.com/hcmUI/CandidateExperience/…` | Adds and saves work/education history entries. The sign-in / email step is yours. |
 | SAP SuccessFactors | `careerN.successfactors.com`/`.eu`, `careerN.sapsf.com`/`.eu` (`/career?…`) | Fills the one-page apply form and attaches the resume. Password, cover letter, personal website link and the privacy statement are yours. |
 | Ashby | `jobs.ashbyhq.com` (`/…/application`) | Fills the application tab and the EEO survey. The "Autofill from resume" box is left alone. |
+| ADP Recruiting Management | `recruiting.adp.com`, `recruiting2.adp.com` (reached from `myjobs.adp.com`) | Fills contact details (Country/State/County lists included), the EEO step from your profile, the source list, the resume upload, and the screening questions as each one appears. A question revealed only by one of Gemini's answers needs another press of Auto-fill. The tax credit (WOTC) screening is opted out of by itself: Opt Out, confirm, "Under 40?" and (if under 40) your date of birth from your profile, Submit. Ticks "Reviewed" under the data protection and electronic signature notices, which agrees to them for you. Signing in on `myjobs.adp.com` is yours. |
+| Eightfold | `*.eightfold.ai/careers/apply?pid=…`, `careers.qualcomm.com` | Fills contact details, country lists and questions, and attaches the resume. A field that appears after an answer (State after Country) needs another press of Auto-fill. Signing in (Qualcomm, Northrop Grumman) is yours. |
+| Phenom apply | `careers.steris.com`, `jobs.cvshealth.com` (`/…/apply?jobSeqNo=…`) | Fills the "My Information" step and attaches the resume. Terms/privacy consent boxes are yours. Later steps go through the generic reader; work/education rows are not added yet. |
+| Lever | `jobs.lever.co`, `jobs.eu.lever.co` (`/…/apply`) | Fills the one-page form, its custom question cards and the EEO section, searches "Current location" for your city, and attaches the resume. Agreement checkboxes and the captcha on Submit are yours. |
+| SmartRecruiters | `jobs.smartrecruiters.com` (`/oneclick-ui/…`) | Fills names, email, phone, profile links and the message box, and attaches the resume. Experience and Education entries ("Add") and the screening step after Next are yours. |
+| Dayforce | `jobs.dayforcehcm.com` ("Apply without an Account") | Fills Candidate Info, its dropdowns, and the open education and employment entry, and attaches the resume. State/Province unlocks after Country, so it needs another press of Auto-fill. Saving each entry (Update), further entries and the privacy statement are yours. |
+| Tesla | `www.tesla.com/careers/search/job/apply/…` | Fills the "Personal Information" step and attaches the resume. Later steps go through the same reader but were not seen live. |
 | Any other site, including employers' own careers sites (Meta, Amazon, Microsoft) | Click the toolbar button on the application page. With **Allow on all sites** (dashboard → Settings) the banner shows by itself when a careers page has a form asking for your name, email, phone or resume | Uses the generic form reader. Same as iCIMS for extra rows. Without the permission, click the button again after moving to a new site. |
 
 ## Setup
@@ -34,9 +41,11 @@ You need Node.js and a Gemini API key. No server setup is required.
    (PDF, .docx or .txt; several versions at once if you keep them — they are read together into one profile, and the first
    is the file attached to applications unless you pick another), press **Read resumes**, review every field (personal projects
    are read off the resume too, and you can add ones it does not list; Gemini uses them for answers and essay drafts) (work authorization, sponsorship and EEO answers are never inferred — enter them
-   yourself), and save.
-5. On a supported application, press **Auto-fill** in the banner on each step. On any other site, click the extension's toolbar button
-   to bring up the banner first. Review the highlighted fields, then continue yourself.
+   yourself), and save. Optional, under Settings: an **Account password** for the accounts Workday asks you to create.
+5. On a supported application, press **Auto-fill** in the banner. On any other site, click the extension's toolbar button
+   to bring up the banner first. When it fills every field on a step with nothing left for you, it presses Next and fills the
+   following step too. It stops at any step with a highlighted field, and before the final submit. Gemini's answers (blue)
+   count as filled, so check them on the site's review page before you submit.
 
 ### Job loop
 
@@ -113,9 +122,13 @@ a starting point, not your words. Work authorization, sponsorship, demographic, 
 A required consent checkbox (one the form will not continue without) is ticked for you and outlined blue, and the summary
 says how many: read what you are agreeing to before you submit. Optional checkboxes are left alone.
 The application log stays in the extension; with Google Sheets connected, each entry's name, date and link also go to your sheet.
-Answers you type into highlighted fields are saved in the extension (this browser only) and reused when the same question comes up again.
-The extension never overwrites a field that already has a value, and never submits or advances an application unless you turn on
-**Submit applications for me** for the job loop. The loop's sign-in email and password are stored unencrypted in the extension
+Answers you type into highlighted fields are saved in the extension (this browser only) and reused when the same question comes up again,
+written answers included (except "why…" questions, which are about one employer); a saved written answer is used instead of a new draft.
+The account password is stored unencrypted in the extension (this browser only) and is typed only into a site's own password boxes; it never goes to Gemini or the mapping server. Use one made for job applications.
+Your date of birth stays in this browser and is used only for ADP's tax credit opt-out; it never goes to Gemini or the mapping server, and no other form gets it.
+The extension never overwrites a field that already has a value, and never submits an application unless you turn on
+**Submit applications for me** for the job loop. On its own it moves to the next step only when every field on the current one
+was filled, and only through a button named Next or Continue (ADP: the pager arrow, never on the last step). The loop's sign-in email and password are stored unencrypted in the extension
 (this browser only) and typed only into the sign-in form of the site that asks; they are never sent to Gemini or the mapping server.
 
 ## Known limitations

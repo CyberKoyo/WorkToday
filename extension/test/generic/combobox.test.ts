@@ -82,6 +82,23 @@ describe('fillCombobox: Oracle cx-select grid', () => {
     document.body.innerHTML = '';
     expect(await fillCombobox(fakeCxSelect('postalCode', zips, { searchOnly: true }), '11372', 200, 'Astoria')).toBe('no_match');
   });
+  it('an address lookup takes the suggestion with the ZIP (live Oracle: the same street in Hawaii came first)', async () => {
+    const live = ['74-12 35TH AVE, KEAAU, HAWAII', '74-12 35TH AVE, QUEENS, NEW YORK', '74-12 35TH AVE, KEAAU, HAWAII, 96749',
+      '74-12 35TH AVE NE, NAPLES, FLORIDA', '74-12 35TH AVE, QUEENS, NEW YORK, 11372', '74-12 35TH AVE, QUEENS, NEW YORK, 11106'];
+    const c = fakeCxSelect('addressLine1', live, { searchOnly: true });
+    expect(await fillCombobox(c, '74-12 35th Ave', 200, '11372')).toBe('filled');
+    expect(comboboxValue(c)).toBe('74-12 35TH AVE, QUEENS, NEW YORK, 11372');
+  });
+  it('stops searching once the list says it found nothing (live Oracle)', async () => {
+    const c = fakeCxSelect('contentItemId', ['ACLS', 'ACLS Instructor'], { searchOnly: true });
+    document.getElementById('contentItemId')!.addEventListener('input', () => {
+      const grid = document.getElementById('contentItemId-listbox')!;
+      if (!grid.querySelector('[role="gridcell"]')) grid.textContent = 'No results were found.';
+    });
+    const start = Date.now();
+    expect(await fillCombobox(c, 'CompTIA Security+', 3000)).toBe('no_match');
+    expect(Date.now() - start).toBeLessThan(4000); // opening takes ~1.5 s; the search timeout alone is 6 s
+  });
   it("reads only its own popup, not another combobox's", async () => {
     fakeCxSelect('other', ['NY']);
     document.getElementById('other')!.click(); // its grid stays open

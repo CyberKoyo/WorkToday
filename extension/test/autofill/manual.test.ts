@@ -36,8 +36,9 @@ describe('toolbar button', () => {
     startManual();
     await vi.waitFor(() => expect(banners()).toHaveLength(1));
     press('.primary');
-    await vi.waitFor(() => expect(msg()).toBe('Found nothing to fill on this page.'));
-  });
+    // Auto-fill first waits up to 4s for a step still rendering its fields.
+    await vi.waitFor(() => expect(msg()).toBe('Found nothing to fill on this page.'), 6000);
+  }, 10000);
 
   it('brings back a dismissed banner on a supported site instead of adding a generic one', async () => {
     document.body.innerHTML = FORM;

@@ -110,6 +110,54 @@ describe('oracle adapter', () => {
     expect(f.map((x) => [x.label, x.kind, x.required])).toEqual(EXPECTED_ORACLE_APPLY);
   }, 20000);
 
+  it('real capture: Rockland Trust apply flow, role="radio" pills (live 2026-11-02)', () => {
+    load('/hcmUI/CandidateExperience/en/sites/CX_3001/job/3038/apply/section/1/');
+    document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/real-oracle-rockland.html`, 'utf8');
+    const f = oracle.extract(document);
+    // Label tails: some questions carry a long disclaimer in front of the question itself.
+    expect(f.map((x) => [x.label.slice(-40), x.kind, x.required])).toEqual([
+      ['Import your profile from resume', 'file', false],
+      ['Last Name', 'text', true],
+      ['First Name', 'text', true],
+      ['Preferred Name', 'text', true],
+      ['Title', 'radio', false],
+      ['Middle Name', 'text', false],
+      ['Email Address', 'text', false],
+      ['Phone Number', 'select', false],
+      ['Phone Number', 'text', false],
+      ['Country', 'select', true],
+      ['Address Line 1', 'select', true],
+      ['Address Line 2', 'text', false],
+      ['City', 'select', true],
+      ['State', 'select', true],
+      ['Postal Code', 'select', true],
+      ['ns, affray or disturbance of the peace.)', 'radio', true],
+      ['ave you ever been convicted of a felony?', 'radio', true],
+      ['Are you 18 years or older?', 'radio', true],
+      [' permitted to work in the United States?', 'radio', true],
+      ['u previously employed by Rockland Trust?', 'radio', true],
+      ['How were you referred to us?', 'radio', true],
+      ['garding your referral to Rockland Trust.', 'textarea', true],
+      ['Upload Cover Letter', 'file', false],
+      ['Link 1', 'text', false],
+      ['Willing to Relocate', 'radio', false],
+      ['Consider Temporary Assignment', 'radio', false],
+      ['Consider Part Time Work', 'radio', false],
+      ['Pay Expectations', 'text', false],
+      ['Currency Code', 'select', true],
+      ['Pay Frequency', 'radio', true],
+      ['Ethnicity', 'checkbox', false],
+      ['Select the races you identify with.', 'checkbox', false],
+      ['Gender', 'select', false],
+      ['Veteran Status', 'select', false],
+      ['ive updates about new job opportunities.', 'checkbox', false],
+      ['gree to receive marketing communications', 'checkbox', false],
+      ['Full Name', 'text', true],
+    ]);
+    expect(f[20]!.options).toEqual(['Rockland Trust Employee', 'College / University', 'Mass Hire', 'Diversity Sites', 'Agency', 'Other',
+      'LinkedIN', 'Indeed', 'Rockland Trust Careers Page']);
+  }, 20000);
+
   it('pill lists of aria-pressed buttons are single-choice questions (live UL Solutions, 2026-10-13)', async () => {
     const pills = (id: string, q: string, opts: string[]) => `<div class="input-row input-row--has-picker">
       <label class="input-row__label input-row__label--required" for="${id}" aria-labelledby="labelText-${id}"><span id="labelText-${id}">${q}</span></label>

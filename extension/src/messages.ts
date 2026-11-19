@@ -2,7 +2,7 @@ import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 import type { MapError } from './api/mapClient';
 import type { Outcome } from './autofill/loop';
 
-export type BgMessage = { type: 'map-fields'; fields: FieldDescriptor[] } | { type: 'answer-fields'; fields: FieldDescriptor[]; job?: string } | { type: 'open-options' }
+export type BgMessage = { type: 'map-fields'; fields: FieldDescriptor[] } | { type: 'answer-fields'; fields: FieldDescriptor[]; job?: string } | { type: 'open-options' } | { type: 'open-tracker'; title: string }
   | { type: 'track'; name: string; url: string } | { type: 'sync-sheet' }
   // Job loop, sent by the board's tab. `known`: every tab open before this job's Apply was clicked; `url`: a link for the background to open.
   | { type: 'loop-start' } | { type: 'loop-job'; known: number[]; url?: string };

@@ -10,7 +10,7 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
 }
 
 /** Zip entries whose name passes `want`, as UTF-8 text. shortcut: no Zip64, fine for files under 4 GB. */
-async function readZip(zip: Uint8Array, want: (name: string) => boolean): Promise<Map<string, string>> {
+export async function readZip(zip: Uint8Array, want: (name: string) => boolean): Promise<Map<string, string>> {
   let eocd = -1;
   for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 0xffff); i--) {
     if (u32(zip, i) === 0x06054b50) { eocd = i; break; }

@@ -28,6 +28,10 @@ export async function handleMessage(
     await (deps.openOptions ?? (() => browser.runtime.openOptionsPage()))();
     return undefined;
   }
+  if (msg.type === 'open-tracker') {
+    await browser.tabs.create({ url: browser.runtime.getURL(`/tracker.html?title=${encodeURIComponent(msg.title)}`) });
+    return undefined;
+  }
   if (msg.type === 'track') {
     await (deps.track ?? trackApplication)(tab?.title || msg.name, tab?.url || msg.url);
     return undefined;

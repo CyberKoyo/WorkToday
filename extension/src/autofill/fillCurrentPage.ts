@@ -1,12 +1,14 @@
 import { browser } from 'wxt/browser';
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
-import { getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
+import { addAccountRefused, getAccountPassword, getAccountRefused, getCertProofs, getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
 import { rememberAnswers } from '../answers/remembered';
 import { storedToFile } from '../storage/fileCodec';
 import type { AtsAdapter } from '../ats/types';
 import { runAutofill, formatReport, type AutofillReport } from './runAutofill';
 import type { AnswerReply, BgMessage, MapReply } from '../messages';
 import { markResumeReload, resumeReloadPending, clearResumeReload } from './resumeReload';
+import { clearAdvance, complete, markAdvance, markAccountTried, nextButton } from './advance';
+import { waitFor } from '../fill/dom';
 import { setDetails } from './banner';
 
 const ERRORS: Record<string, string> = {
@@ -33,29 +35,73 @@ async function answerViaBackground(fields: FieldDescriptor[]): Promise<Map<strin
 }
 
 /** `onReport`: the run's result as data, for the job loop to decide whether the step can be sent. */
+let accountRunning = false;
+
 export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: AutofillReport) => void): Promise<string> {
   const resumeDone = !!adapter.resumeReloadsPage && resumeReloadPending();
   clearResumeReload(); // before any await, so a second banner on the reloaded page does not fill again
+  clearAdvance();
   const profile = await getProfile();
   if (!profile?.reviewed) throw new Error('Review your profile in setup first.');
+  if (adapter.accountPage?.(document) && adapter.account) {
+    const password = await getAccountPassword();
+    if (!password || !profile.email) return 'Sign in or create your account, or save an account password in setup to have it done for you.';
+    if ((await getAccountRefused()).includes(location.host)) return 'Your saved account password was refused on this site before, so it is not tried again. Sign in yourself.';
+    // The step re-renders (Create Account → Sign In) while this runs; the banner that brings must not start a second try.
+    if (accountRunning) return 'Signing in…';
+    accountRunning = true;
+    let problem: string | null;
+    let attempted = false;
+    try { problem = await adapter.account(document, profile.email, password, () => { attempted = true; markAccountTried(); }); } finally { accountRunning = false; }
+    // Only a sent sign-in that came back refused counts; "press Create Account yourself" is not a refusal.
+    if (problem && attempted) await addAccountRefused(location.host);
+    if (problem) return problem;
+    markAdvance(); // the application's first step fills itself
+    return 'Signed in.';
+  }
   const stored = await getResume();
-  const report = await runAutofill({
+  const proofs = await getCertProofs();
+  let read = 0; // fields the last pass saw
+  const deps: Parameters<typeof runAutofill>[0] = {
     profile,
     resume: stored ? storedToFile(stored) : null,
-    extract: () => adapter.extract(document),
+    extract: () => { const f = adapter.extract(document); read = f.length; return f; },
     map: mapViaBackground,
     fill: adapter.fill,
     // Marked before the upload: the page may start unloading as soon as the input changes.
     fillFile: adapter.resumeReloadsPage
       ? async (f, file) => { markResumeReload(); const r = await adapter.fillFile(f, file); if (r !== 'filled') clearResumeReload(); return r; }
       : adapter.fillFile,
-    ensureGroups: (p) => adapter.ensureGroups(document, p),
+    proof: async (f) => {
+      const file = proofs[profile.certifications[f.groupIndex]?.name ?? ''];
+      return file ? adapter.fillFile(f, storedToFile(file)) : null;
+    },
+    ensureGroups: async (p) => { await adapter.prepare?.(document); await adapter.ensureGroups(document, p); },
     resumeFirst: adapter.resumeReloadsPage,
     resumeDone,
     remembered: await getSavedAnswers(),
     answer: answerViaBackground,
     options: adapter.options,
-  });
+  };
+  // A step Auto-fill just moved to can still be rendering (live Bloomberg: the questions step read as empty and
+  // reported "Filled 0"); wait until the number of fields holds still.
+  let seen = -1;
+  let held = 0;
+  await waitFor(() => {
+    const n = adapter.extract(document).length;
+    held = n === seen ? held + 1 : 0;
+    seen = n;
+    return n > 0 && held >= 8 ? true : null; // 8 polls of 50ms
+  }, 4000);
+  let report = await runAutofill(deps);
+  // An answer can reveal a follow-up ("What is your Current Degree Program?" after "Yes", live RTX): fill again for it.
+  // Workday shows the follow-up a moment after the answer lands.
+  const grew = () => waitFor(() => (adapter.extract(document).length > read ? true : null), 1500);
+  for (let pass = 0; pass < 2 && !report.reloading && (await grew()); pass++) {
+    const more = await runAutofill({ ...deps, resumeDone: true });
+    report = { ...more, filled: report.filled + more.filled, recalled: (report.recalled ?? 0) + (more.recalled ?? 0),
+      answered: [...(report.answered ?? []), ...(more.answered ?? [])], missed: [...report.missed, ...more.missed] };
+  }
   // What the applicant now types into the fields left to them (or corrects after Gemini) is kept for the next form.
   rememberAnswers([...report.attention, ...(report.answered ?? [])], (k, v) => { saveAnswer(k, v).catch((e) => console.warn('[workday-filler] could not save answer', e)); });
   if (report.filled) {
@@ -63,6 +109,15 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
       .catch((e) => console.warn('[workday-filler] application not logged', e));
   }
   setDetails(details(adapter.id, !!stored, report));
+  // Nothing left for the applicant: press Next, and the step it lands on fills itself (mount.ts).
+  const next = complete(report) ? (adapter.nextButton ?? nextButton)(document) : null;
+  if (next) {
+    await new Promise((r) => setTimeout(r, 500)); // let the site's own checks of the last field settle
+    // Pressed once only: Workday turns this same button into Submit on the last step, so a retry could submit.
+    markAdvance();
+    next.click();
+    report.advanced = true;
+  }
   onReport?.(report);
   return formatReport(report);
 }

@@ -78,6 +78,7 @@
     <a href="#dashboard">Dashboard</a>
     <a href="#profile">Profile</a>
     <a href="#settings">Settings</a>
+    <a href="/tracker.html">Applications log</a>
   </nav>
   <main>
     <section id="dashboard">
@@ -139,6 +140,14 @@
           <button id="saveKey" type="button">Save key</button>
         </div>
         <p class="note">The key stays in this browser. It is used to read your resume and to answer questions your profile does not cover.</p>
+      </div>
+      <div class="card">
+        <h2>Account password (optional)</h2>
+        <p class="notice">Workday makes you create an account for every employer. Save one password here and the extension creates the account (or signs in) with your profile's email and this password, and agrees to the account terms for you. It is stored unencrypted in this browser only. Use a password made for job applications, not one you use anywhere else.</p>
+        <div class="inline">
+          <input id="accountPassword" type="password" aria-label="Account password" autocomplete="off" />
+          <button id="savePassword" type="button">Save password</button>
+        </div>
       </div>
       <div class="card">
         <h2>All sites</h2>

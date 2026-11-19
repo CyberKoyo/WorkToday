@@ -65,7 +65,7 @@ describe('MongoDB application on Greenhouse (real capture)', () => {
     expect(asked.get('What is your expected graduation date?')!.options).toHaveLength(10); // 2029-05 is not "May/June 2029"
     expect(asked.get('Are you available to work full-time')!.options).toEqual(['Yes', 'No']);
     expect(asked.get('Which of the following locations')).toMatchObject({ kind: 'checkbox', options: ['New York, NY', 'Austin, TX', 'San Francisco, CA'] });
-    expect(asked.get('Have you ever worked at MongoDB')!.options).toEqual(['Yes', 'No']); // required, and blank in the profile
+    expect(asked.has('Have you ever worked at MongoDB')).toBe(false); // blank in the profile means No, not Gemini's guess
     expect(asked.get('Why are you interested in this role at MongoDB?')!.kind).toBe('textarea');
     for (const never of ['Chosen Name', 'Will you now or in the future require employment sponsorship', 'How did you learn about this job?', 'Gender', 'What are your pronouns?']) {
       expect(asked.has(never)).toBe(false);
@@ -80,7 +80,7 @@ describe('MongoDB application on Greenhouse (real capture)', () => {
     expect(last.get('Why are you interested in this role at MongoDB?')).toBe('Because of my database coursework.');
     // No default answer in the profile: the employer's own careers page, which is where this form is.
     expect(matchOption(String(last.get('How did you learn about this job?')), HEARD)).toBe(HEARD.indexOf('MongoDB Careers Page'));
-    expect(r.answered!.map((f) => f.label.slice(0, 20))).toEqual(['How did you learn ab', 'What is your expecte', 'Are you available to', 'Which of the followi', 'Have you ever worked', 'Why are you interest']);
+    expect(r.answered!.map((f) => f.label.slice(0, 20))).toEqual(['How did you learn ab', 'What is your expecte', 'Are you available to', 'Which of the followi', 'Why are you interest']);
     const stuck = r.attention.map((f) => f.label);
     for (const done of ['Chosen Name', 'What is your expected graduation date?', 'Have you ever worked at MongoDB before?']) expect(stuck).not.toContain(done);
   });

@@ -62,13 +62,15 @@ export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 30
   const { input, target, fresh } = (await openList(c, timeoutMs))!;
   const pick = () => {
     const l = fresh();
-    const i = matchOption(value, l.map((o) => clean(o.textContent)));
-    if (i !== -1) return l[i]!;
     const t = tieBreak && norm(tieBreak);
-    if (!t) return null;
-    const named = l.filter((o) => ` ${norm(o.textContent ?? '')} `.includes(` ${t} `));
-    const j = matchOption(value, named.map((o) => clean(o.textContent)));
-    return j === -1 ? null : named[j]!;
+    // Options that also name the tie-break come first: one street lists addresses in several states, and only the
+    // applicant's has their ZIP (live Oracle: "74-12 35th Ave" listed Hawaii first).
+    const named = t ? l.filter((o) => ` ${norm(o.textContent ?? '')} `.includes(` ${t} `)) : [];
+    for (const set of named.length ? [named, l] : [l]) {
+      const i = matchOption(value, set.map((o) => clean(o.textContent)));
+      if (i !== -1) return set[i]!;
+    }
+    return null;
   };
   let hit = pick();
   if (!hit && input) {
@@ -78,7 +80,15 @@ export async function fillCombobox(c: HTMLElement, value: string, timeoutMs = 30
     rawSet(input, search);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new KeyboardEvent('keyup', { key: search.slice(-1), bubbles: true }));
-    hit = await waitFor(pick, timeoutMs * 2);
+    // The list can say it has nothing ("No results were found.", live Oracle): no use waiting out the search.
+    const listId = target.getAttribute('aria-controls');
+    const typed = Date.now();
+    const none = () => {
+      const list = listId ? c.ownerDocument.getElementById(listId) : null;
+      return Date.now() - typed > 700 && !!list && !fresh().length && /\bno (results|matches)\b/i.test(list.textContent ?? '');
+    };
+    const found = await waitFor(() => pick() ?? (none() ? 'none' : null), timeoutMs * 2);
+    hit = found === 'none' ? null : found;
   }
   if (!hit) {
     console.warn('[workday-filler] no option for', JSON.stringify(value));

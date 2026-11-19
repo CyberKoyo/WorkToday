@@ -1,4 +1,4 @@
-export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean
+export interface BannerOptions { needsSetup: boolean; onFill: () => Promise<string>; onSetup: () => void; onDismiss: () => void; framed?: boolean; autoFill?: boolean; onLog?: () => void
   /** Job boards: run the loop, reporting progress through `say` until `stopped()`; resolves to the closing line. */
   onLoop?: (say: (s: string) => void, stopped: () => boolean) => Promise<string> }
 
@@ -14,6 +14,7 @@ const CSS = `
   .msg { margin: 6px 0 10px; }
   .primary { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
   .primary:disabled { opacity: .6; cursor: default; }
+  .log { background: none; border: 0; color: #2563eb; padding: 8px; cursor: pointer; text-decoration: underline; }
   .link { background: none; border: 0; color: #2563eb; cursor: pointer; padding: 8px; font: inherit; }
   .close { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; cursor: pointer; }`;
 
@@ -23,7 +24,7 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>${CSS}</style><div class="box${opts.framed ? ' framed' : ''}" role="dialog" aria-label="Job Application Filler">
     <strong>Job Application Filler</strong><p class="msg"></p>
-    <button class="primary" type="button"></button>
+    <button class="primary" type="button"></button>${opts.onLog ? '<button class="log" type="button">Log application</button>' : ''}
     <button class="link" type="button">Dashboard</button>
     <button class="link loop" type="button">Loop jobs</button>
     <button class="link copy" type="button" hidden>Copy details</button>
@@ -54,6 +55,7 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
     };
     if (opts.autoFill) primary.click();
   }
+  if (opts.onLog) shadow.querySelector<HTMLButtonElement>('.log')!.onclick = () => opts.onLog!();
   const link = shadow.querySelector<HTMLButtonElement>('.link')!;
   link.hidden = opts.needsSetup; // the main button already goes there
   link.onclick = () => opts.onSetup();

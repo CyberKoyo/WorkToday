@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { answerable, answerKey, readAnswer, rememberAnswers } from '../../src/answers/remembered';
+import { answerable, answerKey, readAnswer, rememberable, rememberAnswers } from '../../src/answers/remembered';
 import type { ExtractedField } from '../../src/ats/field';
 
 const field = (over: Partial<ExtractedField>): ExtractedField =>
@@ -18,6 +18,14 @@ describe('remembered answers', () => {
       expect(answerable(field({ label, kind: 'radio', options: ['Yes', 'No'] })), label).toBe(false);
     }
   });
+  it('also keeps written answers, but never personal ones or a "why" about one employer', () => {
+    expect(rememberable(field({ label: 'Please list three other departments you would be interested in:', kind: 'textarea' }))).toBe(true);
+    expect(answerable(field({ label: 'Please list three other departments you would be interested in:', kind: 'textarea' }))).toBe(false); // never Gemini
+    expect(rememberable(field({ label: 'Why do you want to work here?', kind: 'textarea' }))).toBe(false);
+    expect(rememberable(field({ label: 'Do you require visa sponsorship? Explain.', kind: 'textarea' }))).toBe(false);
+    document.body.innerHTML = '<div id="w"><label>Area of study</label><textarea> Computer Science </textarea></div>';
+    expect(readAnswer(field({ kind: 'textarea', container: document.getElementById('w')! }))).toBe('Computer Science');
+  });
   it('keys by kind and normalized label', () => {
     expect(answerKey({ kind: 'radio', label: 'Are you  currently enrolled?' })).toBe(answerKey({ kind: 'radio', label: 'are you currently enrolled' }));
   });
@@ -32,6 +40,16 @@ describe('remembered answers', () => {
     expect(readAnswer(field({ kind: 'checkbox', container: el('c'), options: ['A', 'B', 'C'] }))).toEqual(['A', 'C']);
     expect(readAnswer(field({ kind: 'select', container: el('s') }))).toBe('Beta');
     expect(readAnswer(field({ container: el('y'), kind: 'radio', options: ['Yes', 'No'], members: [] }))).toBeNull();
+  });
+  it('reads Workday choices: a prompt chip, a dropdown button, and "Select One" as none (live RTX)', () => {
+    document.body.innerHTML = `
+      <div id="p"><input type="text" placeholder="Search"><div data-automation-id="selectedItem">United States of America (+1)</div></div>
+      <div id="d"><button aria-haspopup="listbox">Mobile</button></div>
+      <div id="e"><button aria-haspopup="listbox">Select One</button></div>`;
+    const el = (id: string) => document.getElementById(id)!;
+    expect(readAnswer(field({ container: el('p') }))).toBe('United States of America (+1)');
+    expect(readAnswer(field({ kind: 'select', container: el('d') }))).toBe('Mobile');
+    expect(readAnswer(field({ kind: 'select', container: el('e') }))).toBeNull();
   });
   it('saves what the applicant settles on, once per field, and never personal answers', () => {
     vi.useFakeTimers();

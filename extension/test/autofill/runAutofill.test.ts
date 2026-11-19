@@ -26,6 +26,57 @@ function deps(over: Record<string, unknown> = {}) {
   };
 }
 
+describe('runAutofill certifications', () => {
+  const page = (required = '') => `<div role="group" data-automation-id="certificationSection">
+    <div role="group"><h4>Certification 1</h4>
+      <div data-automation-id="formField-a"><label>Name</label><input type="text"></div>
+      <div data-automation-id="formField-b"><label>Date Expired</label><input data-automation-id="dateSectionYear-input"></div>
+      <div data-automation-id="formField-c"><label>Upload proof${required}</label><input type="file"></div>
+    </div></div>`;
+  const certDeps = (over: Record<string, unknown> = {}) => deps({
+    profile: { ...emptyProfile(), reviewed: true, certifications: [{ name: 'CISSP', number: '', issuedDate: '', expirationDate: '' }] },
+    map: vi.fn().mockResolvedValue(new Map()),
+    ...over,
+  });
+  const run = (d: ReturnType<typeof deps>, html: string) => {
+    document.body.innerHTML = html;
+    return runAutofill(d as never);
+  };
+
+  it('uploads the proof, never the resume', async () => {
+    const proof = vi.fn().mockResolvedValue('filled');
+    const d = certDeps({ proof });
+    const r = await run(d, page());
+    expect(proof).toHaveBeenCalledWith(expect.objectContaining({ label: 'Upload proof', groupIndex: 0 }));
+    expect(d.fillFile).not.toHaveBeenCalled();
+    expect(r.filled).toBe(2); // name and proof
+  });
+  it('the resume stays out of the box with no proof stored', async () => {
+    const d = certDeps({ proof: vi.fn().mockResolvedValue(null) });
+    await run(d, page());
+    expect(d.fillFile).not.toHaveBeenCalled();
+  });
+  it('an optional empty expiry or proof is nothing to flag, so hands-free can advance', async () => {
+    const r = await run(certDeps({ proof: vi.fn().mockResolvedValue(null) }), page());
+    expect(r.attention).toEqual([]);
+  });
+  it('a required proof with none stored is flagged', async () => {
+    const r = await run(certDeps({ proof: vi.fn().mockResolvedValue(null) }), page('*'));
+    expect(r.attention.map((f) => f.label)).toEqual(['Upload proof']);
+  });
+  it('a mapper saying resume for a certification box on another site still gets the proof', async () => {
+    const proof = vi.fn().mockResolvedValue('filled');
+    const d = certDeps({
+      proof,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile']])),
+      extract: () => extractFields(document).map((f) => { delete f.profileKey; return f; }),
+    });
+    await run(d, '<div data-automation-id="formField-a"><label>Certification proof</label><input type="file"></div>');
+    expect(proof).toHaveBeenCalled();
+    expect(d.fillFile).not.toHaveBeenCalled();
+  });
+});
+
 describe('runAutofill', () => {
   it('fills mapped, skips non-empty, flags unmatched required, uploads resume', async () => {
     const d = deps();
@@ -37,6 +88,24 @@ describe('runAutofill', () => {
     expect(r.skipped).toBe(1);
     expect(r.attention.map((f) => f.label)).toEqual(['Favourite colour']);
     expect(r.attention[0]!.container.dataset.wfUnfilled).toBe('1');
+  });
+  it("fills an adapter's own answer, ahead of the mapper", async () => {
+    const d = deps({ extract: () => extractFields(document).map((f) => (f.id === 'wf-2' ? { ...f, answer: true } : f)) });
+    const r = await runAutofill(d as never);
+    expect(d.fill).toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-2' }), true, undefined, []);
+    expect(r.attention).toEqual([]);
+  });
+  it('a birth date goes only where the adapter asks for it, never where the mapper guesses', async () => {
+    const d = deps({ map: vi.fn().mockResolvedValue(new Map([['wf-0', 'firstName'], ['wf-1', 'lastName'], ['wf-2', 'dateOfBirth'], ['wf-3', 'resumeFile']])) });
+    d.profile = { ...d.profile, dateOfBirth: '2001-01-31' };
+    await runAutofill(d as never);
+    expect(d.fill).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-2' }), '2001-01-31', undefined, []);
+  });
+  it('leaves a question the site has not asked yet alone: not filled, not flagged', async () => {
+    const d = deps({ extract: () => extractFields(document).map((f) => (f.id === 'wf-2' ? { ...f, asked: () => false } : f)) });
+    const r = await runAutofill(d as never);
+    expect(d.fill).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-2' }), expect.anything(), undefined, []);
+    expect(r.attention).toEqual([]);
   });
   it('a rerun clears highlights from earlier runs on fields that are now fine', async () => {
     const d = deps();
@@ -56,17 +125,19 @@ describe('runAutofill', () => {
     const r = await runAutofill(d as never);
     expect(r.attention).toHaveLength(0);
   });
-  it('values a field could not take are reported and the field is highlighted', async () => {
-    const d = deps({
-      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'skills']])),
-      profile: { ...emptyProfile(), skills: ['Rust', 'TCP/IP'], reviewed: true },
+  it('values a field could not take are reported; the field is highlighted unless they are skills (live RTX)', async () => {
+    const run = (key: string) => runAutofill(deps({
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', key]])),
+      profile: { ...emptyProfile(), skills: ['Rust', 'TCP/IP'], races: 'asian, white', reviewed: true },
       fill: vi.fn(async (_f: unknown, _v: unknown, _t: unknown, missed: string[]) => { missed.push('TCP/IP'); return 'filled'; }),
-    });
-    const r = await runAutofill(d as never);
-    expect(r.filled).toBe(2); // First Name, and the upload box: on Workday that is the resume whatever the mapper says
-    expect(r.missed).toEqual(['TCP/IP']);
-    expect(r.attention.map((f) => f.label)).toContain('First Name');
-    expect(r.attention.find((f) => f.label === 'First Name')!.container.dataset.wfUnfilled).toBe('1');
+    }) as never);
+    const skills = await run('skills');
+    expect(skills.filled).toBe(2); // the skills and the resume (Workday's upload is always the resume)
+    expect(skills.missed).toEqual(['TCP/IP']);
+    expect(skills.attention.map((f) => f.label)).not.toContain('First Name');
+    const other = await run('firstName');
+    expect(other.attention.map((f) => f.label)).toContain('First Name');
+    expect(other.attention.find((f) => f.label === 'First Name')!.container.dataset.wfUnfilled).toBe('1');
   });
   it('formatReport', () => {
     expect(formatReport({ filled: 3, skipped: 1, attention: [{} as never], missed: [] }))
@@ -200,6 +271,21 @@ describe('runAutofill', () => {
     expect(r.attention).toEqual([]);
     expect(formatReport(r)).toBe('Filled 3 fields. Ticked 2 required consent boxes (blue): read what you are agreeing to. 0 already had values. 0 need your attention (highlighted). Review, then continue.');
   });
+  it('reuses a written answer the applicant typed before instead of asking Gemini for a draft', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div id="a"></div><div id="b"></div>';
+    const fields = [
+      { id: 'wf-0', label: 'Please list three other departments you would be interested in:', kind: 'textarea', required: true, groupIndex: 0, container: document.getElementById('a')! },
+      { id: 'wf-1', label: 'Describe a project you are proud of.', kind: 'textarea', required: true, groupIndex: 0, container: document.getElementById('b')! },
+    ];
+    const fill = vi.fn().mockResolvedValue('filled');
+    const answer = vi.fn().mockResolvedValue(new Map());
+    const r = await runAutofill({ ...base, extract: () => fields, fill, answer, map: vi.fn().mockResolvedValue(new Map()),
+      remembered: { 'textarea|please list three other departments you would be interested in': 'Sales, Finance, Marketing' } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'Sales, Finance, Marketing']]);
+    expect(answer.mock.calls.map(([q]) => q.map((f: { id: string }) => f.id))).toEqual([['wf-1']]); // only the new question gets a draft
+    expect(r.attention.map((f) => f.id)).toEqual(['wf-1']);
+  });
   it('a Gemini failure leaves the leftovers highlighted and says why', async () => {
     const base = deps();
     const field = { id: 'wf-0', label: 'Are you currently enrolled?', kind: 'radio', required: true, options: ['Yes', 'No'], groupIndex: 0, container: document.body };
@@ -229,6 +315,17 @@ describe('runAutofill', () => {
     await runAutofill({ ...base, extract: () => fields, fill, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'referralSource']])),
       profile: { ...emptyProfile(), referralSource: 'Company Career Website', reviewed: true } } as never);
     expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'Company Career Website'], ['wf-0', 'not listed'], ['wf-1', 'Company Career Website']]);
+  });
+  it('a degree question is the degree, not the field of study the mapper says (live Workday RTX)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>What is your Current Degree Program?*</label><button aria-haspopup="listbox">Select One</button></div>
+      <div data-automation-id="formField-b"><label>Field of study for your degree</label><input type="text"></div>`;
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'edu.fieldOfStudy'], ['wf-1', 'edu.fieldOfStudy']])),
+      profile: { ...emptyProfile(), education: [{ ...emptyEdu(), degree: 'Bachelor of Science', fieldOfStudy: 'Computer Science' }], reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'Bachelor of Science'], ['wf-1', 'Computer Science']]);
   });
   it('a pronouns box never gets the preferred name (live Ashby: the mapper says preferredName)', async () => {
     const base = deps();
@@ -294,6 +391,15 @@ describe('runAutofill', () => {
       profile: { ...emptyProfile(), postalCode: '11372', city: 'Jackson Heights', reviewed: true } } as never);
     expect(fill.mock.calls[0]![0].tieBreak).toBe('Jackson Heights');
   });
+  it('an address line is given the ZIP to choose among the same street in other states', async () => {
+    const base = deps();
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Address Line 1</label><input type="text"></div>';
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'addressLine1']])),
+      profile: { ...emptyProfile(), addressLine1: '74-12 35th Ave', postalCode: '11372', reviewed: true } } as never);
+    expect(fill.mock.calls[0]![0].tieBreak).toBe('11372');
+  });
   it('a city is given the state, by name, to choose among same-name towns', async () => {
     const base = deps();
     document.body.innerHTML = '<div data-automation-id="formField-a"><label>City</label><input type="text"></div>';
@@ -329,6 +435,22 @@ describe('runAutofill', () => {
     expect(fillFile.mock.calls.map((c) => c[0].label)).toEqual(['Upload Resume']);
     expect(r.filled).toBe(1);
     expect(r.attention).toEqual([]);
+  });
+  it('a resume already on the page is the step\'s resume; extra-document boxes never get it (live Oracle)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Resume</label><input type="file"></div>
+      <div data-automation-id="formField-b"><label>Upload a file</label><input type="file"></div>
+      <div data-automation-id="formField-c"><label>Additional Documents</label><input type="file"></div>`;
+    const fillFile = vi.fn().mockResolvedValueOnce('skipped_nonempty').mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fillFile,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile'], ['wf-1', 'resumeFile'], ['wf-2', 'resumeFile']])) } as never);
+    expect(fillFile.mock.calls.map((c) => c[0].label)).toEqual(['Resume']);
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Miscellaneous Documents</label><input type="file"></div>';
+    const fresh = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fillFile: fresh,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile']])) } as never);
+    expect(fresh).not.toHaveBeenCalled();
   });
   it('a resume upload that reloads the page goes first and alone (live iCIMS: the reload wiped the filled form)', async () => {
     const d = deps({ resumeFirst: true });
@@ -382,7 +504,7 @@ describe('runAutofill', () => {
     const qs = [
       'Are you currently 18 years of age or older?', 'Are you at least 18?',
       'Have you previously been employed by UL?', 'Have you previously completed an internship at UL?', 'Have you ever been employed by PwC?',
-      'Are you related to a current UL Solutions employee?', 'Do any of your close family members currently work at PwC?',
+      'Are you related to a current UL Solutions employee?', 'Do any of your close family members currently work at PwC?', 'Do you have any relatives working at STMicroelectronics?', 'Are you related to anyone that works for Hubbell?',
       'Are you willing to consent to a post-offer UL background check?',
       'Are you currently employed?', 'Have you ever been convicted of a felony?', 'Have you ever worked with Python?',
       'Have you ever worked for a government agency?', // not standard
@@ -394,8 +516,55 @@ describe('runAutofill', () => {
       map: vi.fn().mockResolvedValue(new Map([['wf-2', 'workAuthorized']])), // a wrong guess the wording overrides
       profile: { ...emptyProfile(), over18: 'yes', previouslyEmployed: 'no', relatedToEmployee: 'no', backgroundCheckConsent: 'yes', reviewed: true } } as never);
     expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([
-      [qs[0], 'Yes'], [qs[1], 'Yes'], [qs[2], 'No'], [qs[3], 'No'], [qs[4], 'No'], [qs[5], 'No'], [qs[6], 'No'], [qs[7], 'Yes'],
+      [qs[0], 'Yes'], [qs[1], 'Yes'], [qs[2], 'No'], [qs[3], 'No'], [qs[4], 'No'], [qs[5], 'No'], [qs[6], 'No'], [qs[7], 'No'], [qs[8], 'No'], [qs[9], 'Yes'],
     ]);
+  });
+  it('U.S. citizenship and federal employment are answered from the profile by their wording (live RTX)', async () => {
+    const qs = ['Are you a citizen of the United States?', 'Are you a CURRENT U.S. federal government civilian or military (active duty or reserves) employee?',
+      'Are you a FORMER U.S. federal government civilian or military (active duty or reserves) employee?', 'Are you a U.S. citizen?'];
+    const base = deps();
+    document.body.innerHTML = qs.map((q, i) => `<div data-automation-id="formField-${i}"><label>${q}</label><button aria-haspopup="listbox">Select One</button></div>`).join('');
+    const fill = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fill, map: vi.fn().mockResolvedValue(new Map()),
+      profile: { ...emptyProfile(), usCitizen: 'yes', governmentEmployee: 'no', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => c[1])).toEqual(['Yes', 'No', 'No', 'Yes']);
+  });
+  it('a yes/no key the question is not about is dropped (live RTX: "CURRENT federal ... employee?" answered Yes)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Are you a CURRENT U.S. federal government civilian or military (active duty or reserves) employee?*</label><button aria-haspopup="listbox">Select One</button></div>
+      <div data-automation-id="formField-b"><label>Are you legally authorized to work in the United States?*</label><button aria-haspopup="listbox">Select One</button></div>`;
+    const fill = vi.fn().mockResolvedValue('filled');
+    const r = await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'workAuthorized'], ['wf-1', 'workAuthorized']])),
+      profile: { ...emptyProfile(), workAuthorized: 'yes', reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-1', 'Yes']]);
+    expect(r.attention.map((f) => f.id)).toEqual(['wf-0']);
+  });
+  it('a field the site already answered, or an optional box left unticked, needs no attention without a profile value (live RTX)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-countryPhoneCode"><label>Country Phone Code</label><input type="text"><div data-automation-id="selectedItem">United States of America (+1)</div></div>
+      <div data-automation-id="formField-preferredCheck"><label>I have a preferred name</label><input type="checkbox"></div>`;
+    const fill = vi.fn().mockResolvedValue('filled');
+    const report = await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'country'], ['wf-1', 'preferredName']])),
+      profile: { ...emptyProfile(), reviewed: true } } as never);
+    expect(fill).not.toHaveBeenCalled();
+    expect(report.attention).toEqual([]);
+    expect(report.skipped).toBe(1); // the phone code; the optional box is simply left alone
+  });
+  it('a previously-worked-here question defaults to No when the profile leaves it unset (live Workday)', async () => {
+    const qs = ['Have you previously worked for Fidelity Investments?', 'Have you worked for Acme Corp before?',
+      'Have you ever been an employee of Acme or its subsidiaries?', 'Have you previously worked here?',
+      'Have you ever worked for a government agency?']; // last: not about this company
+    const base = deps();
+    document.body.innerHTML = qs.map((q, i) => `<div data-automation-id="formField-${i}"><label>${q}</label><input type="text"></div>`).join('');
+    const fill = vi.fn().mockResolvedValue('filled');
+    const report = await runAutofill({ ...base, extract: () => extractFields(document), fill,
+      map: vi.fn().mockResolvedValue(new Map()), profile: { ...emptyProfile(), reviewed: true } } as never);
+    expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual(qs.slice(0, 4).map((q) => [q, 'No']));
+    expect(report.filled).toBe(4);
   });
   it('race checkbox lists take the races setting; a lone Hispanic checkbox follows the ethnicity (live Oracle)', async () => {
     const run = async (ethnicity: string, races: string) => {

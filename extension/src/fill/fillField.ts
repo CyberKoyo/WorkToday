@@ -3,6 +3,7 @@ import { clean, type ExtractedField, type FillResult } from '../ats/field';
 import { matchOption, norm } from './matchOption';
 import { asText, rawSet, setNativeValue, typeChars, waitFor, pressKey, setFilesViaDataTransfer } from './dom';
 import type { ProfileValue } from '../profile/profile';
+import { today } from './dateParts';
 
 export type { FillResult } from '../ats/field';
 export { setNativeValue, typeChars, waitFor } from './dom';
@@ -38,7 +39,8 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
     const before = listKey();
     const chipsBefore = chips();
     const gained = () => (chips() > chipsBefore ? true : null);
-    rawSet(box, value);
+    // Searching "SIEM (Wazuh)" lists no "SIEM" at all (live RTX); the qualifier stays for picking among results.
+    rawSet(box, value.replace(/\s*\([^)]*\)/g, '').trim() || value);
     box.dispatchEvent(new Event('input', { bubbles: true }));
     pressKey(box, 'Enter', 13);
     // A slow earlier search can land while this one runs; only a list that mentions this value counts.
@@ -113,7 +115,11 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         }
         const el = c.querySelector<HTMLInputElement | HTMLTextAreaElement>(f.kind === 'text' ? SEL.textInput : 'textarea')!;
         if (el.value.trim()) return 'skipped_nonempty';
+        // Workday keeps a typed value only once focus really leaves the box: the step's last box otherwise fails
+        // "is required" on Save and Continue, silently for a scripted click (live RTX).
+        el.focus();
         setNativeValue(el, typeof value === 'boolean' ? (value ? 'Yes' : 'No') : asText(value));
+        el.blur();
         return 'filled';
       }
       case 'select':
@@ -127,6 +133,18 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         return 'filled';
       }
       case 'checkbox': {
+        if (f.options && f.members) {
+          const boxes = f.members as HTMLInputElement[];
+          if (boxes.some((b) => b.checked)) return 'skipped_nonempty';
+          const text = asText(value);
+          let i = matchOption(text, f.options);
+          // The profile says yes / no / decline; the form spells each out ("I do not want to answer").
+          const lead = /^decline/i.test(text) ? /\b(not (want|wish)|decline|prefer not)\b/i : /^(yes|no)$/i.test(text) ? new RegExp(`^${text}\\b`, 'i') : null;
+          if (i === -1 && lead) { const hits = f.options.flatMap((o, n) => (lead.test(o) ? [n] : [])); if (hits.length === 1) i = hits[0]!; }
+          if (i === -1) return 'no_match';
+          boxes[i]!.click();
+          return 'filled';
+        }
         const cb = c.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
         if (cb.checked) return 'skipped_nonempty';
         if (value === true || /^(yes|true|y)$/i.test(asText(value))) cb.click();
@@ -136,10 +154,23 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         const month = c.querySelector<HTMLInputElement>(SEL.dateMonth);
         const year = c.querySelector<HTMLInputElement>(SEL.dateYear);
         if (month?.value || year?.value) return 'skipped_nonempty';
-        const m = asText(value).match(/^(\d{4})(?:-(\d{2}))?$/);
+        const m = asText(value).match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
         if (!m || !year || (month && !m[2])) return 'no_match';
+        const day = c.querySelector<HTMLInputElement>(SEL.dateDay);
+        // A signing date is today's. Workday shows a typed day but does not keep it there ("Date is required", live SWIB);
+        // picking today in its own calendar does. A certification's typed day is kept (live 2026-11-18).
+        if (day && m[3] && asText(value) === today()) {
+          c.querySelector<HTMLElement>(SEL.dateIcon)?.click();
+          const todayCell = await waitFor(() => c.ownerDocument.querySelector<HTMLElement>(SEL.dateToday), timeoutMs);
+          if (!todayCell) return 'no_match';
+          todayCell.click();
+          return 'filled';
+        }
         if (month) typeChars(month, m[2]!);
+        if (day) typeChars(day, m[3] ?? '01'); // most profile dates stop at the month
         typeChars(year, m[1]!);
+        // Workday keeps the date only once focus really leaves it; without this Save reports "From is required" (live RTX).
+        year.blur();
         return 'filled';
       }
       case 'file':
@@ -152,7 +183,7 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
 }
 
 export async function fillFile(
-  f: ExtractedField, file: File, setFiles: (input: HTMLInputElement, file: File) => void = setFilesViaDataTransfer,
+  f: ExtractedField, file: File, setFiles: (input: HTMLInputElement, file: File) => void = setFilesViaDataTransfer, timeoutMs = 30000,
 ): Promise<FillResult> {
   if (f.container.querySelector(SEL.fileUploaded)) return 'skipped_nonempty';
   const input = f.container.querySelector<HTMLInputElement>(SEL.fileInput);
@@ -160,9 +191,10 @@ export async function fillFile(
   try {
     setFiles(input, file);
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    return 'filled';
   } catch (e) {
     console.warn('[workday-filler] file upload failed', e);
     return 'error';
   }
+  // Save and Continue does nothing while the upload runs (live RTX), so the step is not done until Workday confirms it.
+  return (await waitFor(() => f.container.querySelector(SEL.fileUploaded), timeoutMs)) ? 'filled' : 'error';
 }

@@ -1,6 +1,6 @@
 import { PROFILE_KEYS, type ProfileKey } from '@wf/shared';
 
-export type ScalarKey = Exclude<ProfileKey, `work.${string}` | `edu.${string}` | 'skills' | 'resumeFile'>;
+export type ScalarKey = Exclude<ProfileKey, `work.${string}` | `edu.${string}` | `cert.${string}` | 'skills' | 'resumeFile'>;
 export const SCALAR_KEYS = PROFILE_KEYS.filter(
   (k) => !k.includes('.') && k !== 'skills' && k !== 'resumeFile',
 ) as ScalarKey[];
@@ -12,20 +12,24 @@ export interface WorkEntry {
 export interface EduEntry {
   school: string; degree: string; fieldOfStudy: string; startDate: string; endDate: string; gpa: string;
 }
+export interface CertEntry {
+  name: string; number: string; issuedDate: string; expirationDate: string;
+}
 /** A personal, course or side project. No form asks for these by field; Gemini draws on them for answers and essays. */
 export interface ProjectEntry { name: string; url: string; description: string }
 export type Profile = Record<ScalarKey, string> & {
-  work: WorkEntry[]; education: EduEntry[]; projects: ProjectEntry[]; skills: string[]; reviewed: boolean;
+  work: WorkEntry[]; education: EduEntry[]; certifications: CertEntry[]; projects: ProjectEntry[]; skills: string[]; reviewed: boolean;
 };
 export type ProfileValue = string | boolean | string[];
 
 export const emptyWork = (): WorkEntry => ({ title: '', company: '', location: '', startDate: '', endDate: '', current: false, description: '' });
 export const emptyEdu = (): EduEntry => ({ school: '', degree: '', fieldOfStudy: '', startDate: '', endDate: '', gpa: '' });
+export const emptyCert = (): CertEntry => ({ name: '', number: '', issuedDate: '', expirationDate: '' });
 export const emptyProject = (): ProjectEntry => ({ name: '', url: '', description: '' });
 
 export function emptyProfile(): Profile {
   const scalars = Object.fromEntries(SCALAR_KEYS.map((k) => [k, ''])) as Record<ScalarKey, string>;
-  return { ...scalars, work: [], education: [], projects: [], skills: [], reviewed: false };
+  return { ...scalars, work: [], education: [], certifications: [], projects: [], skills: [], reviewed: false };
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -33,14 +37,26 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 export function normalizeMonth(s: string): string {
   const t = s.trim().toLowerCase();
   let m: RegExpMatchArray | null;
-  if ((m = t.match(/^(\d{4})-(\d{2})$/))) return `${m[1]!}-${m[2]!}`;
+  if ((m = t.match(/^(\d{4})[-/](\d{2})(?:[-/]\d{2})?$/))) return `${m[1]!}-${m[2]!}`;
   if ((m = t.match(/^(\d{4})$/))) return m[1]!;
-  if ((m = t.match(/^(\d{1,2})\/(\d{4})$/))) return `${m[2]!}-${m[1]!.padStart(2, '0')}`;
-  if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{4})$/))) {
+  // A full date as typed in setup ("03/15/2024", "3-15-2024") keeps its month; a date that matched nothing was saved blank.
+  if ((m = t.match(/^(\d{1,2})(?:[-/.]\d{1,2})?[-/.](\d{4})$/)) && Number(m[1]) >= 1 && Number(m[1]) <= 12) return `${m[2]!}-${m[1]!.padStart(2, '0')}`;
+  if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(?:\d{1,2}(?:st|nd|rd|th)?,?\s+)?(\d{4})$/))) {
     const i = MONTHS.indexOf(m[1]!);
     if (i >= 0) return `${m[2]!}-${String(i + 1).padStart(2, '0')}`;
   }
   return '';
+}
+
+/** A certification date: YYYY-MM-DD when a day is given (their forms ask for one), else as normalizeMonth. */
+export function normalizeDate(s: string): string {
+  const t = s.trim().toLowerCase();
+  const day = (y: string, mo: number, d: number) => (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` : '');
+  let m: RegExpMatchArray | null;
+  if ((m = t.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/))) return day(m[1]!, Number(m[2]), Number(m[3]));
+  if ((m = t.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/))) return day(m[3]!, Number(m[1]), Number(m[2]));
+  if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/))) return day(m[3]!, MONTHS.indexOf(m[1]!) + 1, Number(m[2]));
+  return normalizeMonth(s);
 }
 
 const str = (v: unknown): string =>
@@ -69,6 +85,10 @@ export function normalizeProfile(raw: unknown): Profile {
     school: str(e.school), degree: str(e.degree), fieldOfStudy: str(e.fieldOfStudy),
     startDate: normalizeMonth(str(e.startDate)), endDate: normalizeMonth(str(e.endDate)), gpa: str(e.gpa),
   }));
+  p.certifications = objs(r.certifications).map((e) => ({
+    name: str(e.name), number: str(e.number),
+    issuedDate: normalizeDate(str(e.issuedDate)), expirationDate: normalizeDate(str(e.expirationDate)),
+  }));
   p.projects = objs(r.projects).map((e) => ({ name: str(e.name), url: str(e.url), description: str(e.description) }));
   return p;
 }
@@ -78,7 +98,7 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
   if (key === 'skills') return p.skills.length ? p.skills : null;
   const [group, sub] = key.split('.') as [string, string | undefined];
   if (sub) {
-    const list = (group === 'work' ? p.work : p.education) as unknown as Array<Record<string, unknown>>;
+    const list = (group === 'work' ? p.work : group === 'cert' ? p.certifications : p.education) as unknown as Array<Record<string, unknown>>;
     const entry = list[groupIndex];
     if (!entry) return null;
     const v = entry[sub];
@@ -95,11 +115,34 @@ export function resolveProfileValue(p: Profile, key: ProfileKey, groupIndex: num
 const STANDARD: Array<[ScalarKey, RegExp]> = [
   ['over18', /\b(18|eighteen)\b.*\b(years?|age|older)\b|\bat least (18|eighteen)\b/i],
   ['backgroundCheckConsent', /\bbackground (check|screen(ing)?|investigation)\b/i],
-  ['relatedToEmployee', /\brelated to\b.*\bemployee|\b(family|relatives?)\b.*\b(work|employed)\b/i],
+  ['relatedToEmployee', /\brelated to\b.*\b(employees?|works?|working|employed)\b|\b(family|relatives?)\b.*\b(work(s|ing)?|employed)\b/i],
+  // Defense contractors ask both (live RTX); one answer covers "CURRENT ..." and "FORMER ... employee?".
+  ['usCitizen', /\bcitizen of the (u\.?\s?s\.?a?|united states)\b|\b(u\.?\s?s\.?|united states|american) citizen\b/i],
+  ['governmentEmployee', /\b(federal|government)\b.*\b(civilian|military)\b.*\bemployee\b/i],
   // "by / at / here": "Have you ever worked with Python?" is not about this company.
-  ['previouslyEmployed', /\b(previously|ever|formerly|before)\b.*\b(employed|worked|intern(ship|ed)?)\b.*\b(by|at|here|for us)\b|\bformer (employee|intern)\b/i],
+  ['previouslyEmployed', /\b(previously|ever|formerly|before)\b.*\b(employed|worked|intern(ship|ed)?)\b.*\b(by|at|here|for us)\b|\bformer (employee|intern)\b|\b(previously|ever|formerly)\b.*\b(an? )?(employee|intern|contractor) (of|at|with)\b/i],
+  // "worked for" a named company (Workday: "Have you previously worked for Acme?"), not "for a government agency".
+  ['previouslyEmployed', /\b(?:[Pp]reviously|[Ee]ver|[Ff]ormerly)\b.*\bworked for (?:[Tt]he )?[A-Z]|\bworked for (?:[Tt]he )?[A-Z][\w&.'-]*(?: [A-Z][\w&.'-]*)* (?:before|previously)\b/],
 ];
 export const standardKey = (label: string): ScalarKey | null => STANDARD.find(([, re]) => re.test(label))?.[0] ?? null;
+
+// A yes/no answer goes only where the question is about it: the mapper can send "Are you a CURRENT U.S. federal
+// government ... employee?" to one of these and answer it Yes (live RTX).
+const YES_NO_TOPIC: Partial<Record<ScalarKey, RegExp>> = {
+  workAuthorized: /authori[sz]|eligib|legally|permit|right to work/i,
+  requiresSponsorship: /sponsor|visa|h-?1b|immigration/i,
+  over18: /\b(18|eighteen)\b|\bage\b|\bminor\b/i,
+  under40: /\b(40|forty)\b|\bage\b/i,
+  willingToRelocate: /relocat|\bmove\b/i,
+  previouslyEmployed: /\b(previous(ly)?|former(ly)?|ever|before|past)\b.*\b(employ|work|intern)/i,
+  relatedToEmployee: /relat|family|relative|spouse/i,
+  backgroundCheckConsent: /background|screen|check/i,
+  usCitizen: /citizen/i,
+  governmentEmployee: /\b(federal|government|military)\b/i,
+};
+/** The mapper's key, unless it is a yes/no key the question is not about. */
+export const plausibleKey = (key: ProfileKey | null, label: string): ProfileKey | null =>
+  key && YES_NO_TOPIC[key as ScalarKey] && !YES_NO_TOPIC[key as ScalarKey]!.test(label) ? null : key;
 
 // A yes/no "are you Hispanic or Latino?" question (not a race/ethnicity list that includes it), answered from the ethnicity.
 export const asksHispanicYesNo = (label: string) => /hispanic|latin[oa]/i.test(label) && !/\b(race|ethnic\w*)\b/i.test(label);

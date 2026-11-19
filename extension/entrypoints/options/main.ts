@@ -1,9 +1,9 @@
-import { getApiKey, getApplications, getLoopSettings, getProfile, getResume, getResumes, getSavedAnswers, getSheet, saveApiKey, saveLoopSettings, saveProfile, saveResumes } from '@/src/storage/store';
+import { getAccountPassword, saveAccountPassword, getApiKey, getApplications, getCertProofs, getLoopSettings, getProfile, getResume, getResumes, getSavedAnswers, getSheet, saveApiKey, saveCertProofs, saveLoopSettings, saveProfile, saveResumes } from '@/src/storage/store';
 import { fileToStored, type StoredFile } from '@/src/storage/fileCodec';
 import { keyWorks, parseResume, ResumeParseError } from '@/src/gemini/parseResume';
 import { connectSheet, sheetsConfigured } from '@/src/sheets/sheets';
 import { ALL_SITES, type BgMessage, type SyncReply } from '@/src/messages';
-import { renderProfileForm, readProfileForm } from '@/src/options/profileForm';
+import { renderProfileForm, readProfileForm, readCertProofs } from '@/src/options/profileForm';
 import { keepManualAnswers } from '@/src/options/mergeManual';
 import { emptyProfile } from '@/src/profile/profile';
 
@@ -81,6 +81,7 @@ async function init() {
   await renderDashboard();
   browser.storage.onChanged.addListener(() => { void renderDashboard(); }); // an application logged in another tab shows up live
   $<HTMLInputElement>('apiKey').value = await getApiKey();
+  $<HTMLInputElement>('accountPassword').value = await getAccountPassword();
   await renderAllowed();
   const loop = await getLoopSettings();
   $<HTMLInputElement>('loopEmail').value = loop.email;
@@ -88,7 +89,7 @@ async function init() {
   $<HTMLInputElement>('loopSubmit').checked = loop.submit;
   await renderResumes();
   const profile = await getProfile();
-  renderProfileForm($('form'), profile ?? emptyProfile());
+  renderProfileForm($('form'), profile ?? emptyProfile(), await getCertProofs());
   if (profile && !profile.reviewed) status('Profile not reviewed yet — review and save.');
 }
 
@@ -118,6 +119,15 @@ $('saveKey').onclick = async () => {
     await saveApiKey(key);
     status('Key saved. Checking it with Google…');
     status(!key ? 'Key removed.' : (await keyWorks(key)) ? 'Key saved. Google accepts it.' : 'Key saved, but Google rejects it. Copy it again from AI Studio.');
+  } catch (e) {
+    status(`Could not save: ${errorMessage(e)}`);
+  }
+};
+
+$('savePassword').onclick = async () => {
+  try {
+    await saveAccountPassword($<HTMLInputElement>('accountPassword').value);
+    status('Account password saved.');
   } catch (e) {
     status(`Could not save: ${errorMessage(e)}`);
   }
@@ -165,7 +175,7 @@ $('parse').onclick = async () => {
     await saveResumes(all);                      // only persist after a successful parse
     $<HTMLInputElement>('resume').value = '';
     await renderResumes();
-    renderProfileForm($('form'), keepManualAnswers(parsed, readProfileForm($('form'))));
+    renderProfileForm($('form'), keepManualAnswers(parsed, readProfileForm($('form'))), await getCertProofs());
     if (!parsed.firstName && !parsed.email && parsed.work.length === 0) {
       status('Gemini found almost nothing in this file — is it a scanned image or not a resume? Review carefully.');
     } else {
@@ -184,6 +194,7 @@ $('save').onclick = async () => {
     return status('Add at least your name or email before saving.');
   }
   try {
+    await saveCertProofs(await readCertProofs($('form'), await getCertProofs()));
     await saveProfile({ ...data, reviewed: true });
     status('Saved. Auto-fill is ready.');
   } catch (e) {

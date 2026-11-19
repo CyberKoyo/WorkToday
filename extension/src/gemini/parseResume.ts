@@ -17,7 +17,7 @@ export class ResumeParseError extends Error {
 export const MANUAL_ONLY: ScalarKey[] = [
   'workAuthorized', 'requiresSponsorship', 'willingToRelocate', 'desiredSalary', 'earliestStartDate',
   'referralSource', 'gender', 'ethnicity', 'races', 'veteranStatus', 'disabilityStatus',
-  'over18', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent',
+  'over18', 'under40', 'dateOfBirth', 'previouslyEmployed', 'relatedToEmployee', 'backgroundCheckConsent', 'usCitizen', 'governmentEmployee',
 ];
 const EXTRACTED = SCALAR_KEYS.filter((k) => !MANUAL_ONLY.includes(k));
 
@@ -31,12 +31,15 @@ const RESPONSE_SCHEMA = object({
     title: S, company: S, location: S, startDate: S, endDate: S, current: { type: 'BOOLEAN' }, description: S }) },
   education: { type: 'ARRAY', items: object({
     school: S, degree: S, fieldOfStudy: S, startDate: S, endDate: S, gpa: S }) },
+  certifications: { type: 'ARRAY', items: object({
+    name: S, number: S, issuedDate: S, expirationDate: S }) },
   projects: { type: 'ARRAY', items: object({ name: S, url: S, description: S }) },
 });
 
 const PROMPT = `Extract the candidate's details from this resume into the JSON schema.
 Use "" for anything not stated. Dates as YYYY-MM (or YYYY if month unknown).
 For a current job set current=true and endDate="". state: 2-letter code if US.
+certifications: professional certifications and licenses only, not degrees or courses.
 Do not invent information. Keep description to the resume's bullet text for that role.
 projects: personal, course, research or side projects the resume lists apart from jobs, with the bullet text as description
 and the project's own link as url when one is given. A job is never a project.`;

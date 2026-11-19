@@ -1,4 +1,5 @@
-import { SCALAR_KEYS, emptyEdu, emptyProject, emptyWork, type EduEntry, type Profile, type ProjectEntry, type ScalarKey, type WorkEntry } from '../profile/profile';
+import { SCALAR_KEYS, emptyCert, emptyEdu, emptyProject, emptyWork, type CertEntry, type EduEntry, type Profile, type ProjectEntry, type ScalarKey, type WorkEntry } from '../profile/profile';
+import { fileToStored, type StoredFile } from '../storage/fileCodec';
 
 export const FIELD_LABELS: Record<ScalarKey, string> = {
   firstName: 'First name', lastName: 'Last name', preferredName: 'Preferred name', email: 'Email', phone: 'Phone',
@@ -9,14 +10,16 @@ export const FIELD_LABELS: Record<ScalarKey, string> = {
   referralSource: 'How did you hear about jobs (default answer)', gender: 'Gender', ethnicity: 'Race / ethnicity',
   races: 'Races, comma-separated, for check-all-that-apply lists (e.g. asian, white)',
   veteranStatus: 'Veteran status', disabilityStatus: 'Disability status',
-  over18: '18 or older?', previouslyEmployed: 'Previously worked or interned at the company? (default answer)',
+  over18: '18 or older?', under40: 'Under 40? (tax credit screening opt-out)',
+  dateOfBirth: 'Date of birth, YYYY-MM-DD (only for the tax credit screening opt-out)', previouslyEmployed: 'Previously worked or interned at the company? (default answer)',
   relatedToEmployee: 'Related to a current employee? (default answer)', backgroundCheckConsent: 'Consent to a background check?',
+  usCitizen: 'U.S. citizen?', governmentEmployee: 'Current or former U.S. federal government / military employee?',
 };
 
 const YN = ['', 'yes', 'no'];
 export const CHOICES: Partial<Record<ScalarKey, string[]>> = {
   workAuthorized: YN, requiresSponsorship: YN, willingToRelocate: YN,
-  over18: YN, previouslyEmployed: YN, relatedToEmployee: YN, backgroundCheckConsent: YN,
+  over18: YN, under40: YN, previouslyEmployed: YN, relatedToEmployee: YN, backgroundCheckConsent: YN, usCitizen: YN, governmentEmployee: YN,
   gender: ['', 'male', 'female', 'non-binary', 'decline'],
   ethnicity: ['', 'hispanic or latino', 'white', 'black or african american', 'asian', 'american indian or alaska native',
     'native hawaiian or other pacific islander', 'two or more races', 'decline'],
@@ -26,8 +29,10 @@ export const CHOICES: Partial<Record<ScalarKey, string[]>> = {
 
 const WORK_FIELDS: Array<keyof WorkEntry> = ['title', 'company', 'location', 'startDate', 'endDate', 'current', 'description'];
 const EDU_FIELDS: Array<keyof EduEntry> = ['school', 'degree', 'fieldOfStudy', 'startDate', 'endDate', 'gpa'];
+const CERT_FIELDS: Array<keyof CertEntry> = ['name', 'number', 'issuedDate', 'expirationDate'];
 const PROJECT_FIELDS: Array<keyof ProjectEntry> = ['name', 'url', 'description'];
 type Entry = Record<string, string | boolean>;
+type Proofs = Record<string, StoredFile>;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {}, ...kids: Node[]): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -48,7 +53,7 @@ function scalarControl(key: ScalarKey, value: string): HTMLElement {
   return c;
 }
 
-function entryBlock(fields: string[], entry: Entry): HTMLElement {
+function entryBlock(fields: string[], entry: Entry, proofs?: Proofs): HTMLElement {
   const box = el('div', { className: 'entry' });
   for (const f of fields) {
     const v = entry[f];
@@ -58,6 +63,13 @@ function entryBlock(fields: string[], entry: Entry): HTMLElement {
     c.dataset.entryKey = f;
     box.append(row(f, c));
   }
+  if (proofs) {
+    const name = String(entry.name ?? '');
+    const file = el('input', { type: 'file' });
+    file.dataset.proofOf = name; // the name it is stored under, so renaming the certification keeps it
+    const stored = proofs[name];
+    box.append(row(stored ? `proof (stored: ${stored.name})` : 'proof', file));
+  }
   const rm = el('button', { type: 'button', textContent: 'Remove' });
   rm.dataset.remove = '';
   rm.onclick = () => box.remove();
@@ -65,17 +77,17 @@ function entryBlock(fields: string[], entry: Entry): HTMLElement {
   return box;
 }
 
-function listSection(list: 'work' | 'education' | 'projects', title: string, fields: string[], entries: object[], blank: () => object) {
+function listSection(list: 'work' | 'education' | 'certifications' | 'projects', title: string, fields: string[], entries: object[], blank: () => object, proofs?: Proofs) {
   const wrap = el('div');
   wrap.dataset.list = list;
-  for (const e of entries) wrap.append(entryBlock(fields, e as Entry));
+  for (const e of entries) wrap.append(entryBlock(fields, e as Entry, proofs));
   const add = el('button', { type: 'button', textContent: `Add ${title.toLowerCase()}` });
   add.dataset.add = list;
-  add.onclick = () => wrap.append(entryBlock(fields, blank() as Entry));
+  add.onclick = () => wrap.append(entryBlock(fields, blank() as Entry, proofs));
   return el('fieldset', {}, el('legend', { textContent: title }), wrap, add);
 }
 
-export function renderProfileForm(root: HTMLElement, p: Profile): void {
+export function renderProfileForm(root: HTMLElement, p: Profile, proofs: Proofs = {}): void {
   root.replaceChildren();
   const about = el('fieldset', {}, el('legend', { textContent: 'About you' }));
   for (const k of SCALAR_KEYS) about.append(row(FIELD_LABELS[k], scalarControl(k, p[k])));
@@ -85,6 +97,7 @@ export function renderProfileForm(root: HTMLElement, p: Profile): void {
     about,
     listSection('work', 'Work experience', WORK_FIELDS, p.work, emptyWork),
     listSection('education', 'Education', EDU_FIELDS, p.education, emptyEdu),
+    listSection('certifications', 'Certifications', CERT_FIELDS, p.certifications, emptyCert, proofs),
     listSection('projects', 'Personal projects', PROJECT_FIELDS, p.projects, emptyProject),
     row('Skills (comma separated)', skills),
   );
@@ -110,7 +123,22 @@ export function readProfileForm(root: HTMLElement): Omit<Profile, 'reviewed'> {
     ...scalars,
     work: readEntries<WorkEntry>(root, 'work'),
     education: readEntries<EduEntry>(root, 'education'),
+    certifications: readEntries<CertEntry>(root, 'certifications'),
     projects: readEntries<ProjectEntry>(root, 'projects').filter((e) => e.name || e.description),
     skills: skillsRaw.split(',').map((s) => s.trim()).filter(Boolean),
   };
+}
+
+/** The proofs to store, by certification name: a newly chosen file, else the one already stored. A removed certification's proof goes with it. */
+export async function readCertProofs(root: HTMLElement, existing: Proofs): Promise<Proofs> {
+  const out: Proofs = {};
+  for (const box of root.querySelectorAll<HTMLElement>('[data-list="certifications"] .entry')) {
+    const name = box.querySelector<HTMLInputElement>('[data-entry-key="name"]')?.value.trim();
+    const input = box.querySelector<HTMLInputElement>('input[type="file"]');
+    if (!name || !input) continue;
+    const chosen = input.files?.[0];
+    const proof = chosen ? await fileToStored(chosen) : existing[input.dataset.proofOf ?? ''];
+    if (proof) out[name] = proof;
+  }
+  return out;
 }
