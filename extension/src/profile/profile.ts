@@ -37,14 +37,26 @@ const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', '
 export function normalizeMonth(s: string): string {
   const t = s.trim().toLowerCase();
   let m: RegExpMatchArray | null;
-  if ((m = t.match(/^(\d{4})-(\d{2})(?:-\d{2})?$/))) return `${m[1]!}-${m[2]!}`;
+  if ((m = t.match(/^(\d{4})[-/](\d{2})(?:[-/]\d{2})?$/))) return `${m[1]!}-${m[2]!}`;
   if ((m = t.match(/^(\d{4})$/))) return m[1]!;
-  if ((m = t.match(/^(\d{1,2})\/(\d{4})$/))) return `${m[2]!}-${m[1]!.padStart(2, '0')}`;
-  if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{4})$/))) {
+  // A full date as typed in setup ("03/15/2024", "3-15-2024") keeps its month; a date that matched nothing was saved blank.
+  if ((m = t.match(/^(\d{1,2})(?:[-/.]\d{1,2})?[-/.](\d{4})$/)) && Number(m[1]) >= 1 && Number(m[1]) <= 12) return `${m[2]!}-${m[1]!.padStart(2, '0')}`;
+  if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(?:\d{1,2}(?:st|nd|rd|th)?,?\s+)?(\d{4})$/))) {
     const i = MONTHS.indexOf(m[1]!);
     if (i >= 0) return `${m[2]!}-${String(i + 1).padStart(2, '0')}`;
   }
   return '';
+}
+
+/** A certification date: YYYY-MM-DD when a day is given (their forms ask for one), else as normalizeMonth. */
+export function normalizeDate(s: string): string {
+  const t = s.trim().toLowerCase();
+  const day = (y: string, mo: number, d: number) => (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 ? `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}` : '');
+  let m: RegExpMatchArray | null;
+  if ((m = t.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/))) return day(m[1]!, Number(m[2]), Number(m[3]));
+  if ((m = t.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/))) return day(m[3]!, Number(m[1]), Number(m[2]));
+  if ((m = t.match(/^([a-z]{3})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/))) return day(m[3]!, MONTHS.indexOf(m[1]!) + 1, Number(m[2]));
+  return normalizeMonth(s);
 }
 
 const str = (v: unknown): string =>
@@ -75,7 +87,7 @@ export function normalizeProfile(raw: unknown): Profile {
   }));
   p.certifications = objs(r.certifications).map((e) => ({
     name: str(e.name), number: str(e.number),
-    issuedDate: normalizeMonth(str(e.issuedDate)), expirationDate: normalizeMonth(str(e.expirationDate)),
+    issuedDate: normalizeDate(str(e.issuedDate)), expirationDate: normalizeDate(str(e.expirationDate)),
   }));
   p.projects = objs(r.projects).map((e) => ({ name: str(e.name), url: str(e.url), description: str(e.description) }));
   return p;

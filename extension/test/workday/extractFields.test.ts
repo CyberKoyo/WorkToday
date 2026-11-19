@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractFields, toDescriptor } from '../../src/workday/extractFields';
+import { today } from '../../src/fill/dateParts';
 
 const load = (name: string) => { document.body.innerHTML = readFileSync(`${__dirname}/../fixtures/${name}`, 'utf8'); };
 
@@ -114,7 +115,7 @@ describe('workday disability form', () => {
       document.body.insertAdjacentHTML('beforeend', '<div data-automation-id="datePicker"><button data-automation-id="datePickerSelectedToday">17</button></div>');
       document.querySelector('[data-automation-id="datePickerSelectedToday"]')!.addEventListener('click', () => { picked = true; });
     });
-    expect(await fillField(date!, '2026-11-17')).toBe('filled');
+    expect(await fillField(date!, today())).toBe('filled');
     expect(picked).toBe(true);
     expect(await fillField(status!, 'decline')).toBe('filled');
     expect((status!.members![2] as HTMLInputElement).checked).toBe(true);

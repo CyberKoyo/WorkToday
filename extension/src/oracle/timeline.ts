@@ -1,7 +1,8 @@
 import type { Profile, WorkEntry, EduEntry } from '../profile/profile';
 import { safeClick, setNativeValue, waitFor } from '../fill/dom';
 import { MONTH_NAMES } from '../fill/dateParts';
-import { fillCombobox } from '../generic/combobox';
+import { comboboxValue, fillCombobox } from '../generic/combobox';
+import { norm } from '../fill/matchOption';
 import { OR } from './selectors';
 
 const MAX_ENTRIES = 10;
@@ -22,12 +23,16 @@ async function setCombo(ed: Editor, name: string, value: string, timeoutMs: numb
   for (const v of [value, ...fallbacks]) if ((await fillCombobox(el, v, timeoutMs)) !== 'no_match') return;
 }
 
-// A YYYY-MM (or YYYY) date into the editor's Month and Year comboboxes, which share the field's name.
+// A YYYY-MM-DD, YYYY-MM or YYYY date into the editor's Month (Day) and Year comboboxes, which share the field's name.
 async function setDate(ed: Editor, name: string, value: string, timeoutMs: number) {
-  const m = value.match(/^(\d{4})(?:-(\d{2}))?$/);
+  const m = value.match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
   if (!m) return;
-  const [month, year] = named(ed, name);
+  const parts = named(ed, name);
+  // A license's dates have a Day list between Month and Year (live 2026-11-18): "1".."31".
+  const [month, day, year] = parts.length === 3 ? parts : [parts[0], undefined, parts[1]];
   if (month && m[2]) await fillCombobox(month, MONTH_NAMES[Number(m[2]) - 1]!, timeoutMs);
+  const d = String(Number(m[3] ?? '1'));
+  if (day && m[2]) for (const v of [d, d.padStart(2, '0')]) if ((await fillCombobox(day, v, timeoutMs)) !== 'no_match') break;
   if (year) await fillCombobox(year, m[1]!, timeoutMs);
 }
 
@@ -79,5 +84,38 @@ export async function addTimelineEntries(doc: Document, profile: Profile, timeou
       save.click();
       if (!(await waitFor(() => (count() > before && !block.querySelector(OR.editorSave) ? true : null), timeoutMs))) return;
     }
+  }
+}
+
+/**
+ * Licenses and certificates (live 2026-11-18): an "Add License" button opens an editor whose License or Certificate
+ * list is searched by name. One the list lacks, or one already saved as a tile, is cancelled; the rest are saved.
+ */
+export async function addCertifications(doc: Document, profile: Profile, timeoutMs = 3000): Promise<void> {
+  const first = [...doc.querySelectorAll<HTMLElement>(OR.profileItemsAdd)].find((b) => /licen|certif/i.test(b.textContent ?? ''));
+  const block = first?.closest<HTMLElement>(OR.profileItems);
+  if (!block) return;
+  const closed = () => (!block.querySelector(OR.editorSave) ? true : null);
+  for (const cert of profile.certifications.slice(0, MAX_ENTRIES)) {
+    const saved = norm(block.textContent ?? ''); // the tiles' text, read while no editor is open
+    if (!cert.name || saved.includes(norm(cert.name))) continue;
+    const add = block.querySelector<HTMLElement>(OR.profileItemsAdd);
+    if (!add || block.querySelector(OR.editorSave) || !safeClick(add)) return;
+    const save = await waitFor(() => block.querySelector<HTMLButtonElement>(OR.editorSave), timeoutMs);
+    if (!save) return;
+    const box = named(block, 'contentItemId')[0];
+    const picked = box && (await fillCombobox(box, cert.name, timeoutMs)) === 'filled' ? norm(comboboxValue(box)) : '';
+    if (!picked || saved.includes(picked)) {
+      console.info('[workday-filler] certification', picked ? 'already saved:' : 'not in the list, cancelled:', JSON.stringify(cert.name));
+      // Cancel only closes the editor; like Save, it is type="submit" but Oracle handles it.
+      block.querySelector<HTMLButtonElement>(OR.editorCancel)?.click();
+      if (!(await waitFor(closed, timeoutMs))) return;
+      continue;
+    }
+    setText(block, 'certificationNumber', cert.number);
+    await setDate(block, 'issueDate', cert.issuedDate, timeoutMs);
+    await setDate(block, 'expirationDate', cert.expirationDate, timeoutMs);
+    save.click(); // see addTimelineEntries
+    if (!(await waitFor(closed, timeoutMs))) return; // Oracle wants more; left open for the applicant
   }
 }

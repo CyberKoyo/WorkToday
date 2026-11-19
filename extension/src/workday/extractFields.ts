@@ -1,6 +1,7 @@
 import type { FieldKind, ProfileKey } from '@wf/shared';
 import { SEL, FIELD_KEYS } from './selectors';
 import { clean, type ExtractedField } from '../ats/field';
+import { today } from '../fill/dateParts';
 
 export { clean, toDescriptor, type ExtractedField } from '../ats/field';
 
@@ -38,8 +39,6 @@ function certKey(label: string, kind: FieldKind): ProfileKey | undefined {
   return undefined;
 }
 
-// Local date, as the applicant's calendar shows it.
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 // A Workday application's upload box is its Resume/CV section unless its label names another document.
 const OTHER_DOCUMENT = /cover|transcript|letter|certificat|portfolio/i;

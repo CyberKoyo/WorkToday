@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { addTimelineEntries } from '../../src/oracle/timeline';
-import { emptyProfile, emptyWork, emptyEdu, type Profile } from '../../src/profile/profile';
+import { addCertifications, addTimelineEntries } from '../../src/oracle/timeline';
+import { emptyProfile, emptyWork, emptyEdu, emptyCert, type Profile } from '../../src/profile/profile';
 
 // Mimics the live Oracle "Work and Education History" block (captured 2026-10-13): Add buttons open one inline
 // editor at a time inside the apply form; its fields are named (employerName, startDate month + year, ...), date
@@ -47,6 +47,24 @@ const ROCKLAND: typeof EDITORS = {
 };
 const REQUIRED = { experience: ['employerName', 'jobTitle'], education: ['educationalEstablishment'] };
 
+function cxSelect() {
+// cx-select: a click opens the grid popup; a click on a cell puts its text in the input.
+document.addEventListener('click', (e) => {
+  const box = e.target as HTMLElement;
+  if (!(box instanceof HTMLInputElement) || box.getAttribute('role') !== 'combobox') return;
+  document.getElementById(box.getAttribute('aria-controls')!)?.remove();
+  const grid = document.createElement('div');
+  grid.setAttribute('role', 'grid'); grid.id = box.getAttribute('aria-controls')!;
+  for (const o of box.dataset.options!.split('|')) {
+    const row = document.createElement('div'); row.setAttribute('role', 'row');
+    const cell = document.createElement('div'); cell.setAttribute('role', 'gridcell'); cell.textContent = o;
+    cell.addEventListener('click', () => { box.value = o; grid.remove(); });
+    row.append(cell); grid.append(row);
+  }
+  document.body.append(grid);
+});
+}
+
 function page(saved: { experience?: number; education?: number } = {}, editors = EDITORS) {
   const tile = (kind: string) => `<div class="beautiful-timeline-item" data-profile-item-tile="true">${kind}</div>`;
   document.body.innerHTML = `<form class="apply-flow__content apply-flow__content-form">
@@ -64,21 +82,7 @@ function page(saved: { experience?: number; education?: number } = {}, editors =
   form.addEventListener('submit', submit);
   const savedEntries: Array<Record<string, string>> = [];
 
-  // cx-select: a click opens the grid popup; a click on a cell puts its text in the input.
-  document.addEventListener('click', (e) => {
-    const box = e.target as HTMLElement;
-    if (!(box instanceof HTMLInputElement) || box.getAttribute('role') !== 'combobox') return;
-    document.getElementById(box.getAttribute('aria-controls')!)?.remove();
-    const grid = document.createElement('div');
-    grid.setAttribute('role', 'grid'); grid.id = box.getAttribute('aria-controls')!;
-    for (const o of box.dataset.options!.split('|')) {
-      const row = document.createElement('div'); row.setAttribute('role', 'row');
-      const cell = document.createElement('div'); cell.setAttribute('role', 'gridcell'); cell.textContent = o;
-      cell.addEventListener('click', () => { box.value = o; grid.remove(); });
-      row.append(cell); grid.append(row);
-    }
-    document.body.append(grid);
-  });
+  cxSelect();
 
   const open = (kind: 'experience' | 'education') => {
     const slot = document.getElementById('editor-slot')!;
@@ -170,5 +174,51 @@ describe('Oracle work and education timeline', () => {
   it('does nothing without the timeline block', async () => {
     document.body.innerHTML = '<form><input name="x"></form>';
     await expect(addTimelineEntries(document, profile(), 100)).resolves.toBeUndefined();
+  });
+});
+
+// Live Oracle "Licenses and Certificates" (2026-11-18): an Add License button opens an editor with a License or
+// Certificate list, a number, and Month/Day/Year lists per date (ids month-/day-/year-issueDate-N, one shared name).
+const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1));
+function certPage() {
+  document.body.innerHTML = `<form class="apply-flow__content-form"><div class="apply-flow-block apply-flow-block--tile-profile-items">
+    <div id="tiles"></div><div id="cert-slot"></div>
+    <button id="profileItemsAddButton-1" type="button" class="button apply-flow-profile-item-tile__new-tile">Add License</button></div></form>`;
+  cxSelect();
+  const savedEntries: Array<Record<string, string>> = [];
+  const date = (name: string, years = YEARS) => combo(name, 'Month', MONTHS) + combo(name, 'Day', DAYS) + combo(name, 'Year', years);
+  document.getElementById('profileItemsAddButton-1')!.addEventListener('click', () => {
+    const slot = document.getElementById('cert-slot')!;
+    if (slot.firstChild) return;
+    slot.innerHTML = `<div>${combo('contentItemId', 'License or Certificate', ['CompTIA Security+', 'CompTIA SecurityX'])}
+      ${text('certificationNumber', 'Certificate Number')}${date('issueDate')}${date('expirationDate', Array.from({ length: 60 }, (_, i) => String(2050 - i)))}
+      <button class="button app-dialog__footer-button cancel-btn">Cancel</button>
+      <button class="button app-dialog__footer-button save-btn">Add License</button></div>`;
+    slot.querySelector('.cancel-btn')!.addEventListener('click', (e) => { e.preventDefault(); slot.innerHTML = ''; });
+    slot.querySelector('.save-btn')!.addEventListener('click', (e) => {
+      e.preventDefault();
+      const v = (sel: string) => [...slot.querySelectorAll<HTMLInputElement>(sel)].map((el) => el.value).join('/');
+      const name = v('[name="contentItemId"]');
+      savedEntries.push({ name, number: v('[name="certificationNumber"]'), issued: v('[name="issueDate"]'), expires: v('[name="expirationDate"]') });
+      slot.innerHTML = '';
+      document.getElementById('tiles')!.insertAdjacentHTML('beforeend', `<div data-profile-item-tile="true">${name}</div>`);
+    });
+  });
+  return { savedEntries };
+}
+
+describe('Oracle licenses and certificates', () => {
+  const certs = (): Profile => ({ ...emptyProfile(), certifications: [
+    { ...emptyCert(), name: 'Google Cybersecurity Certificate' },
+    { ...emptyCert(), name: 'CompTIA Security+', number: 'COMP001', issuedDate: '2024-03-15', expirationDate: '2027-03' },
+  ] });
+  it('cancels a certification the list lacks and saves the rest with number and Month/Day/Year dates', async () => {
+    const { savedEntries } = certPage();
+    await addCertifications(document, certs(), 100);
+    expect(savedEntries).toEqual([{ name: 'CompTIA Security+', number: 'COMP001', issued: 'March/15/2024', expires: 'March/1/2027' }]);
+    expect(document.querySelector('.save-btn')).toBeNull();
+    // A rerun adds no duplicate.
+    await addCertifications(document, certs(), 100);
+    expect(savedEntries).toHaveLength(1);
   });
 });

@@ -88,8 +88,8 @@ export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeou
         const el = own<HTMLInputElement>(c, 'input');
         if (!el) return 'error';
         if (el.value) return 'skipped_nonempty';
-        if (!/^\d{4}-\d{2}$/.test(text)) return 'no_match';
-        setNativeValue(el, el.type === 'month' ? text : `${text}-01`);
+        if (!/^\d{4}-\d{2}(-\d{2})?$/.test(text)) return 'no_match';
+        setNativeValue(el, el.type === 'month' ? text.slice(0, 7) : text.length === 7 ? `${text}-01` : text);
         return 'filled';
       }
       case 'file':

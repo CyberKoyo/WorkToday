@@ -3,6 +3,7 @@ import { clean, type ExtractedField, type FillResult } from '../ats/field';
 import { matchOption, norm } from './matchOption';
 import { asText, rawSet, setNativeValue, typeChars, waitFor, pressKey, setFilesViaDataTransfer } from './dom';
 import type { ProfileValue } from '../profile/profile';
+import { today } from './dateParts';
 
 export type { FillResult } from '../ats/field';
 export { setNativeValue, typeChars, waitFor } from './dom';
@@ -156,9 +157,9 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
         const m = asText(value).match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/);
         if (!m || !year || (month && !m[2])) return 'no_match';
         const day = c.querySelector<HTMLInputElement>(SEL.dateDay);
-        // A full date is a signing date, today's. Workday shows a typed day but does not keep it ("Date is required",
-        // live SWIB); picking today in its own calendar does.
-        if (day && m[3]) {
+        // A signing date is today's. Workday shows a typed day but does not keep it there ("Date is required", live SWIB);
+        // picking today in its own calendar does. A certification's typed day is kept (live 2026-11-18).
+        if (day && m[3] && asText(value) === today()) {
           c.querySelector<HTMLElement>(SEL.dateIcon)?.click();
           const todayCell = await waitFor(() => c.ownerDocument.querySelector<HTMLElement>(SEL.dateToday), timeoutMs);
           if (!todayCell) return 'no_match';
@@ -166,7 +167,7 @@ export async function fillField(f: ExtractedField, value: ProfileValue, timeoutM
           return 'filled';
         }
         if (month) typeChars(month, m[2]!);
-        if (day) typeChars(day, '01'); // profile dates stop at the month
+        if (day) typeChars(day, m[3] ?? '01'); // most profile dates stop at the month
         typeChars(year, m[1]!);
         // Workday keeps the date only once focus really leaves it; without this Save reports "From is required" (live RTX).
         year.blur();

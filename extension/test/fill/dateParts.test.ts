@@ -23,3 +23,13 @@ describe('formatForPlaceholder', () => {
     expect(formatForPlaceholder('MM/YYYY', 'Ada')).toBe('Ada');
   });
 });
+
+describe('dates with a day (certifications)', () => {
+  it('keeps the day for a full-date placeholder and a Day box', () => {
+    expect(formatForPlaceholder('MM/DD/YYYY', '2024-03-15')).toBe('03/15/2024');
+    expect(formatForPlaceholder('MM/DD/YYYY', '2024-03')).toBe('03/01/2024');
+    expect(formatForPlaceholder('MM/YYYY', '2024-03-15')).toBe('03/2024');
+    expect(adaptForLabel('Issue date day', '2024-03-05')).toBe('5');
+    expect(adaptForLabel('Issue date month', '2024-03-05')).toBe('March');
+  });
+});

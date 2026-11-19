@@ -1,11 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { emptyProfile, normalizeProfile, normalizeMonth, resolveProfileValue, SCALAR_KEYS } from '../../src/profile/profile';
+import { emptyProfile, normalizeProfile, normalizeMonth, normalizeDate, resolveProfileValue, SCALAR_KEYS } from '../../src/profile/profile';
 
 describe('normalizeMonth', () => {
   it.each([
     ['2021-03', '2021-03'], ['2021', '2021'], ['Mar 2021', '2021-03'], ['March 2021', '2021-03'],
-    ['03/2021', '2021-03'], ['Present', ''], ['', ''], ['garbage', ''],
+    ['03/2021', '2021-03'], ['03/15/2021', '2021-03'], ['3-15-2021', '2021-03'], ['2021/03/15', '2021-03'],
+    ['March 15, 2021', '2021-03'], ['Mar 15 2021', '2021-03'], ['13/15/2021', ''], ['Present', ''], ['', ''], ['garbage', ''],
   ])('%s -> %s', (i, o) => expect(normalizeMonth(i)).toBe(o));
+});
+
+describe('normalizeDate (certifications keep the day)', () => {
+  it.each([
+    ['03/15/2024', '2024-03-15'], ['3-5-2024', '2024-03-05'], ['2024-03-15', '2024-03-15'], ['2024/3/15', '2024-03-15'],
+    ['March 15, 2024', '2024-03-15'], ['Mar 15 2024', '2024-03-15'], ['2024-03', '2024-03'], ['March 2024', '2024-03'],
+    ['13/15/2024', ''], ['garbage', ''],
+  ])('%s -> %s', (i, o) => expect(normalizeDate(i)).toBe(o));
 });
 
 describe('normalizeProfile', () => {
@@ -46,7 +55,7 @@ describe('resolveProfileValue', () => {
   it('certification values by group; no proof in the profile', () => {
     const c = normalizeProfile({ certifications: [{ name: 'CISSP', issuedDate: '2021-03-15' }, { name: 'CCNA', number: 42 }, 'junk'] });
     expect(c.certifications).toEqual([
-      { name: 'CISSP', number: '', issuedDate: '2021-03', expirationDate: '' },
+      { name: 'CISSP', number: '', issuedDate: '2021-03-15', expirationDate: '' },
       { name: 'CCNA', number: '42', issuedDate: '', expirationDate: '' },
     ]);
     expect(resolveProfileValue(c, 'cert.name', 1)).toBe('CCNA');

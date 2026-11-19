@@ -9,5 +9,9 @@ export const OR = {
   experienceTile: '.beautiful-timeline__column--left [data-profile-item-tile]',
   educationTile: '.beautiful-timeline__column--right [data-profile-item-tile]',
   editorSave: 'button.save-btn',
+  editorCancel: 'button.cancel-btn',
+  // Licenses and certificates (live 2026-11-18); the same block type may hold other profile items on other sites.
+  profileItems: '.apply-flow-block--tile-profile-items',
+  profileItemsAdd: 'button[id^="profileItemsAddButton"]',
   currentJob: 'input[type="checkbox"][id*="currentJobFlag"]',
 } as const;
