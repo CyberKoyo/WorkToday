@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// The catalog has only Security+: picking it adds a chip, anything else finds no match.
+vi.mock('../../src/fill/fillField', () => ({
+  fillField: async (f: { container: HTMLElement }, value: string) => {
+    if (value !== 'CompTIA Security+') return 'no_match';
+    f.container.querySelector('[data-automation-id="multiSelectContainer"]')!.insertAdjacentHTML('beforeend', `<div data-automation-id="selectedItem">${value} - CompTIA</div>`);
+    return 'filled';
+  },
+}));
 import { ensureRepeatGroups } from '../../src/workday/ensureRepeatGroups';
 import { emptyCert, emptyEdu, emptyProfile, emptyWork } from '../../src/profile/profile';
 
@@ -28,16 +37,27 @@ describe('ensureRepeatGroups', () => {
     await ensureRepeatGroups(document, { ...emptyProfile(), education: [emptyEdu(), emptyEdu()] }, 200);
     expect(n).toBe(2);
   });
-  it('adds one certification group per profile certification', async () => {
+  it('keeps a certification the list has and deletes the row of one it lacks', async () => {
     document.body.innerHTML = `<h3 id="Certifications-section">Certifications</h3>
       <div role="group" aria-labelledby="Certifications-section"><button data-automation-id="add-button">Add</button></div>`;
     const sec = document.querySelector('[aria-labelledby="Certifications-section"]')!;
-    let n = 0;
     sec.querySelector('button')!.addEventListener('click', () => {
-      n++; const g = document.createElement('div'); g.setAttribute('role', 'group'); sec.prepend(g);
+      const g = document.createElement('div');
+      g.setAttribute('role', 'group');
+      g.innerHTML = `<div data-automation-id="formField-certification"><div data-automation-id="multiSelectContainer"><input></div></div>
+        <button><svg class="wd-icon-trash"></svg></button>`;
+      g.querySelector('button')!.addEventListener('click', () => g.remove());
+      sec.append(g);
     });
-    await ensureRepeatGroups(document, { ...emptyProfile(), certifications: [emptyCert(), emptyCert()] }, 200);
-    expect(n).toBe(2);
+    const p = { ...emptyProfile(), certifications: [{ ...emptyCert(), name: 'Missing Cert' }, { ...emptyCert(), name: 'CompTIA Security+', number: 'X1' }] };
+    await ensureRepeatGroups(document, p, 200);
+    const rows = sec.querySelectorAll('[role="group"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.textContent).toContain('CompTIA Security+');
+    expect(p.certifications.map((c) => c.number)).toEqual(['X1']); // row 1 gets the kept cert's number
+    // A second pass sees the picked row and adds nothing.
+    await ensureRepeatGroups(document, p, 200);
+    expect(sec.querySelectorAll('[role="group"]')).toHaveLength(1);
   });
   it('stops if Add does nothing (no infinite loop)', async () => {
     document.body.innerHTML = '<div data-automation-id="workExperienceSection"><button data-automation-id="add-button">Add</button></div>';

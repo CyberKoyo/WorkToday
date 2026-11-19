@@ -28,6 +28,8 @@ export const SEL = {
   // One per entry; a date's month/year pair is a role="group" too.
   entry: '[role="group"]:not([data-automation-id="dateInputWrapper"])',
   addButton: 'button[data-automation-id="add-button"]',
+  // An entry's Delete: a button with only a trash icon, no automation id or label (live 2026-11-18).
+  trashIcon: '.wd-icon-trash',
   // Names the step; live RTX (2026-11) has no pageHeader, only the progress bar's active step.
   pageHeader: '[data-automation-id="pageHeader"],[data-automation-id="progressBarActiveStep"]',
   // data-fkit-id of every field in the Self Identify step's disability form (live SWIB 2026-11-17).
