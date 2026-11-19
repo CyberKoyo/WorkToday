@@ -436,6 +436,22 @@ describe('runAutofill', () => {
     expect(r.filled).toBe(1);
     expect(r.attention).toEqual([]);
   });
+  it('a resume already on the page is the step\'s resume; extra-document boxes never get it (live Oracle)', async () => {
+    const base = deps();
+    document.body.innerHTML = `
+      <div data-automation-id="formField-a"><label>Resume</label><input type="file"></div>
+      <div data-automation-id="formField-b"><label>Upload a file</label><input type="file"></div>
+      <div data-automation-id="formField-c"><label>Additional Documents</label><input type="file"></div>`;
+    const fillFile = vi.fn().mockResolvedValueOnce('skipped_nonempty').mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fillFile,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile'], ['wf-1', 'resumeFile'], ['wf-2', 'resumeFile']])) } as never);
+    expect(fillFile.mock.calls.map((c) => c[0].label)).toEqual(['Resume']);
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Miscellaneous Documents</label><input type="file"></div>';
+    const fresh = vi.fn().mockResolvedValue('filled');
+    await runAutofill({ ...base, extract: () => extractFields(document), fillFile: fresh,
+      map: vi.fn().mockResolvedValue(new Map([['wf-0', 'resumeFile']])) } as never);
+    expect(fresh).not.toHaveBeenCalled();
+  });
   it('a resume upload that reloads the page goes first and alone (live iCIMS: the reload wiped the filled form)', async () => {
     const d = deps({ resumeFirst: true });
     const r = await runAutofill(d as never);

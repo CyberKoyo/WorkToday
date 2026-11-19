@@ -76,6 +76,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   const mapping = toMap.length ? await d.map(toMap.map(toDescriptor)) : new Map<string, ProfileKey | null>();
 
   let resumeUploaded = false;
+  let resumeOnPage = false; // the resume box already holds a file: the step has its resume
   let otherAnswer: string | null = null; // the real answer behind a catch-all pick, for its follow-up box
   // Anything filled before a reloading upload is lost, so the resume box goes first.
   const isResume = (f: ExtractedField) => (f.profileKey ?? standardKey(f.label) ?? mapping.get(f.id)) === 'resumeFile';
@@ -111,8 +112,10 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     if (key === 'resumeFile' && /\b(import|auto-?fill|parse|populate)\b/i.test(f.label)) key = null;
     // A certification's upload wants its proof, never the resume (the mapper or its cache can say resume).
     if (key === 'resumeFile' && /\b(certifi|licen[sc]e)/i.test(`${f.label} ${f.section ?? ''}`)) key = 'cert.proof';
-    // One resume per run, and never as the cover letter (live Oracle: the resume was attached twice).
-    if (key === 'resumeFile' && (resumeUploaded || /\bcover\b/i.test(f.label))) key = null;
+    // One resume per run, and never as the cover letter or an extra document (live Oracle: the resume was attached
+    // twice; with the Resume box already filled it went into "Additional Documents").
+    if (key === 'resumeFile' && (resumeUploaded || resumeOnPage
+      || /\bcover\b|\b(additional|misc(ellaneous)?|other|supporting)\b/i.test(`${f.label} ${f.section ?? ''}`))) key = null;
     let result: FillResult = 'no_match';
     let noValue = false; // the profile field this question maps to is blank
     const missed: string[] = [];
@@ -158,7 +161,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       if (d.resumeDone) result = 'skipped_nonempty';
       else if (d.resume) result = await d.fillFile(f, d.resume);
       if (result === 'filled') resumeUploaded = true;
-      else if (!d.resumeDone && result !== 'skipped_nonempty') console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
+      else if (result === 'skipped_nonempty') resumeOnPage = true;
+      else if (!d.resumeDone) console.warn('[workday-filler] resume not uploaded:', d.resume ? `${d.resume.name} -> ${result}` : 'no resume stored');
     } else if (key === 'cert.proof') {
       result = (await d.proof?.(f)) ?? (f.required ? 'no_match' : 'skipped_nonempty');
     } else if (!key && rememberable(f) && d.remembered?.[answerKey(f)] !== undefined) {
