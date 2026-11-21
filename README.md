@@ -129,7 +129,8 @@ Your date of birth stays in this browser and is used only for ADP's tax credit o
 The extension never overwrites a field that already has a value, and never submits an application unless you turn on
 **Submit applications for me** for the job loop. On its own it moves to the next step only when every field on the current one
 was filled, and only through a button named Next or Continue (ADP: the pager arrow, never on the last step). The loop's sign-in email and password are stored unencrypted in the extension
-(this browser only) and typed only into the sign-in form of the site that asks; they are never sent to Gemini or the mapping server.
+(this browser only) and typed only into the sign-in form of a supported application site (the table above), over https;
+they are never sent to Gemini or the mapping server. On other sites, sign in yourself.
 
 ## Known limitations
 
@@ -154,6 +155,24 @@ was filled, and only through a button named Next or Continue (ADP: the pager arr
   when the list has no such choice) and outlined blue. Set your own default under Profile to replace it.
 - Searchable dropdowns (Greenhouse School, Location) pick a result only when exactly one clearly matches; otherwise the field is highlighted.
 - iCIMS dropdowns are set through the underlying list; if a dropdown looks empty after Auto-fill, pick the value by hand.
+
+## Store packages
+
+With Node.js 24 and npm 11, from the repository root:
+
+```
+npm ci
+npm run zip -w extension
+```
+
+This writes `extension/.output/extension-<version>-chrome.zip` (Chrome Web Store),
+`extension/.output/extension-<version>-firefox.zip` (addons.mozilla.org) and
+`extension/.output/extension-<version>-sources.zip` (the source code AMO asks for). To check the Firefox build from those
+sources: unzip the sources zip, run `npm ci && npm run build:firefox -w extension`, and compare
+`extension/.output/firefox-mv2` with the contents of the Firefox zip. The build needs no `.env`; without one it uses the
+hosted mapping server and leaves Google Sheets sync off.
+
+Listing text, reviewer notes, permission justifications, the privacy policy and the promo tile are in `store/`.
 
 ## Tests
 
