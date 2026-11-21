@@ -14,7 +14,8 @@ export default defineBackground(() => {
   browser.permissions.onAdded.addListener(() => { void registerAuto(); });
   void registerAuto();
   browser.runtime.onMessage.addListener((msg: BgMessage, sender, sendResponse) => {
-    handleMessage(msg, {}, sender.tab, sender.url).then(sendResponse);
+    // A reply always goes back: every sender reads a missing reply as a failure, but a lost one leaves it waiting.
+    handleMessage(msg, {}, sender.tab, sender.url).then(sendResponse, (e) => { console.warn('[workday-filler]', msg.type, 'failed', e); sendResponse(undefined); });
     return true; // keep channel open for async reply (works in Chrome and Firefox)
   });
   // Toolbar button: `action` in MV3, `browserAction` in Firefox MV2.

@@ -63,7 +63,7 @@ function question(e: HTMLElement): Question[] {
   if (area) return [{ label, kind: 'textarea', required, container: area }];
   const list = e.querySelector<HTMLSelectElement>('select');
   if (list) return [{ label, kind: 'select', required, container: list, options: [...list.options].filter((o) => o.value !== '').map((o) => clean(o.text)) }];
-  const d = discoverFields(e)[0];
+  const d = discoverFields(e, undefined, true)[0]; // a row shows once an earlier answer lands: asked() checks it
   if (!d) return [];
   const q: Question = { label, kind: d.kind, required: required || d.required, container: d.container };
   if (d.options) q.options = d.options;

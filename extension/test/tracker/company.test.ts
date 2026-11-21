@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { companyFromUrl } from '../../src/tracker/company';
 
 describe('companyFromUrl', () => {
+  it('never throws on a malformed escape', () => {
+    expect(companyFromUrl('https://boards.greenhouse.io/embed/job_app?for=%25')).toBe('%');
+    expect(() => companyFromUrl('https://jobs.lever.co/%E0%A4%A/apply')).not.toThrow();
+    expect(companyFromUrl('https://evilgreenhouse.io/embed/job_app?for=Acme')).not.toBe('Acme');
+  });
   it.each([
     ['https://cmegroup.wd1.myworkdayjobs.com/en-US/cme_careers/job/Chicago/Intern_35062-1/apply', 'Cmegroup'],
     ['https://wd5.myworkday.com/acme/d/inst/job.htmld', 'Acme'],

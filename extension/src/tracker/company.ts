@@ -18,7 +18,9 @@ function ownDomain(host: string): string {
   return labels[i] ?? '';
 }
 
-const pretty = (slug: string) => decodeURIComponent(slug).replace(/[-_+]+/g, ' ').trim().replace(/\b\p{Ll}/gu, (c) => c.toUpperCase());
+// A page picks its own address: a stray % must not break every list that names companies.
+const decode = (s: string) => { try { return decodeURIComponent(s); } catch { return s; } };
+const pretty = (slug: string) => decode(slug).replace(/[-_+]+/g, ' ').trim().replace(/\b\p{Ll}/gu, (c) => c.toUpperCase());
 
 export function companyFromUrl(url: string): string {
   let u: URL;
@@ -26,7 +28,7 @@ export function companyFromUrl(url: string): string {
   const host = u.hostname.toLowerCase();
   const segs = u.pathname.split('/').filter(Boolean);
   // Greenhouse's embedded form: boards.greenhouse.io/embed/job_app?for=<company>
-  if (host.endsWith('greenhouse.io') && segs[0] === 'embed') return pretty(u.searchParams.get('for') ?? '');
+  if (/(^|\.)greenhouse\.io$/.test(host) && segs[0] === 'embed') return pretty(u.searchParams.get('for') ?? '');
   const path = IN_PATH.find(([re]) => re.test(host));
   if (path) return pretty(segs[path[1]] ?? '');
   const sub = IN_HOST.exec(host)?.[1];

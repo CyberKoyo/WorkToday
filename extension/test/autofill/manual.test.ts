@@ -11,7 +11,13 @@ const msg = () => banners()[0]!.shadowRoot!.querySelector('.msg')!.textContent;
 const press = (sel: string) => banners()[0]!.shadowRoot!.querySelector<HTMLButtonElement>(sel)!.click();
 const FORM = `<form id="apply"><label for="fn">First name</label><input id="fn"><label for="em">Email</label><input id="em"></form>`;
 
+// The banner's shadow root is closed to the page; these tests read it as if it were open.
+const attach = Element.prototype.attachShadow;
+const openShadows = () => vi.spyOn(Element.prototype, 'attachShadow').mockImplementation(function (this: Element, init: ShadowRootInit) { return attach.call(this, { ...init, mode: 'open' }); });
+
 beforeEach(async () => {
+  vi.restoreAllMocks();
+  openShadows();
   fakeBrowser.reset();
   delete (globalThis as { __wfMounted?: unknown }).__wfMounted;
   // A fresh <body> detaches watchers left by earlier tests.
@@ -29,6 +35,15 @@ describe('toolbar button', () => {
     startManual();
     await new Promise((r) => setTimeout(r, 20));
     expect(banners()).toHaveLength(1);
+  });
+
+  it('stays out of a frame whose lone form is not an application (newsletter, chat)', async () => {
+    vi.spyOn(window, 'top', 'get').mockReturnValue({} as Window);
+    document.body.innerHTML = '<form><label for="em">Email</label><input id="em"><button>Send</button></form>';
+    startManual();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(banners()).toHaveLength(0);
+    expect(mounted()).toBeUndefined();
   });
 
   it('answers the press on a page with no form', async () => {

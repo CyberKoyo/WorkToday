@@ -27,6 +27,15 @@ const FORM = `<form id="f">
 </form>`;
 
 describe('extractGeneric', () => {
+  it('leaves out fields the applicant cannot see', () => {
+    document.body.innerHTML = `<style>.gone{display:none}</style><form id=apply><label for=v1>First Name*</label><input id=v1><label for=v2>Email*</label><input id=v2>
+      <div style="display:none"><label for=h1>Phone</label><input id=h1></div><div class=gone><label for=h2>Street Address</label><input id=h2></div>
+      <div style="position:absolute;left:-9999px;opacity:0"><label for=h3>City</label><input id=h3></div>
+      <div style="visibility:hidden;height:0;overflow:hidden"><label for=h4>Gender</label><select id=h4><option>Female</option></select></div>
+      <fieldset style="opacity:0;width:1px;height:1px;overflow:hidden"><legend>Veteran status</legend><label><input type=radio name=vet value=a>Protected</label><label><input type=radio name=vet value=b>Not protected</label></fieldset>
+      <div class=gone><label for=h7>Resume</label><input id=h7 type=file></div><div class=gone><label for=h8>A project you are proud of</label><textarea id=h8></textarea></div></form>`;
+    expect(discoverFields(document.getElementById('apply')!).map((d) => d.label)).toEqual(['First Name', 'Email']);
+  });
   it('finds labelled controls, kinds, sections, groups', () => {
     document.body.innerHTML = FORM;
     const f = extractGeneric(document.getElementById('f')!);

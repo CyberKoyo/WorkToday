@@ -21,17 +21,21 @@ const CSS = `
   .link { background: none; border: 0; color: #2563eb; cursor: pointer; padding: 8px; font: inherit; }
   .close { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; cursor: pointer; }`;
 
-export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): void } {
+export function showBanner(opts: BannerOptions): { host: HTMLElement; shadow: ShadowRoot; remove(): void } {
   const host = document.createElement('div');
   host.id = 'wf-banner-host';
-  const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>${CSS}</style><div class="box${opts.framed ? ' framed' : ''}" role="dialog" aria-label="Job Application Filler">
+  // Closed: page script must not read the past-applications notice or press the buttons (Auto-fill hands it the profile).
+  const shadow = host.attachShadow({ mode: 'closed' });
+  // A constant literal: nothing from the page or the profile is parsed as markup (AMO's linter checks this).
+  shadow.innerHTML = `<div class="box" role="dialog" aria-label="Job Application Filler">
     <strong>Job Application Filler</strong><p class="msg"></p><p class="seen" hidden></p>
-    <button class="primary" type="button"></button>${opts.onLog ? '<button class="log" type="button">Log application</button>' : ''}
+    <button class="primary" type="button"></button><button class="log" type="button" hidden>Log application</button>
     <button class="link" type="button">Dashboard</button>
     <button class="link loop" type="button">Loop jobs</button>
     <button class="link copy" type="button" hidden>Copy details</button>
     <button class="close" type="button" aria-label="Dismiss">×</button></div>`;
+  shadow.prepend(Object.assign(document.createElement('style'), { textContent: CSS }));
+  shadow.querySelector('.box')!.classList.toggle('framed', !!opts.framed);
   const msg = shadow.querySelector('.msg')!;
   const seen = shadow.querySelector<HTMLElement>('.seen')!;
   seen.textContent = opts.notice ?? '';
@@ -61,7 +65,9 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
     };
     if (opts.autoFill) primary.click();
   }
-  if (opts.onLog) shadow.querySelector<HTMLButtonElement>('.log')!.onclick = () => opts.onLog!();
+  const log = shadow.querySelector<HTMLButtonElement>('.log')!;
+  log.hidden = !opts.onLog;
+  log.onclick = () => opts.onLog?.();
   const link = shadow.querySelector<HTMLButtonElement>('.link')!;
   link.hidden = opts.needsSetup; // the main button already goes there
   link.onclick = () => opts.onSetup();
@@ -80,5 +86,5 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; remove(): 
   shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { remove(); opts.onDismiss(); };
   // An iframe sized to its content has no visible bottom edge; put the banner where the form starts.
   if (opts.framed) document.body.prepend(host); else document.body.append(host);
-  return { host, remove };
+  return { host, shadow, remove };
 }

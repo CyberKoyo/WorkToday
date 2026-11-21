@@ -1,4 +1,4 @@
-import type { StoredFile } from '../storage/fileCodec';
+import { base64ToBytes, bytesToBase64, type StoredFile } from '../storage/fileCodec';
 import { extractPdfLinks, fillLinkFields } from '../resume/pdfLinks';
 import { readDocx } from '../resume/docx';
 import { normalizeProfile, SCALAR_KEYS, type Profile, type ScalarKey } from '../profile/profile';
@@ -104,19 +104,6 @@ export async function parseResume(file: StoredFile | StoredFile[], apiKey: strin
   }
   fillLinkFields(parsed, links);
   return parsed;
-}
-
-function base64ToBytes(b64: string): Uint8Array {
-  const bin = atob(b64);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function bytesToBase64(bytes: Uint8Array): string {
-  let bin = '';
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
 }
 
 /** Whether Google accepts the key, without spending any quota. A network failure counts as unknown (true). */

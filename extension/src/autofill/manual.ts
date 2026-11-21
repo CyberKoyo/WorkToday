@@ -1,4 +1,4 @@
-import { generic } from '../generic/adapter';
+import { asksIdentity, generic } from '../generic/adapter';
 import { mounted, mountBanner } from './mount';
 
 /** Toolbar button: offer Auto-fill on this page, whatever the site. */
@@ -6,7 +6,9 @@ export function startManual(): void {
   const known = mounted(); // a supported site, or the button pressed before
   const adapter = known?.adapter ?? generic;
   const isForm = adapter.isFormPage(document);
-  if (window !== window.top && !isForm) return; // ads, chat widgets and other frames stay quiet
+  // Ads, chat widgets and newsletter boxes in other frames stay quiet: a frame mounts only for a supported site or a form
+  // that opens like an application (the job loop polls every frame this script reaches).
+  if (window !== window.top && !(isForm && (known || asksIdentity(document)))) return;
   const m = known ?? mountBanner(generic);
   // A fresh mount already showed the banner if it saw a form; otherwise answer the press anyway.
   if (!known && isForm) return;

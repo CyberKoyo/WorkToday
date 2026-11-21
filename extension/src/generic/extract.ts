@@ -129,7 +129,16 @@ export function wrapperField(w: HTMLElement, rawLabel: string, optionText: (el: 
   return d;
 }
 
-export function discoverFields(root: ParentNode, skip?: Skip): Discovered[] {
+// The applicant must be able to see a field for it to be filled: hidden fields would take profile data, EEO answers
+// and the resume unseen. The container is tested, not the control: sites hide styled radios and file inputs behind a label.
+const rendered = (c: HTMLElement): boolean => {
+  if (c.checkVisibility && !c.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+  const r = c.getBoundingClientRect(); // page coordinates, so a field scrolled past still counts
+  return !(r.width || r.height) || (r.right + scrollX > 0 && r.bottom + scrollY > 0); // no box at all: no layout to judge (display: contents)
+};
+
+/** `keepHidden`: for an adapter that reads hidden rows on purpose and checks them itself before filling (ADP's `asked`). */
+export function discoverFields(root: ParentNode, skip?: Skip, keepHidden = false): Discovered[] {
   const groups = new Map<unknown, HTMLElement[]>();
   for (const el of root.querySelectorAll<HTMLElement>(CONTROL)) {
     if (!isControl(el, skip)) continue;
@@ -160,6 +169,7 @@ export function discoverFields(root: ParentNode, skip?: Skip): Discovered[] {
       }
       container = c === root ? first : c;
     }
+    if (!keepHidden && !rendered(container === first ? (lab ?? first.parentElement ?? first) : container)) continue;
     const kind = kindOf(first);
     const isGroup = members.length > 1 || kind === 'radio';
     const rawLabel = (ownBox && boxLabel(ownBox)) || textOf(lab) || first.getAttribute('aria-label')

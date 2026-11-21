@@ -36,7 +36,7 @@ describe('adp tax credit screening', () => {
   it('runs in the tcs.adp.com iframe only', () => {
     expect(pickAdapter(new URL('https://tcs.adp.com/txcs-ui/taxcredits/'))?.id).toBe('adp-tax');
     expect(adpTax.detect(new URL('https://tcs.adp.com.evil.example/'))).toBe(false);
-    expect(CONTENT_MATCHES).toContain('*://tcs.adp.com/*');
+    expect(CONTENT_MATCHES).toContain('https://tcs.adp.com/*');
   });
   it('opts out: Opt Out, then the warning pane\'s Opt out, then the opt-out form', async () => {
     questionnaire();

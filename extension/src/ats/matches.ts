@@ -1,22 +1,23 @@
 // Content-script match patterns per ATS. Plain data so the content script options stay statically readable.
+// https only: on a cleartext page a network attacker writes the document the profile and password go into.
 export const MATCHES = {
-  workday: ['*://*.myworkdayjobs.com/*', '*://*.myworkday.com/*', '*://*.myworkdaysite.com/*'],
-  greenhouse: ['*://*.greenhouse.io/*'],
-  icims: ['*://*.icims.com/*'],
-  oracle: ['*://*.oraclecloud.com/hcmUI/CandidateExperience/*'],
-  successfactors: ['*://*.successfactors.com/career*', '*://*.successfactors.eu/career*', '*://*.sapsf.com/career*', '*://*.sapsf.eu/career*'],
-  ashby: ['*://jobs.ashbyhq.com/*'],
-  adp: ['*://recruiting.adp.com/*', '*://recruiting2.adp.com/*'],
-  adpTax: ['*://tcs.adp.com/*'],
+  workday: ['https://*.myworkdayjobs.com/*', 'https://*.myworkday.com/*', 'https://*.myworkdaysite.com/*'],
+  greenhouse: ['https://*.greenhouse.io/*'],
+  icims: ['https://*.icims.com/*'],
+  oracle: ['https://*.oraclecloud.com/hcmUI/CandidateExperience/*'],
+  successfactors: ['https://*.successfactors.com/career*', 'https://*.successfactors.eu/career*', 'https://*.sapsf.com/career*', 'https://*.sapsf.eu/career*'],
+  ashby: ['https://jobs.ashbyhq.com/*'],
+  adp: ['https://recruiting.adp.com/*', 'https://recruiting2.adp.com/*'],
+  adpTax: ['https://tcs.adp.com/*'],
   // Eightfold also runs on companies' own career domains.
-  eightfold: ['*://*.eightfold.ai/careers*', '*://careers.qualcomm.com/careers*'],
+  eightfold: ['https://*.eightfold.ai/careers*', 'https://careers.qualcomm.com/careers*'],
   // Phenom runs only on companies' own career domains; shortcut: listed as seen live, add new ones the same way.
-  phenom: ['*://careers.steris.com/*/apply*', '*://jobs.cvshealth.com/*/apply*'],
-  lever: ['*://jobs.lever.co/*', '*://jobs.eu.lever.co/*'],
-  dayforce: ['*://jobs.dayforcehcm.com/*'],
-  smartrecruiters: ['*://jobs.smartrecruiters.com/*'],
+  phenom: ['https://careers.steris.com/*/apply*', 'https://jobs.cvshealth.com/*/apply*'],
+  lever: ['https://jobs.lever.co/*', 'https://jobs.eu.lever.co/*'],
+  dayforce: ['https://jobs.dayforcehcm.com/*'],
+  smartrecruiters: ['https://jobs.smartrecruiters.com/*'],
   // The job page opens the form in place, so the script must already be there.
-  tesla: ['*://www.tesla.com/careers/search/job/*'],
+  tesla: ['https://www.tesla.com/careers/search/job/*'],
 } as const;
 
 export const CONTENT_MATCHES: string[] = Object.values(MATCHES).flat();

@@ -30,10 +30,13 @@ describe('store', () => {
     expect(await getResume()).toEqual(t);
     expect(await fakeBrowser.storage.local.get('resumeFile')).toEqual({}); // not kept twice
   });
-  it('map cache resets when over limit', async () => {
+  it('map cache drops its oldest entries when over limit', async () => {
     const big = Object.fromEntries(Array.from({ length: MAP_CACHE_MAX + 1 }, (_, i) => [`k${i}`, 'email' as const]));
     await saveMapCache(big);
-    expect(await getMapCache()).toEqual({});
+    const kept = await getMapCache();
+    expect(Object.keys(kept)).toHaveLength(MAP_CACHE_MAX);
+    expect(kept.k0).toBeUndefined();
+    expect(kept[`k${MAP_CACHE_MAX}`]).toBe('email');
   });
 });
 

@@ -1,6 +1,5 @@
 import { MAX_FIELDS, MAX_LABEL_LEN, MAX_OPTIONS, type FieldDescriptor, type MapResponse, type ProfileKey } from '@wf/shared';
 import { getMapCache, saveMapCache } from '../storage/store';
-import { norm } from '../fill/matchOption';
 import { DEFAULT_API_BASE } from './apiBase';
 
 type Code = 'rate_limited' | 'server' | 'network' | 'bad_response';
@@ -8,10 +7,16 @@ export class MapError extends Error {
   constructor(public code: Code, message: string) { super(message); this.name = 'MapError'; }
 }
 
+// Unicode-aware: an ASCII-only fold turns every Japanese or Cyrillic label into the same empty key.
+const keyNorm = (s: string) => s.normalize('NFKC').toLowerCase().replace(/['’‘]/g, '').replace(/[^\p{L}\p{N} ]+/gu, ' ').replace(/\s+/g, ' ').trim();
+
 export function cacheKey(f: FieldDescriptor): string {
-  const section = norm((f.section ?? '').replace(/\d+\s*$/, ''));
-  return `${f.kind}|${section}|${norm(f.label)}`;
+  const section = keyNorm((f.section ?? '').replace(/\d+\s*$/, ''));
+  return `${f.kind}|${section}|${keyNorm(f.label)}`;
 }
+// A label with no letters or digits says nothing about the field: never reuse or share its mapping.
+const cacheable = (f: FieldDescriptor) => keyNorm(f.label) !== '';
+const repKey = (f: FieldDescriptor) => (cacheable(f) ? cacheKey(f) : `id|${f.id}`);
 
 // Server rejects bodies over 64_000 chars; leave headroom for the JSON envelope.
 const MAX_BODY_CHARS = 60_000;
@@ -68,23 +73,23 @@ export async function mapFields(
   const out = new Map<string, ProfileKey | null>();
   const misses: FieldDescriptor[] = [];
   for (const f of fields) {
-    const hit = cache[cacheKey(f)];
+    const hit = cacheable(f) && cache[cacheKey(f)];
     if (hit) out.set(f.id, hit); else misses.push(f);
   }
   if (!misses.length) return out;
 
   // A label repeated across groups (Job Title in Work Experience 1..n) is asked once.
   const reps = new Map<string, FieldDescriptor>();
-  for (const f of misses) if (!reps.has(cacheKey(f))) reps.set(cacheKey(f), f);
+  for (const f of misses) if (!reps.has(repKey(f))) reps.set(repKey(f), f);
   const byId = new Map<string, ProfileKey | null>();
   for (const batch of batches([...reps.values()].map(forWire))) {
     for (const m of (await request(fetchImpl, apiBase, batch)).mappings) byId.set(m.id, m.profileKey);
   }
 
   for (const f of misses) {
-    const key = byId.get(reps.get(cacheKey(f))!.id) ?? null;
+    const key = byId.get(reps.get(repKey(f))!.id) ?? null;
     out.set(f.id, key);
-    if (key) cache[cacheKey(f)] = key;
+    if (key && cacheable(f)) cache[cacheKey(f)] = key;
   }
   await saveMapCache(cache);
   return out;

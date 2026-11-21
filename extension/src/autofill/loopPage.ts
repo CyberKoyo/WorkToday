@@ -83,6 +83,8 @@ export interface StepDeps {
   inPage: boolean;
   /** The form on screen opens the way applications do (name, email, phone…). */
   asksIdentity: () => boolean;
+  /** This frame is a supported ATS, matched by its own https URL: the only place the saved loop login is typed. */
+  signInHere: boolean;
 }
 
 /** One poll of the loop in this frame: sign in, or fill the step on screen and (if the applicant asked) press on. */
@@ -99,7 +101,7 @@ async function decide(d: StepDeps, doc: Document): Promise<Step> {
   // the board's own search, filter and chat boxes are forms too.
   const isForm = adapter.isFormPage(doc) && (!d.inPage || !!acted() || d.asksIdentity());
 
-  if (s.email && s.password && [...doc.querySelectorAll('input[type="password"]')].some(visible)) {
+  if (d.signInHere && s.email && s.password && [...doc.querySelectorAll('input[type="password"]')].some(visible)) {
     const key = `signin|${path}`;
     if (acted() === key) return 'waiting'; // one try per page: a wrong password must not lock the account
     if (signIn(doc, s.email, s.password)) { markActed(key); return 'progress'; }

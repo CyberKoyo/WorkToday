@@ -8,6 +8,10 @@ import { answerKey, answerable, essay, readAnswer, rememberable } from '../answe
 
 /** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it.
  * `recalled`: filled from answers the applicant gave before. `answered`: answered for the applicant by Gemini or a built-in default, highlighted for checking. */
+
+// The container, not the control: sites hide styled radios and file inputs behind a visible label or drop zone.
+// shortcut: style-hidden only, not off-screen (generic discovery checks that too); add a box check once tried on live ATS pages.
+const seen = (c: HTMLElement) => !c.closest('[inert]') && (!c.checkVisibility || c.checkVisibility({ opacityProperty: true, visibilityProperty: true }));
 export interface AutofillReport {
   filled: number; skipped: number; attention: ExtractedField[]; missed: string[]; reloading?: boolean;
   recalled?: number; answered?: ExtractedField[]; answerError?: string;
@@ -83,6 +87,7 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   const order = d.resumeFirst ? [...fields.filter(isResume), ...fields.filter((f) => !isResume(f))] : fields;
   for (const f of order) {
     if (!f.container.isConnected) continue; // e.g. "To" date removed after ticking "I currently work here"
+    if (!seen(f.container)) continue; // never fill, tick or upload into a box the applicant cannot see
     if (f.asked?.() === false) continue; // a follow-up the earlier answers did not call for
     let key = f.profileKey ?? standardKey(f.label) ?? plausibleKey(mapping.get(f.id) ?? null, f.label);
     // A lone checkbox is a consent or a statement. The mapper reads its sentence as some yes/no profile fact, and that

@@ -29,6 +29,14 @@ describe('mapFields', () => {
   it('cache key ignores group number so Work Experience 2 reuses 1', () => {
     expect(cacheKey(F('a', 'Job Title', 'Work Experience 1'))).toBe(cacheKey(F('b', 'Job Title*', 'Work Experience 2')));
   });
+  it('labels in other scripts get their own keys; a label of symbols is never cached', async () => {
+    expect(cacheKey(F('a', '氏名'))).not.toBe(cacheKey(F('b', '電話番号')));
+    const fetchImpl = vi.fn().mockResolvedValue(reply([{ id: 'wf-0', profileKey: 'email' }, { id: 'wf-1', profileKey: 'phone' }]));
+    const out = await mapFields([F('wf-0', '***'), F('wf-1', '—')], { fetchImpl, apiBase: 'https://api' });
+    expect(JSON.parse(fetchImpl.mock.calls[0]![1].body).fields).toHaveLength(2); // asked apart, not as one label
+    expect(out.get('wf-1')).toBe('phone');
+    expect(await getMapCache()).toEqual({});
+  });
   it('only sends misses', async () => {
     await saveMapCache({ [cacheKey(F('x', 'Email'))]: 'email' });
     const fetchImpl = vi.fn().mockResolvedValue(reply([{ id: 'wf-1', profileKey: 'city' }]));

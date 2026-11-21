@@ -16,4 +16,5 @@ import { smartrecruiters } from '../smartrecruiters/adapter';
 
 const ADAPTERS: AtsAdapter[] = [workday, greenhouse, icims, oracle, successfactors, ashby, adp, adpTax, eightfold, phenom, lever, tesla, smartrecruiters, dayforce];
 
-export const pickAdapter = (url: URL): AtsAdapter | null => ADAPTERS.find((a) => a.detect(url)) ?? null;
+// Only over https: on a cleartext page a network attacker writes the document, and the Workday adapter types the saved password.
+export const pickAdapter = (url: URL): AtsAdapter | null => (url.protocol === 'https:' && ADAPTERS.find((a) => a.detect(url))) || null;

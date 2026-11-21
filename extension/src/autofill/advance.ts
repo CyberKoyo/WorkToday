@@ -1,21 +1,10 @@
+import { marker } from './marker';
 import { clean } from '../ats/field';
 import type { AutofillReport } from './runAutofill';
 
 // Set when Auto-fill pressed Next itself, so the step it lands on fills itself and the run goes on.
-const KEY = 'wf:auto-advance';
-const FRESH_MS = 60_000; // a step the site refused to leave must not fill some later visit
-
-export function markAdvance(): void {
-  try { sessionStorage.setItem(KEY, String(Date.now())); } catch { /* storage blocked: the applicant presses Auto-fill */ }
-}
-
-export function advancePending(): boolean {
-  try { return Date.now() - Number(sessionStorage.getItem(KEY) ?? 0) < FRESH_MS; } catch { return false; }
-}
-
-export function clearAdvance(): void {
-  try { sessionStorage.removeItem(KEY); } catch { /* nothing to clear */ }
-}
+// A minute: a step the site refused to leave must not fill some later visit.
+export const { mark: markAdvance, pending: advancePending, clear: clearAdvance, loaded: advanceLoaded } = marker('wf:auto-advance', 60_000);
 
 /** Every field on the step was filled (or already was), with nothing left for the applicant. */
 export const complete = (r: AutofillReport) =>
@@ -38,8 +27,9 @@ export function nextButton(doc: Document): HTMLElement | null {
 /** The applicant's own press of Next: the step it lands on fills itself, as after Auto-fill's (never Submit: NEXT cannot match it). */
 export function watchManualNext(doc: Document): void {
   doc.addEventListener('click', (e) => {
+    if (!e.isTrusted) return; // a page script's click() is not the applicant
     const b = (e.target as Element | null)?.closest?.<HTMLElement>(BUTTON);
-    if (b && isNext(b)) markAdvance();
+    if (b && isNext(b)) void markAdvance();
   }, true);
 }
 

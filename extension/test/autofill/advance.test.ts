@@ -48,7 +48,36 @@ describe('advance marker', () => {
   });
 });
 
+describe('advance marker, out of the page\'s reach', () => {
+  it('a page writing its own sessionStorage does not start Auto-fill', () => {
+    clearAdvance();
+    sessionStorage.setItem('wf:auto-advance', String(Date.now()));
+    expect(advancePending()).toBe(false);
+  });
+  it('outlives the page in extension storage, for the step Next loads', async () => {
+    await markAdvance();
+    vi.resetModules();
+    const next = await import('../../src/autofill/advance'); // the page Next loaded
+    await next.advanceLoaded;
+    expect(next.advancePending()).toBe(true);
+    await next.clearAdvance();
+  });
+});
+
+// happy-dom has no isTrusted: say what each click is.
+let trusted = true;
+Object.defineProperty(Event.prototype, 'isTrusted', { get: () => trusted, configurable: true });
+
 describe('watchManualNext', () => {
+  it("a page script's click on Next is not the applicant's", () => {
+    clearAdvance();
+    document.body.innerHTML = '<button id="n">Next</button>';
+    watchManualNext(document);
+    trusted = false;
+    document.querySelector<HTMLElement>('#n')!.click();
+    trusted = true;
+    expect(advancePending()).toBe(false);
+  });
   it("the applicant's own Next marks the step to fill itself; Submit never does", () => {
     clearAdvance();
     document.body.innerHTML = '<button id="s"><span>Submit</span></button><button id="n"><span>Save and Continue</span></button>';

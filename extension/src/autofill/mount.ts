@@ -1,16 +1,15 @@
 import { browser } from 'wxt/browser';
-import { getAccountPassword, getAccountRefused, getLoopSettings, getProfile } from '../storage/store';
+import { getAccountPassword, getAccountRefused, getApplications, getLoopSettings, getProfile } from '../storage/store';
 import type { AtsAdapter } from '../ats/types';
 import { showBanner } from './banner';
 import { startWatcher } from './watcher';
 import { fillCurrentPage } from './fillCurrentPage';
-import { resumeReloadPending } from './resumeReload';
-import { accountTried, advancePending, watchManualNext } from './advance';
+import { resumeReloadLoaded, resumeReloadPending } from './resumeReload';
+import { accountTried, advanceLoaded, advancePending, watchManualNext } from './advance';
 import { runLoop } from './loop';
 import { loopStep as step, type Filled, type Step } from './loopPage';
 import type { AutofillReport } from './runAutofill';
 import { asksIdentity } from '../generic/adapter';
-import { getApplications } from '../storage/store';
 import { getApplications as getTracked, today } from '../tracker/store';
 import { likelyApplied } from '../tracker/seen';
 
@@ -45,6 +44,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
   const show = async (auto = false) => {
     if (looping) return; // an application opening inside the board must not replace the banner that runs the loop
     const profile = await getProfile();
+    await Promise.all([advanceLoaded, resumeReloadLoaded]); // the self-fill notes this page was left
     // The account step does itself once per tab, and only with a saved password: a second try could lock the account.
     const account = !!adapter.accountPage?.(document) && !accountTried() && !!(await getAccountPassword())
       && !(await getAccountRefused()).includes(location.host);
@@ -81,7 +81,8 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     return !r.attention.length && !r.answerError ? 'clean' : 'attention';
   };
   const loopStep = async (clickApply: boolean) =>
-    step({ adapter, settings: await getLoopSettings(), fill: loopFill, top, clickApply, inPage: looping, asksIdentity: () => asksIdentity(document) });
+    step({ adapter, settings: await getLoopSettings(), fill: loopFill, top, clickApply, inPage: looping, asksIdentity: () => asksIdentity(document),
+      signInHere: adapter.id !== 'generic' });
   return { show: () => show(), loopStep };
 }
 

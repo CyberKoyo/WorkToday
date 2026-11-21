@@ -78,6 +78,14 @@ describe('runAutofill certifications', () => {
 });
 
 describe('runAutofill', () => {
+  it('never fills or uploads into a box the applicant cannot see', async () => {
+    const d = deps();
+    (document.querySelector('[data-automation-id="formField-a"]') as HTMLElement).style.opacity = '0';
+    (document.querySelector('[data-automation-id="formField-d"]') as HTMLElement).style.visibility = 'hidden';
+    await runAutofill(d as never);
+    expect(d.fill).not.toHaveBeenCalledWith(expect.objectContaining({ id: 'wf-0' }), expect.anything(), undefined, expect.anything());
+    expect(d.fillFile).not.toHaveBeenCalled();
+  });
   it('fills mapped, skips non-empty, flags unmatched required, uploads resume', async () => {
     const d = deps();
     const r = await runAutofill(d as never);

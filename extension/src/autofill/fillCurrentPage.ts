@@ -34,9 +34,9 @@ async function answerViaBackground(fields: FieldDescriptor[]): Promise<Map<strin
   return new Map(reply.answers);
 }
 
-/** `onReport`: the run's result as data, for the job loop to decide whether the step can be sent. */
 let accountRunning = false;
 
+/** `onReport`: the run's result as data, for the job loop to decide whether the step can be sent. */
 export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: AutofillReport) => void): Promise<string> {
   const resumeDone = !!adapter.resumeReloadsPage && resumeReloadPending();
   clearResumeReload(); // before any await, so a second banner on the reloaded page does not fill again
@@ -56,7 +56,7 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
     // Only a sent sign-in that came back refused counts; "press Create Account yourself" is not a refusal.
     if (problem && attempted) await addAccountRefused(location.host);
     if (problem) return problem;
-    markAdvance(); // the application's first step fills itself
+    await markAdvance(); // the application's first step fills itself
     return 'Signed in.';
   }
   const stored = await getResume();
@@ -70,7 +70,7 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
     fill: adapter.fill,
     // Marked before the upload: the page may start unloading as soon as the input changes.
     fillFile: adapter.resumeReloadsPage
-      ? async (f, file) => { markResumeReload(); const r = await adapter.fillFile(f, file); if (r !== 'filled') clearResumeReload(); return r; }
+      ? async (f, file) => { await markResumeReload(); const r = await adapter.fillFile(f, file); if (r !== 'filled') clearResumeReload(); return r; }
       : adapter.fillFile,
     proof: async (f) => {
       const file = proofs[profile.certifications[f.groupIndex]?.name ?? ''];
@@ -114,7 +114,7 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
   if (next) {
     await new Promise((r) => setTimeout(r, 500)); // let the site's own checks of the last field settle
     // Pressed once only: Workday turns this same button into Submit on the last step, so a retry could submit.
-    markAdvance();
+    await markAdvance(); // stored before the page can unload
     next.click();
     report.advanced = true;
   }

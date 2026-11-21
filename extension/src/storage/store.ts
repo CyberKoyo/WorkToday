@@ -43,7 +43,7 @@ export const saveCertProofs = (p: Record<string, StoredFile>) => set(K.certProof
 
 export const getMapCache = async () => (await get<Record<string, ProfileKey>>(K.mapCache)) ?? {};
 export const saveMapCache = (c: Record<string, ProfileKey>) =>
-  set(K.mapCache, Object.keys(c).length > MAP_CACHE_MAX ? {} : c);
+  set(K.mapCache, Object.fromEntries(Object.entries(c).slice(-MAP_CACHE_MAX))); // newest kept: new labels are added last
 
 /** One logged application. `synced`: its row is in the Google Sheet. */
 export interface Application { name: string; url: string; date: string; synced?: boolean }

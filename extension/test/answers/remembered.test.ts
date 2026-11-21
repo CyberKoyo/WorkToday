@@ -5,7 +5,25 @@ import type { ExtractedField } from '../../src/ats/field';
 const field = (over: Partial<ExtractedField>): ExtractedField =>
   ({ id: 'wf-0', label: 'Q', kind: 'text', required: false, groupIndex: 0, container: document.body, ...over });
 
+// happy-dom has no isTrusted: say what each event is.
+let trusted = true;
+Object.defineProperty(Event.prototype, 'isTrusted', { get: () => trusted, configurable: true });
+
 describe('remembered answers', () => {
+  it("never saves what the page's own script typed", () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '<div id="a"><input type="text"></div>';
+    const a = field({ label: 'Years of experience', container: document.getElementById('a')! });
+    const save = vi.fn();
+    rememberAnswers([a], save);
+    a.container.querySelector('input')!.value = '40';
+    trusted = false;
+    a.container.querySelector('input')!.dispatchEvent(new Event('input', { bubbles: true }));
+    trusted = true;
+    vi.advanceTimersByTime(600);
+    expect(save).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
   it('only short or choice answers about nothing personal or legal', () => {
     expect(answerable(field({ label: 'Are you currently enrolled at an educational institution?', kind: 'radio', options: ['Yes', 'No'] }))).toBe(true);
     expect(answerable(field({ label: 'How did you hear about us?', kind: 'checkbox', options: ['LinkedIn', 'Other'] }))).toBe(true);

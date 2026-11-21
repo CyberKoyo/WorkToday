@@ -60,7 +60,7 @@ describe('loopStep', () => {
     adapter: { isFormPage: (doc) => !!doc.querySelector('#fn'), stepKey: () => 'step-1', extract: (doc) => [{ container: doc.querySelector('#fn') }] as never },
     settings: { email: '', password: '', submit: over.submit ?? true },
     fill: async () => (over.filled === undefined ? 'clean' : over.filled),
-    top: true, clickApply: false, inPage: false, asksIdentity: () => false, ...over,
+    top: true, clickApply: false, inPage: false, asksIdentity: () => false, signInHere: true, ...over,
   });
   const clicks = () => { const fn = vi.fn(); document.getElementById('go')!.onclick = fn; return fn; };
 
@@ -99,6 +99,13 @@ describe('loopStep', () => {
     expect(await loopStep(d)).toBe('progress');
     expect(await loopStep(d)).toBe('waiting');
     expect(go).toHaveBeenCalledTimes(1);
+  });
+  it('never types the saved login outside a supported ATS', async () => {
+    document.body.innerHTML = '<form><input type="email"><input type="password"><button type="button" id="go">Sign In</button></form>';
+    const go = clicks();
+    expect(await loopStep(deps({ settings: { email: 'ada@x.com', password: 'pw', submit: false }, signInHere: false }))).toBeNull();
+    expect(go).not.toHaveBeenCalled();
+    expect(document.querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('');
   });
   it('presses a posting\'s Apply only when asked, and only outside forms', async () => {
     document.body.innerHTML = '<button id="go">Apply</button>';

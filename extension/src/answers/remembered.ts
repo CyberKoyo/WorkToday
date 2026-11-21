@@ -72,7 +72,8 @@ export function rememberAnswers(fields: ExtractedField[], save: (key: string, va
     if (watched.has(f.container)) continue;
     watched.add(f.container);
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const settle = () => {
+    const settle = (e: Event) => {
+      if (!e.isTrusted) return; // the page's own script is not the applicant answering
       clearTimeout(timer);
       // Comboboxes and button pills update their state after the event; read once the page has caught up.
       timer = setTimeout(() => { const v = readAnswer(f); if (v !== null) save(answerKey(f), v); }, 500);

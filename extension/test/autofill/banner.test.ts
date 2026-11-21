@@ -1,10 +1,23 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { setDetails, showBanner } from '../../src/autofill/banner';
 
 const btn = (host: HTMLElement, sel: string) => host.shadowRoot!.querySelector<HTMLButtonElement>(sel)!;
 const msg = (host: HTMLElement) => host.shadowRoot!.querySelector('.msg')!.textContent;
 
+// The banner's shadow root is closed to the page; these tests read it as if it were open.
+const attach = Element.prototype.attachShadow;
+const openShadows = () => vi.spyOn(Element.prototype, 'attachShadow').mockImplementation(function (this: Element, init: ShadowRootInit) { return attach.call(this, { ...init, mode: 'open' }); });
+
 describe('banner', () => {
+  beforeEach(() => { openShadows(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+  it('is closed to page script', () => {
+    vi.restoreAllMocks(); // the real attachShadow
+    const onFill = vi.fn().mockResolvedValue('');
+    const { host, shadow } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn() });
+    expect(host.shadowRoot).toBeNull(); // what a page script sees
+    expect(shadow.querySelector('.primary')!.textContent).toBe('Auto-fill');
+  });
   it('Auto-fill runs onFill and shows its summary', async () => {
     const onFill = vi.fn().mockResolvedValue('Filled 3 fields.');
     const { host } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn() });
