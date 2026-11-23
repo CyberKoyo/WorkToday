@@ -18,6 +18,10 @@ describe('likelyApplied', () => {
     expect(likelyApplied('Cyber Defense Response Intern', CME, '2026-11-19', [row], [])).toEqual([]);
     expect(likelyApplied('Cyber Defense Response Intern', CME, '2026-11-20', [row], [])).toHaveLength(1);
   });
+  it('nor is it on a later step of the same application, logged under the first address', () => {
+    const row = { name: 'Cyber Defense Response Intern', url: 'https://www.cmegroup.com/careers/1', date: '2026-11-19', seen: [CME] };
+    expect(likelyApplied('Cyber Defense Response Intern', CME, '2026-11-19', [row], [])).toEqual([]);
+  });
   it('an address with no company: only a near word-for-word title', () => {
     const url = 'https://eofe.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/job/1/apply';
     const tracked = [{ title: 'SOC Analyst Intern', company: 'Tenet', date: '2026-03-01' }, { title: 'Data Analyst', company: 'Acme', date: '2026-03-02' }];

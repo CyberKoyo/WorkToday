@@ -24,8 +24,8 @@ describe('trackApplication', () => {
     await trackApplication('', 'https://acme.com/jobs/2', day);
     await trackApplication('x', 'javascript:alert(1)', day);
     expect(await getApplications()).toEqual([
-      { name: 'Engineer - Acme', url: 'https://acme.com/jobs/1', date: '2026-11-13' },
-      { name: 'acme.com', url: 'https://acme.com/jobs/2', date: '2026-11-13' },
+      { name: 'Engineer - Acme', url: 'https://acme.com/jobs/1', date: '2026-11-13', at: day.getTime() },
+      { name: 'acme.com', url: 'https://acme.com/jobs/2', date: '2026-11-13', at: day.getTime() },
     ]);
   });
 
@@ -54,7 +54,7 @@ describe('trackApplication', () => {
     await connected();
     stubFetch(500);
     await trackApplication('Engineer', 'https://acme.com/jobs/1', day);
-    expect(await getApplications()).toEqual([{ name: 'Engineer', url: 'https://acme.com/jobs/1', date: '2026-11-13' }]);
+    expect(await getApplications()).toEqual([{ name: 'Engineer', url: 'https://acme.com/jobs/1', date: '2026-11-13', at: day.getTime() }]);
     await expect(syncSheet()).rejects.toThrow('Google Sheets error (HTTP 500).');
 
     const ok = stubFetch();
@@ -67,5 +67,47 @@ describe('trackApplication', () => {
     await trackApplication('Manager', 'https://acme.com/jobs/3', day);
     expect((await getSheet()).id).toBeUndefined();
     expect((await getApplications())[2]!.synced).toBeUndefined();
+  });
+});
+
+describe('one application at several addresses', () => {
+  const rows = async () => (await getApplications()).map((a) => [a.url, a.seen ?? []]);
+  const later = (min: number) => new Date(day.getTime() + min * 60_000);
+
+  it('the next step of the same job is the same row', async () => {
+    await trackApplication('Engineer', 'https://acme.wd1.myworkdayjobs.com/en-US/ext/job/Chicago/Engineer_R0012345/apply', day);
+    await trackApplication('Engineer', 'https://acme.wd1.myworkdayjobs.com/en-US/ext/job/Chicago/Engineer_R0012345/apply/applyManually?step=2', later(5));
+    await trackApplication('Engineer', 'https://apply.workable.com/acme/j/616F2D0286/', day);
+    await trackApplication('Engineer', 'https://apply.workable.com/acme/j/616F2D0286/apply/', later(1));
+    expect(await rows()).toEqual([
+      ['https://acme.wd1.myworkdayjobs.com/en-US/ext/job/Chicago/Engineer_R0012345/apply', ['https://acme.wd1.myworkdayjobs.com/en-US/ext/job/Chicago/Engineer_R0012345/apply/applyManually?step=2']],
+      ['https://apply.workable.com/acme/j/616F2D0286/', ['https://apply.workable.com/acme/j/616F2D0286/apply/']],
+    ]);
+    expect((await getApplications())[0]!.at).toBe(later(5).getTime());
+  });
+
+  it('a company page and its ATS share the job id', async () => {
+    await trackApplication('Engineer', 'https://www.acme.com/careers/job?gh_jid=4567890', day);
+    await trackApplication('Engineer', 'https://job-boards.greenhouse.io/acme/jobs/4567890', later(2));
+    expect(await rows()).toEqual([['https://www.acme.com/careers/job?gh_jid=4567890', ['https://job-boards.greenhouse.io/acme/jobs/4567890']]]);
+  });
+
+  it('a site the last application led from is the same one, for two hours', async () => {
+    await trackApplication('Engineer', 'https://paycomonline.net/v4/ats/web.php/portal/ffa4c5ee7003c56e6918c33281b4ad02/jobs/140389', day);
+    await trackApplication('Engineer', 'https://careers.acme.com/apply/form', later(10), 'https://paycomonline.net/');
+    await trackApplication('Analyst', 'https://careers.acme.com/apply/other', later(200), 'https://paycomonline.net/');
+    expect((await rows()).map(([u]) => u)).toEqual([
+      'https://paycomonline.net/v4/ats/web.php/portal/ffa4c5ee7003c56e6918c33281b4ad02/jobs/140389', 'https://careers.acme.com/apply/other']);
+    expect((await getApplications())[0]!.seen).toEqual(['https://careers.acme.com/apply/form']);
+  });
+
+  it('different jobs stay apart: other ids, a shared portal hash, one path for every job', async () => {
+    await trackApplication('A', 'https://paycomonline.net/v4/ats/web.php/portal/ffa4c5ee7003c56e6918c33281b4ad02/jobs/140389', day);
+    await trackApplication('B', 'https://paycomonline.net/v4/ats/web.php/portal/ffa4c5ee7003c56e6918c33281b4ad02/jobs/140911', day);
+    await trackApplication('C', 'https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=4368bc58-6c54-479e-b56b-f19037b54073&jobId=578942', day);
+    await trackApplication('D', 'https://workforcenow.adp.com/mascsr/default/mdf/recruitment/recruitment.html?cid=4368bc58-6c54-479e-b56b-f19037b54073&jobId=578943', day);
+    await trackApplication('E', 'https://apply.workable.com/acme/j/AAAA111111/apply/', day);
+    await trackApplication('F', 'https://apply.workable.com/acme/j/BBBB222222/apply/', day, 'https://apply.workable.com/');
+    expect((await getApplications()).map((a) => a.name)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
   });
 });

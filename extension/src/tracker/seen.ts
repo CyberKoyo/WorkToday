@@ -25,12 +25,12 @@ function sameCompany(a: string, b: string): boolean {
  * address names no company, a title nearly word for word. The row logged for this very page today is this visit.
  */
 export function likelyApplied(pageTitle: string, url: string, today: string,
-  logged: Array<{ name: string; url: string; date: string }>,
+  logged: Array<{ name: string; url: string; date: string; seen?: string[] }>,
   tracked: Array<{ title: string; company: string; date: string; status?: string }>): Seen[] {
   const here = url.split('#')[0]!;
   const company = companyFromUrl(here);
   const past: Seen[] = [
-    ...logged.filter((a) => !(a.url === here && a.date === today))
+    ...logged.filter((a) => !((a.url === here || a.seen?.includes(here)) && a.date === today))
       .map((a) => ({ title: a.name, company: companyFromUrl(a.url), date: a.date, status: 'Applied' })),
     ...tracked.map((a) => ({ title: a.title, company: a.company, date: a.date, status: a.status ?? '' })),
   ];

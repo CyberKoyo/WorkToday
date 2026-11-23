@@ -105,7 +105,8 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
   // What the applicant now types into the fields left to them (or corrects after Gemini) is kept for the next form.
   rememberAnswers([...report.attention, ...(report.answered ?? [])], (k, v) => { saveAnswer(k, v).catch((e) => console.warn('[workday-filler] could not save answer', e)); });
   if (report.filled) {
-    browser.runtime.sendMessage({ type: 'track', name: document.title, url: location.href } satisfies BgMessage)
+    // The referrer ties this page to the careers page whose Apply opened it (one application, two sites).
+    browser.runtime.sendMessage({ type: 'track', name: document.title, url: location.href, from: window.top === window ? document.referrer : undefined } satisfies BgMessage)
       .catch((e) => console.warn('[workday-filler] application not logged', e));
   }
   setDetails(details(adapter.id, !!stored, report));

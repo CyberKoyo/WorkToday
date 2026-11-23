@@ -46,7 +46,9 @@ export const saveMapCache = (c: Record<string, ProfileKey>) =>
   set(K.mapCache, Object.fromEntries(Object.entries(c).slice(-MAP_CACHE_MAX))); // newest kept: new labels are added last
 
 /** One logged application. `synced`: its row is in the Google Sheet. */
-export interface Application { name: string; url: string; date: string; synced?: boolean }
+// seen: the other addresses this application was filled at (its later steps, the ATS a careers page led to); at: when
+// it was last filled (ms), for telling a hop to another site apart from a new application.
+export interface Application { name: string; url: string; date: string; synced?: boolean; seen?: string[]; at?: number }
 export const getApplications = async () => { await moveTrackedRows(); return (await get<Application[]>(K.apps)) ?? []; };
 export const saveApplications = (a: Application[]) => set(K.apps, a);
 
