@@ -1,6 +1,6 @@
 # Store listing text
 
-Copy these into the two store forms. Replace `[CONTACT EMAIL]` everywhere (here and in `PRIVACY.md`).
+Copy these into the two store forms.
 
 ## Shared
 
@@ -45,7 +45,7 @@ Copy these into the two store forms. Replace `[CONTACT EMAIL]` everywhere (here 
 **Category:** Chrome: Productivity → Workflow & Planning. AMO: pick the closest category the form offers (for example
 "Other").
 
-**Support email:** [CONTACT EMAIL]
+**Support email:** worktodaysupport@gmail.com
 
 **Privacy policy:** `store/PRIVACY.md`. Public URL, once the server is redeployed: https://worktoday.keikoyoter-ui.workers.dev/privacy
 (AMO: paste the text or give the URL; Chrome: the URL).
