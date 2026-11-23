@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { safeClick } from '../../src/fill/dom';
+import { placeholderOption, safeClick } from '../../src/fill/dom';
 
 describe('safeClick', () => {
   it('never clicks a button that would submit or reset its form', () => {
@@ -16,5 +16,14 @@ describe('safeClick', () => {
     expect(safeClick(document.getElementById('o')!)).toBe(true); // outside a form there is nothing to submit
     expect(clicks).toHaveBeenCalledTimes(2);
     document.removeEventListener('click', clicks);
+  });
+});
+
+describe('placeholderOption', () => {
+  it('a blank or "-- No answer --" / "Please select" entry; never a real answer', () => {
+    const opt = (text: string, value = text) => Object.assign(document.createElement('option'), { text, value });
+    expect(['-- No answer --', 'Please select', 'Select...', 'Select One', 'Choose an option'].map((t) => placeholderOption(opt(t, 'x')))).toEqual([true, true, true, true, true]);
+    expect(placeholderOption(opt('Anything', ''))).toBe(true);
+    expect(['Choose not to disclose', 'No', 'Decline to answer', 'Selected by recruiter'].map((t) => placeholderOption(opt(t)))).toEqual([false, false, false, false]);
   });
 });

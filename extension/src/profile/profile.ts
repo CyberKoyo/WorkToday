@@ -118,6 +118,7 @@ const STANDARD: Array<[ScalarKey, RegExp]> = [
   ['relatedToEmployee', /\brelated to\b.*\b(employees?|works?|working|employed)\b|\b(family|relatives?)\b.*\b(work(s|ing)?|employed)\b/i],
   // Defense contractors ask both (live RTX); one answer covers "CURRENT ..." and "FORMER ... employee?".
   ['usCitizen', /\bcitizen of the (u\.?\s?s\.?a?|united states)\b|\b(u\.?\s?s\.?|united states|american) citizen\b/i],
+  ['disabilityStatus', /^disability status$/i], // the name the generic reader gives the federal form's unlabelled choices
   ['governmentEmployee', /\b(federal|government)\b.*\b(civilian|military)\b.*\bemployee\b/i],
   // "by / at / here": "Have you ever worked with Python?" is not about this company.
   ['previouslyEmployed', /\b(previously|ever|formerly|before)\b.*\b(employed|worked|intern(ship|ed)?)\b.*\b(by|at|here|for us)\b|\bformer (employee|intern)\b|\b(previously|ever|formerly)\b.*\b(an? )?(employee|intern|contractor) (of|at|with)\b/i],

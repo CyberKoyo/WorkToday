@@ -1,6 +1,6 @@
 import type { ExtractedField, FillResult } from '../ats/field';
 import type { ProfileValue } from '../profile/profile';
-import { TEXT_INPUT, safeClick, setNativeValue, setFilesViaDataTransfer } from '../fill/dom';
+import { TEXT_INPUT, placeholderOption, safeClick, setNativeValue, setFilesViaDataTransfer } from '../fill/dom';
 import { matchOption } from '../fill/matchOption';
 import { adaptForLabel, formatForPlaceholder } from '../fill/dateParts';
 import { comboboxOptions, comboboxValue, fillCombobox } from './combobox';
@@ -11,8 +11,9 @@ const all = <T extends Element>(c: HTMLElement, sel: string) => [...(c.matches(s
 const isYes = (s: string) => /^(yes|true|y)$/i.test(s);
 
 function fillNativeSelect(sel: HTMLSelectElement, text: string): FillResult {
-  if (sel.value !== '') return 'skipped_nonempty';
-  const real = [...sel.options].filter((o) => o.value !== '');
+  const chosen = sel.options[sel.selectedIndex];
+  if (chosen && !placeholderOption(chosen)) return 'skipped_nonempty';
+  const real = [...sel.options].filter((o) => !placeholderOption(o));
   const i = matchOption(text, real.map((o) => o.text));
   if (i === -1) return 'no_match';
   setNativeValue(sel, real[i]!.value);
@@ -46,7 +47,7 @@ function fillChecks(boxes: HTMLInputElement[], options: string[], values: string
 /** The choices a dropdown offers, for a question that has to go to Gemini. A combobox lists them only once opened. */
 export async function optionsGeneric(f: ExtractedField): Promise<string[]> {
   const sel = own<HTMLSelectElement>(f.container, 'select');
-  return sel ? [...sel.options].filter((o) => o.value !== '').map((o) => o.text.trim()) : comboboxOptions(f.container);
+  return sel ? [...sel.options].filter((o) => !placeholderOption(o)).map((o) => o.text.trim()) : comboboxOptions(f.container);
 }
 
 export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeoutMs = 3000, missed: string[] = []): Promise<FillResult> {

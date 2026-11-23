@@ -5,6 +5,8 @@ import { extractGeneric } from '../../src/generic/extract';
 import { emptyProfile, emptyEdu } from '../../src/profile/profile';
 import { greenhouse } from '../../src/greenhouse/adapter';
 import { readFileSync } from 'node:fs';
+import { fillGeneric } from '../../src/generic/fill';
+import { today } from '../../src/fill/dateParts';
 
 const html = `
   <div data-automation-id="formField-a"><label>First Name*</label><input type="text"></div>
@@ -493,6 +495,28 @@ describe('runAutofill', () => {
     expect(fill.mock.calls.map((c) => [c[0].label, c[1]])).toEqual([['Type', 'Home']]);
     const c: HTMLElement = fill.mock.calls[0]![0].container;
     expect(c.matches('select') ? c.id : c.querySelector('select')!.id).toBe('a');
+  });
+  it('the federal disability form: its unlabelled choices, the signing name and today\'s date (live JazzHR)', async () => {
+    const base = deps();
+    document.body.innerHTML = `<form><div id="disability-input-area">
+      <div class="centered-message box-message"><div class="resumator-label">Please check one of the boxes below:</div></div>
+      <div class="resumator-input"><div class="form-group">
+        <label><input type="radio" name="resumator-eeoc_disability-value" id="d1" value="1"> YES, I HAVE A DISABILITY, OR HAVE HAD ONE IN THE PAST</label>
+        <label><input type="radio" name="resumator-eeoc_disability-value" id="d2" value="2"> NO, I DO NOT HAVE A DISABILITY AND HAVE NOT HAD ONE IN THE PAST</label>
+        <label><input type="radio" name="resumator-eeoc_disability-value" id="d0" value="0"> I DO NOT WANT TO ANSWER</label>
+      </div>
+      <p>PUBLIC BURDEN STATEMENT: …</p>
+      <table id="disability-signature-area" class="form-group"><tr>
+        <td><label for="sig">Name<input type="text" id="sig" class="resumator-field" value=""></label></td>
+        <td><label for="date">Date<input type="text" id="date" class="resumator-field resumator-datepicker" maxlength="10" value=""></label></td>
+      </tr></table></div></div></form>`;
+    const r = await runAutofill({ ...base, profile: { ...base.profile, disabilityStatus: 'no' }, extract: () => extractGeneric(document.querySelector('form')!),
+      fill: fillGeneric, map: vi.fn().mockResolvedValue(new Map([['wf-1', 'firstName']])) } as never);
+    expect(r.log!.slice(0, 3).map((l) => l.split(' | ')[1])).toEqual(['Disability status', 'Name', 'Date']);
+    expect((document.getElementById('d2') as HTMLInputElement).checked).toBe(true);
+    expect((document.getElementById('sig') as HTMLInputElement).value).toBe('Ada L');
+    expect((document.getElementById('date') as HTMLInputElement).value).toBe(today()); // the calendar's own yy-mm-dd
+    expect(r.filled).toBe(3);
   });
   it('a phone device type list takes "Mobile" (live Workday)', async () => {
     const base = deps();

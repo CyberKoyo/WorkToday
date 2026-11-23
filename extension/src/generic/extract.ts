@@ -241,8 +241,10 @@ export function discoverFields(root: ParentNode, skip?: Skip, reach: Reach = {})
     const labText = kind === 'file' && DROP_PROMPT.test(clean(textOf(lab))) ? textOf(forLabel() === lab ? null : forLabel()) : textOf(lab);
     const rawLabel = (ownBox && boxLabel(ownBox)) || labText || meaningful(first.getAttribute('aria-label')) || meaningful(near)
       || meaningful(first.getAttribute('placeholder')) || (kind === 'file' ? fileName(first) : '');
-    // Name parts under one "Name" label say only "First" / "Last" (live Personio).
-    const label = clean(unflag(rawLabel)).replace(/^(first|last|middle|given|family)$/i, '$1 name');
+    // Name parts under one "Name" label say only "First" / "Last" (live Personio). The federal disability form (CC-305)
+    // labels only its choices; the question sits above them in text tied to nothing (live JazzHR).
+    const label = clean(unflag(rawLabel)).replace(/^(first|last|middle|given|family)$/i, '$1 name')
+      || (kind === 'radio' && members.some((m) => /\bI (?:have|do not have) a disability\b/i.test(choiceLabel(m))) ? 'Disability status' : '');
     if (!label) continue;
     const d: Discovered = {
       container, label, kind,

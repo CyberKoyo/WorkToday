@@ -2,6 +2,10 @@ import type { ProfileValue } from '../profile/profile';
 
 export const TEXT_INPUT = 'input:not([type]),input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="number"]';
 
+/** A dropdown's "nothing chosen" entry. Not always blank: JazzHR's is "-- No answer --" (value resumator_no_selection). */
+export const placeholderOption = (o: HTMLOptionElement) => o.value === ''
+  || /^\W*(?:no answer|no selection|(?:please\s+)?(?:select|choose|pick)(?:\s+(?:one|an?\s+(?:option|answer)))?)\W*$/i.test(o.text);
+
 export type ValueEl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 export const asText = (v: ProfileValue) => (Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : v);

@@ -4,6 +4,7 @@ import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, race
 import type { AtsAdapter } from '../ats/types';
 import { setNativeValue } from '../fill/dom';
 import { US_STATES } from '../fill/usStates';
+import { today } from '../fill/dateParts';
 import { answerKey, answerable, essay, readAnswer, rememberable } from '../answers/remembered';
 
 /** `reloading`: the resume went up first and the page is about to reload with the ATS's parse of it.
@@ -125,8 +126,14 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
     let noValue = false; // the profile field this question maps to is blank
     const missed: string[] = [];
     // A full-name or signature box takes the whole name; the mapper often says first name (live Oracle).
-    const fullName = f.kind === 'text' && /\bfull\s+(legal\s+)?name\b|\bsignature\b/i.test(f.label)
+    // A box named only "Name" is the whole name too (live JazzHR: the disability form's signature), unless it is some
+    // other thing's name (Workday's certification "Name").
+    const bareName = /^(your\s+)?name$/i.test(f.label.trim()) && !f.profileKey && (!key || key === 'firstName' || key === 'lastName');
+    const fullName = f.kind === 'text' && (bareName || /\bfull\s+(legal\s+)?name\b|\bsignature\b/i.test(f.label))
       ? [d.profile.firstName, d.profile.lastName].filter(Boolean).join(' ') : '';
+    // A signature's date is today's (live JazzHR: a bare "Date" box with a calendar beside the signing name).
+    const signDate = (f.kind === 'text' || f.kind === 'date')
+      && /^(today'?s\s+)?date$|\bdate\s+signed\b|\bsignature\s+date\b|\bsigned\s+(on|date)\b/i.test(f.label.trim());
     // An address "Type" list has no profile value; the address is the applicant's home (live iCIMS).
     const sel = f.kind === 'select' ? (f.container.matches('select') ? f.container : f.container.querySelector('select')) : null;
     const homeAddress = !!sel && /^(address\s+)?type$/i.test(f.label.trim()) && /address/i.test(`${sel.id} ${sel.getAttribute('name') ?? ''}`);
@@ -157,6 +164,8 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       result = await d.fill(f, 'Home', undefined, missed);
     } else if (phoneType) {
       result = await d.fill(f, 'Mobile', undefined, missed);
+    } else if (signDate) {
+      result = await d.fill(f, today(), undefined, missed);
     } else if (fullName) {
       // An earlier run put only the first name here; that one value is ours to correct.
       const box = f.container.matches('input') ? f.container as HTMLInputElement : f.container.querySelector<HTMLInputElement>('input');

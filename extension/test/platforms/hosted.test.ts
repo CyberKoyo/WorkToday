@@ -28,7 +28,8 @@ const PLATFORMS: Platform[] = [
   { id: 'jazzhr', url: 'https://h2oai.applytojob.com/apply/QwA3SV58KB/Software-Engineer',
     fields: [['First Name', 'text', true], ['Last Name', 'text', true], ['Email Address', 'text', true], ['Phone', 'text', true],
       ['City', 'text'], ['State/Province', 'text'], ['Postal', 'text'], ['Resume', 'file', true], [/U\.S\. work authorization status/, 'select', true]],
-    fill: [[/^City$/, 'Austin', value, 'Austin']] },
+    // Its empty choice is "-- No answer --" (value resumator_no_selection), not a blank: still unanswered.
+    fill: [[/^City$/, 'Austin', value, 'Austin'], [/U\.S\. work authorization status/, 'Permanent Resident', value, 'Permanent Resident']] },
   { id: 'recruitee', url: 'https://constructivedialogue.recruitee.com/o/software-engineer-early-career/c/new',
     fields: [['Full name', 'text', true], ['Email address', 'text', true], ['Phone number', 'text', true], ['CV or resume', 'file', true],
       [/require sponsorship for employment visa status/, 'radio', true], ['How did you hear about this role?', 'text', false]],
@@ -168,6 +169,23 @@ describe('hosted listing', () => {
     const click = vi.spyOn(f.members![1]!, 'click');
     expect(await a.fill(f, 'Company Website', 200)).toBe('filled');
     expect(click).toHaveBeenCalledOnce();
+  });
+  it('jazzhr: picks "Attach resume", which shows the file box; never once the applicant chose to paste', async () => {
+    const a = pickAdapter(new URL('https://h2oai.applytojob.com/apply/QwA3SV58KB/Software-Engineer'))!;
+    load('jazzhr');
+    const pick = document.getElementById('resumator-choose-upload')!;
+    const click = vi.fn(() => document.getElementById('resumator-resume-upload-wrapper')!.classList.remove('none')); // the site's own handler
+    pick.addEventListener('click', click);
+    await a.prepare!(document);
+    expect(click).toHaveBeenCalledOnce();
+    await a.prepare!(document); // the box is showing already
+    expect(click).toHaveBeenCalledOnce();
+    load('jazzhr');
+    document.getElementById('resumator-resume-paste-wrapper')!.classList.remove('none');
+    const again = vi.fn();
+    document.getElementById('resumator-choose-upload')!.addEventListener('click', again);
+    await a.prepare!(document);
+    expect(again).not.toHaveBeenCalled();
   });
   it('is not picked on a job list without a form', () => {
     document.body.innerHTML = '<form role="search"><input name="q" placeholder="Search jobs"></form><a href="/jobs/1">Engineer</a>';

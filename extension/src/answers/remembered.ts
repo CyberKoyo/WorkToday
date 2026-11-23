@@ -1,5 +1,5 @@
 import { clean, type ExtractedField } from '../ats/field';
-import { TEXT_INPUT } from '../fill/dom';
+import { TEXT_INPUT, placeholderOption } from '../fill/dom';
 import { norm } from '../fill/matchOption';
 import { comboboxValue } from '../generic/combobox';
 import type { ProfileValue } from '../profile/profile';
@@ -49,7 +49,7 @@ export function readAnswer(f: ExtractedField): ProfileValue | null {
     }
     case 'select': {
       const sel = (c.matches('select') ? c : c.querySelector('select')) as HTMLSelectElement | null;
-      if (sel) return sel.value === '' ? null : clean(sel.selectedOptions[0]?.text) || null;
+      if (sel) { const o = sel.options[sel.selectedIndex]; return !o || placeholderOption(o) ? null : clean(o.text) || null; }
       return comboboxValue(c) || null;
     }
     case 'radio':
