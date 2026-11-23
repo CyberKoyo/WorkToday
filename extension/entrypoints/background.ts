@@ -11,6 +11,8 @@ async function registerAuto() {
 }
 
 export default defineBackground(() => {
+  // A fresh install opens setup: nothing works until a profile is saved, and nothing else says where to start.
+  browser.runtime.onInstalled.addListener(({ reason }) => { if (reason === 'install') void browser.runtime.openOptionsPage(); });
   browser.permissions.onAdded.addListener(() => { void registerAuto(); });
   void registerAuto();
   browser.runtime.onMessage.addListener((msg: BgMessage, sender, sendResponse) => {

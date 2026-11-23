@@ -165,6 +165,16 @@ $('saveLoop').onclick = async () => {
   }
 };
 
+$('wipe').onclick = async () => {
+  if (!confirm('Delete your profile, resumes, API key, passwords, saved answers and applications log from this browser? This cannot be undone.')) return;
+  try {
+    await browser.storage.local.clear(); // the extension keeps nothing anywhere else
+    location.reload(); // every box on this page still shows the old values
+  } catch (e) {
+    status(`Could not delete: ${errorMessage(e)}`);
+  }
+};
+
 // Pasting is enough; the value is in the box once the paste event has finished.
 $('apiKey').onpaste = () => { setTimeout(() => $('saveKey').click()); };
 

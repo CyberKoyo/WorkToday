@@ -1,6 +1,7 @@
 import { validateMapRequest } from '@wf/shared';
 import { buildMessages, RESPONSE_SCHEMA } from './prompt';
 import { sanitizeMappings } from './sanitize';
+import { privacyPage } from './privacy';
 
 export interface Env {
   AI: { run(model: string, input: unknown): Promise<{ response?: unknown }> };
@@ -17,6 +18,8 @@ const json = (data: unknown, status = 200) =>
 export async function handle(request: Request, env: Env): Promise<Response> {
   const { pathname } = new URL(request.url);
   if (pathname === '/health') return json({ ok: true });
+  // The store listings link here.
+  if (pathname === '/privacy') return new Response(privacyPage, { headers: { 'content-type': 'text/html; charset=utf-8' } });
   if (pathname !== '/v1/map-fields') return json({ error: 'not found' }, 404);
   if (request.method !== 'POST') return json({ error: 'method not allowed' }, 405);
 

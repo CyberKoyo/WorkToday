@@ -18,7 +18,7 @@ Everything you give the extension is kept in the browser's extension storage on 
 - if you save them, a job-site account password and the job loop's sign-in email and password (stored unencrypted);
 - a cache of which form labels map to which profile fields.
 
-None of this is sent to the developer. Uninstalling the extension deletes it.
+None of this is sent to the developer. **Delete all my data** on the setup page, or uninstalling the extension, deletes it.
 
 ## What leaves your browser, and to whom
 
@@ -55,8 +55,8 @@ submits an application only if you turn on **Submit applications for me** for th
 ## Your choices
 
 You can view and change your profile, resumes, API key and saved passwords on the extension's setup page, and your
-application log on its Applications page. Uninstalling the extension removes everything it stored, including saved
-answers and the mapping cache.
+application log on its Applications page. **Delete all my data**, under Settings on the setup page, removes everything the
+extension stored in your browser, including saved answers and the mapping cache. Uninstalling the extension does the same.
 
 ## Changes
 

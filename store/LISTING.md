@@ -34,7 +34,7 @@ Copy these into the two store forms. Replace `[CONTACT EMAIL]` everywhere (here 
 > • Resumes and the questions no profile field covers go to Google Gemini under your own key. Work authorization,
 >   sponsorship, salary and demographic answers are never sent.
 > • Only the form's labels (never your answers) go to the extension's mapping server, to decide which box is which.
-> • No analytics, no tracking, no ads.
+> • No analytics, no tracking, no ads. Delete all my data (in Settings) clears everything the extension stored.
 >
 > You stay in control: the extension does not submit applications unless you turn that on for the job loop. Read every
 > filled form before you submit.
@@ -46,10 +46,13 @@ Copy these into the two store forms. Replace `[CONTACT EMAIL]` everywhere (here 
 
 **Support email:** [CONTACT EMAIL]
 
-**Privacy policy:** `store/PRIVACY.md` (AMO: paste the text; Chrome: a public URL, see the publish steps).
+**Privacy policy:** `store/PRIVACY.md`. Public URL, once the server is redeployed: https://worktoday.keikoyoter-ui.workers.dev/privacy
+(AMO: paste the text or give the URL; Chrome: the URL).
 
-**Store images:** icon `extension/public/icon/128.png`; small promo tile `store/promo-tile-440x280.png`; screenshots:
-take your own at 1280x800 (see the publish steps).
+**Store images:** icon `extension/public/icon/128.png`; small promo tile `store/promo-tile-440x280.png`; screenshots
+(1280x800, in this order) `store/screenshots/1-banner.png` (the banner on an application form), `2-filled.png` (after
+Auto-fill: filled fields, the one left for you outlined), `3-dashboard.png` (dashboard and application log),
+`4-profile.png` (the profile you review). They show a demo form and a made-up profile.
 
 ## Firefox (addons.mozilla.org)
 
@@ -64,8 +67,8 @@ take your own at 1280x800 (see the publish steps).
 > uploaded package. No .env file is needed: without one the build uses the hosted mapping server
 > (https://worktoday.keikoyoter-ui.workers.dev) and leaves the optional Google Sheets sync out.
 >
-> Testing without a Gemini key: open the extension's setup page (about:addons → Job Application Filler → Options,
-> or press the toolbar button on any page and then "Open setup"), type a name and email into the profile form and press "Save & mark reviewed". Then open any public
+> Testing without a Gemini key: the setup page opens on install (later: about:addons → Job Application Filler →
+> Options, or press the toolbar button on any page and then "Open setup"). Type a name and email into the profile form and press "Save & mark reviewed". Then open any public
 > Greenhouse job application (a job-boards.greenhouse.io posting's application form) and press Auto-fill on the banner
 > at the bottom right. Please do not submit. A Gemini key (free, from Google AI Studio) is only needed to read a resume
 > and to answer or draft open questions.

@@ -13,6 +13,7 @@ function setDom() {
     <button id="savePassword" type="button"></button>
     <button id="loopAllow" type="button"></button>
     <input id="loopEmail" /><input id="loopPassword" type="password" /><input id="loopSubmit" type="checkbox" /><button id="saveLoop" type="button"></button>
+    <button id="wipe" type="button"></button>
     <input id="resume" type="file" />
     <button id="parse" type="button"></button>
     <ul id="resumes"></ul><p id="resumeName"></p>
@@ -63,6 +64,20 @@ describe('options main', () => {
     $<HTMLInputElement>('loopSubmit').checked = true;
     $('saveLoop').click();
     await vi.waitFor(async () => expect(await getLoopSettings()).toEqual({ email: 'ada@x.com', password: 'pw', submit: true }));
+  });
+  it('deletes all stored data only after the user confirms', async () => {
+    await saveApiKey('k');
+    await loadMain();
+    const reload = vi.fn();
+    vi.spyOn(window, 'location', 'get').mockReturnValue({ ...location, reload } as Location);
+    vi.stubGlobal('confirm', () => false);
+    $('wipe').click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(await getApiKey()).toBe('k');
+    vi.stubGlobal('confirm', () => true);
+    $('wipe').click();
+    await vi.waitFor(() => expect(reload).toHaveBeenCalled());
+    expect(await fakeBrowser.storage.local.get(null)).toEqual({});
   });
   it('disables save and parse until init resolves, then enables them', async () => {
     await loadMain();

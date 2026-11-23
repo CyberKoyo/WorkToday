@@ -36,7 +36,7 @@ You need Node.js and a Gemini API key. No server setup is required.
    - Chrome: `chrome://extensions` → Developer mode → Load unpacked → `extension/.output/chrome-mv3`.
    - Firefox: `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → `extension/.output/firefox-mv2/manifest.json`
      (temporary add-ons are removed when Firefox restarts).
-4. Open the extension's options page (the dashboard; it lists what is left to set up). Under Settings, press **Get a free key**,
+4. The extension's options page opens on install (the dashboard; it lists what is left to set up). Under Settings, press **Get a free key**,
    create a Gemini API key in Google AI Studio and paste it: it is saved and checked on paste. Under Profile, add your resume
    (PDF, .docx or .txt; several versions at once if you keep them — they are read together into one profile, and the first
    is the file attached to applications unless you pick another), press **Read resumes**, review every field (personal projects
@@ -126,6 +126,7 @@ Answers you type into highlighted fields are saved in the extension (this browse
 written answers included (except "why…" questions, which are about one employer); a saved written answer is used instead of a new draft.
 The account password is stored unencrypted in the extension (this browser only) and is typed only into a site's own password boxes; it never goes to Gemini or the mapping server. Use one made for job applications.
 Your date of birth stays in this browser and is used only for ADP's tax credit opt-out; it never goes to Gemini or the mapping server, and no other form gets it.
+**Delete all my data** (Settings) clears everything the extension stores in this browser. The full privacy policy is `store/PRIVACY.md`, served by the mapping server at `/privacy`.
 The extension never overwrites a field that already has a value, and never submits an application unless you turn on
 **Submit applications for me** for the job loop. On its own it moves to the next step only when every field on the current one
 was filled, and only through a button named Next or Continue (ADP: the pager arrow, never on the last step). The loop's sign-in email and password are stored unencrypted in the extension
@@ -172,7 +173,8 @@ sources: unzip the sources zip, run `npm ci && npm run build:firefox -w extensio
 `extension/.output/firefox-mv2` with the contents of the Firefox zip. The build needs no `.env`; without one it uses the
 hosted mapping server and leaves Google Sheets sync off.
 
-Listing text, reviewer notes, permission justifications, the privacy policy and the promo tile are in `store/`.
+Listing text, reviewer notes, permission justifications, the privacy policy, the promo tile and 1280x800 screenshots are in `store/`.
+The mapping server serves the privacy policy at `/privacy`: redeploy it (`npm run deploy -w server`) after changing `store/PRIVACY.md`.
 
 ## Tests
 

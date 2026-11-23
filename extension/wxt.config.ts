@@ -27,7 +27,8 @@ export default defineConfig({
             data_collection_permissions: {
               required: ['personallyIdentifyingInfo', 'websiteContent', ...(env.WXT_GOOGLE_CLIENT_ID ? ['browsingActivity'] : [])],
             },
-          } },
+          },
+          gecko_android: { strict_min_version: '142.0' } }, // Android reads data_collection_permissions from 142
         }
         : { optional_host_permissions: ['<all_urls>'] }),
     };
@@ -35,7 +36,7 @@ export default defineConfig({
   // AMO rebuilds from these sources: the extension imports ../shared, so the zip starts at the repo root.
   zip: {
     sourcesRoot: resolve(process.cwd(), '..'), // absolute: WXT reads a relative root's files from the wrong folder
-    includeSources: ['package.json', 'package-lock.json', 'README.md', 'shared/**', 'server/**', 'extension/**'],
+    includeSources: ['package.json', 'package-lock.json', 'README.md', 'shared/**', 'server/**', 'extension/**', 'store/PRIVACY.md'],
     excludeSources: ['**/test/**'],
   },
 });

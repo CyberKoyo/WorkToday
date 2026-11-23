@@ -12,6 +12,15 @@ const env = (over: Partial<Env> = {}): Env => ({
 });
 
 describe('handle', () => {
+  it('serves the privacy policy as a page, escaped', async () => {
+    const res = await handle(new Request('https://x/privacy'), env());
+    expect(res.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    const html = await res.text();
+    expect(html).toContain('<h1>Job Application Filler — Privacy Policy</h1>');
+    expect(html).toContain('<strong>Google Gemini (under your own API key).</strong>');
+    expect(html).toContain('<li>the resume files you add;</li>');
+    expect(html).not.toContain('**');
+  });
   it('maps fields', async () => {
     const e = env();
     const res = await handle(post(body), e);
@@ -43,5 +52,12 @@ describe('handle', () => {
   });
   it('health', async () => {
     expect((await handle(new Request('https://x/health'), env())).status).toBe(200);
+  });
+});
+
+describe('markdownToHtml', () => {
+  it('escapes markup and joins wrapped lines', async () => {
+    const { markdownToHtml } = await import('../src/privacy');
+    expect(markdownToHtml('## A <b>\n\none\ntwo **x**\n\n- a\n  b\n- c')).toBe('<h2>A &lt;b&gt;</h2>\n<p>one two <strong>x</strong></p>\n<ul><li>a b</li><li>c</li></ul>');
   });
 });
