@@ -2,7 +2,10 @@ import type { ExtractedField, FillResult } from './field';
 import type { Profile, ProfileValue } from '../profile/profile';
 
 export interface AtsAdapter {
-  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby' | 'adp' | 'adp-tax' | 'eightfold' | 'phenom' | 'lever' | 'tesla' | 'smartrecruiters' | 'dayforce' | 'generic';
+  id: 'workday' | 'greenhouse' | 'icims' | 'oracle' | 'successfactors' | 'ashby' | 'adp' | 'adp-tax' | 'eightfold' | 'phenom' | 'lever' | 'tesla' | 'smartrecruiters' | 'dayforce'
+    | 'workable' | 'jazzhr' | 'recruitee' | 'paylocity' | 'gem' | 'breezy' | 'pinpoint' | 'rippling' | 'teamtailor' | 'bamboohr' | 'personio' | 'jobvite'
+    | 'ukg' | 'adpwfn' | 'paycom' | 'freshteam' | 'jobscore' | 'homerun' | 'manatal' | 'comeet'
+    | 'generic';
   detect(url: URL): boolean;
   /** An application form with fields is on screen in this document. */
   isFormPage(doc: Document): boolean;

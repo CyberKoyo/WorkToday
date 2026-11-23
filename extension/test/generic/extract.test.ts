@@ -102,7 +102,7 @@ describe('extractGeneric', () => {
   });
   it('an id with a backslash does not break the form', () => {
     document.body.innerHTML = '<form id="f"><div><label for="a\\b">Middle</label><input id="a\\b"></div><div><label for="z">Last</label><input id="z"></div></form>';
-    expect(discoverFields(document.getElementById('f')!).map((x) => x.label)).toEqual(['Middle', 'Last']);
+    expect(discoverFields(document.getElementById('f')!).map((x) => x.label)).toEqual(['Middle name', 'Last name']);
   });
   const twoGroups = (a = '', b = '') => `<form id="f"><div><span>Q1?</span><input type=radio name=a id=a1${a}><label for=a1>Yes</label><input type=radio name=a id=a2><label for=a2>No</label>`
     + `<span>Q2?</span><input type=radio name=b id=b1${b}><label for=b1>Yes</label><input type=radio name=b id=b2><label for=b2>No</label></div></form>`;
@@ -158,5 +158,16 @@ describe('extractGeneric', () => {
     document.body.innerHTML = `<form id="f"><label id="vis" for="u">Upload your resume</label><label id="dup" for="u" aria-hidden="true">My Computer</label>
       <input id="u" type="file" aria-labelledby="dup vis"></form>`;
     expect(extractGeneric(document.getElementById('f')!).map((x) => x.label)).toEqual(['Upload your resume']);
+  });
+});
+
+describe('label flags', () => {
+  it('drops a spelled-out flag, but keeps "required" when it is the question', () => {
+    document.body.innerHTML = `<form id="f">
+      <div><label for="a">Email <span class="sr-only">(required)</span></label><input id="a"></div>
+      <div><label for="b">Phone (optional)</label><input id="b"></div>
+      <div><label for="c">Is visa sponsorship required</label><input id="c"></div></form>`;
+    expect(discoverFields(document.getElementById('f')!).map((x) => [x.label, x.required])).toEqual([
+      ['Email', true], ['Phone', false], ['Is visa sponsorship required', false]]);
   });
 });

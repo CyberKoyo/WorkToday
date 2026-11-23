@@ -20,14 +20,14 @@ describe('generic adapter', () => {
 
   it('extracts the application form, not the search or sign-in forms beside it', () => {
     document.body.innerHTML = SEARCH + LOGIN + APPLY;
-    expect(applicationRoot(document).id).toBe('apply');
+    expect((applicationRoot(document) as HTMLElement).id).toBe('apply');
     expect(labels()).toEqual([['First name', 'text'], ['Email', 'text'], ['Resume', 'file']]);
     expect(generic.extract(document)[0]!.required).toBe(true);
   });
 
   it('leaves out a newsletter form when the application form holds most fields', () => {
     document.body.innerHTML = `${APPLY}<footer><form id="news"><label>Email <input type="email"></label></form></footer>`;
-    expect(applicationRoot(document).id).toBe('apply');
+    expect((applicationRoot(document) as HTMLElement).id).toBe('apply');
     expect(labels()).toHaveLength(3);
   });
 

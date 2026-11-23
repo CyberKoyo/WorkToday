@@ -26,8 +26,9 @@ Copy these into the two store forms. Replace `[CONTACT EMAIL]` everywhere (here 
 > • Every application you fill is logged with the date and link, with a status you can update.
 >
 > Supported application sites: Workday, Greenhouse, iCIMS, Oracle Recruiting Cloud, SAP SuccessFactors, Ashby, ADP,
-> Eightfold, Phenom, Lever, Dayforce, SmartRecruiters and Tesla careers. On any other site, press the toolbar button to
-> fill the form on the page.
+> Eightfold, Phenom, Lever, Dayforce, SmartRecruiters, Tesla careers, Workable, JazzHR, Recruitee, Paylocity, Gem,
+> Breezy HR, Pinpoint, Rippling, Teamtailor, BambooHR, Personio, Jobvite, UKG Pro, ADP Workforce Now, Paycom, Freshteam,
+> JobScore, Homerun, Manatal and Comeet. On any other site, press the toolbar button to fill the form on the page.
 >
 > Your data
 > • Your profile, resumes, saved answers and application log stay in your browser.
@@ -101,7 +102,9 @@ Auto-fill: filled fields, the one left for you outlined), `3-dashboard.png` (das
 - Host permission `https://generativelanguage.googleapis.com/*`: Google Gemini, called with the user's own API key to read
   their resume and answer or draft application questions.
 - Content script hosts (Workday, Greenhouse, iCIMS, Oracle, SuccessFactors, Ashby, ADP, Eightfold, Phenom, Lever,
-  Dayforce, SmartRecruiters, Tesla careers): shows the Auto-fill banner on these job application sites.
+  Dayforce, SmartRecruiters, Tesla careers, Workable, JazzHR, Recruitee, Paylocity, Gem, Breezy HR, Pinpoint, Rippling,
+  Teamtailor, BambooHR, Personio, Jobvite, UKG Pro, ADP Workforce Now, Paycom, Freshteam, JobScore, Homerun, Manatal,
+  Comeet): shows the Auto-fill banner on these job application sites' application pages.
 - Optional host permission `<all_urls>`: requested only when the user presses "Allow on all sites" on the setup page, so
   the banner appears on employers' own careers sites and the job loop can fill the forms a job board opens.
 

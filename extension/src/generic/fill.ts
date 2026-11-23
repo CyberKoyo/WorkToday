@@ -56,8 +56,9 @@ export async function fillGeneric(f: ExtractedField, value: ProfileValue, timeou
     switch (f.kind) {
       case 'text':
       case 'textarea': {
-        const el = all<HTMLInputElement | HTMLTextAreaElement>(c, f.kind === 'text' ? TEXT_INPUT : 'textarea')
-          .find((e) => !e.closest('[aria-hidden="true"]'));
+        // Past an aria-hidden duplicate; unless every box is aria-hidden, as on a form read with `ariaHidden` (live Paycom).
+        const boxes = all<HTMLInputElement | HTMLTextAreaElement>(c, f.kind === 'text' ? TEXT_INPUT : 'textarea');
+        const el = boxes.find((e) => !e.closest('[aria-hidden="true"]')) ?? boxes[0];
         if (!el) return 'error';
         if (el.value.trim()) return 'skipped_nonempty';
         setNativeValue(el, el instanceof HTMLInputElement ? formatForPlaceholder(el.placeholder, text) : text);

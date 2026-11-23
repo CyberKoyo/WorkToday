@@ -18,8 +18,8 @@ describe('tesla adapter (live apply form, step 1)', () => {
     expect(tesla.stepKey(document)).toBe('Step 1 of 4');
     const fields = tesla.extract(document);
     expect(fields.map((f) => [f.label, f.kind, f.required])).toEqual([
-      ['Legal First Name', 'text', true], ['Legal Last Name', 'text', true], ['Middle Name (Optional)', 'text', false],
-      ['Preferred Name (Optional)', 'text', false], ['Phone Number', 'text', true], ['Contact Phone Type', 'select', true],
+      ['Legal First Name', 'text', true], ['Legal Last Name', 'text', true], ['Middle Name', 'text', false],
+      ['Preferred Name', 'text', false], ['Phone Number', 'text', true], ['Contact Phone Type', 'select', true],
       ['Email', 'text', true], ['Country/Region of Residence', 'select', true], ['Resume', 'file', true],
     ]);
     expect(fields.at(-1)!.profileKey).toBe('resumeFile');

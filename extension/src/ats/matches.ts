@@ -18,6 +18,27 @@ export const MATCHES = {
   smartrecruiters: ['https://jobs.smartrecruiters.com/*'],
   // The job page opens the form in place, so the script must already be there.
   tesla: ['https://www.tesla.com/careers/search/job/*'],
+  // Read by the generic reader (src/hosted).
+  workable: ['https://apply.workable.com/*'],
+  jazzhr: ['https://*.applytojob.com/*'],
+  recruitee: ['https://*.recruitee.com/*'],
+  paylocity: ['https://recruiting.paylocity.com/*'],
+  gem: ['https://jobs.gem.com/*'],
+  breezy: ['https://*.breezy.hr/*'],
+  pinpoint: ['https://*.pinpointhq.com/*'],
+  rippling: ['https://ats.rippling.com/*'],
+  teamtailor: ['https://*.teamtailor.com/*'],
+  bamboohr: ['https://*.bamboohr.com/careers*'],
+  personio: ['https://*.jobs.personio.de/*', 'https://*.jobs.personio.com/*'],
+  jobvite: ['https://jobs.jobvite.com/*'],
+  ukg: ['https://recruiting.ultipro.com/*', 'https://recruiting2.ultipro.com/*'],
+  adpwfn: ['https://workforcenow.adp.com/mascsr/*'],
+  paycom: ['https://www.paycomonline.net/v4/ats/*', 'https://paycomonline.net/v4/ats/*'],
+  freshteam: ['https://*.freshteam.com/*'],
+  jobscore: ['https://careers.jobscore.com/*'],
+  homerun: ['https://*.homerun.co/*'],
+  manatal: ['https://*.careers-page.com/*', 'https://www.careers-page.com/*'],
+  comeet: ['https://www.comeet.co/jobs/*'],
 } as const;
 
 export const CONTENT_MATCHES: string[] = Object.values(MATCHES).flat();
