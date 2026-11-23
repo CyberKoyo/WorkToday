@@ -35,7 +35,7 @@ export async function handleMessage(
     return undefined;
   }
   if (msg.type === 'track') {
-    await (deps.track ?? trackApplication)(tab?.title || msg.name, tab?.url || msg.url, undefined, msg.from);
+    await (deps.track ?? trackApplication)(tab?.title || msg.name, tab?.url || msg.url, undefined, msg.from, msg.company);
     return undefined;
   }
   if (msg.type === 'sync-sheet') {

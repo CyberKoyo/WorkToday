@@ -48,7 +48,8 @@ export const saveMapCache = (c: Record<string, ProfileKey>) =>
 /** One logged application. `synced`: its row is in the Google Sheet. */
 // seen: the other addresses this application was filled at (its later steps, the ATS a careers page led to); at: when
 // it was last filled (ms), for telling a hop to another site apart from a new application.
-export interface Application { name: string; url: string; date: string; synced?: boolean; seen?: string[]; at?: number }
+// company: as the page spelled it (companyFromPage), when it did.
+export interface Application { name: string; url: string; date: string; synced?: boolean; seen?: string[]; at?: number; company?: string }
 export const getApplications = async () => { await moveTrackedRows(); return (await get<Application[]>(K.apps)) ?? []; };
 export const saveApplications = (a: Application[]) => set(K.apps, a);
 

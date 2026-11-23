@@ -10,6 +10,7 @@ import { markResumeReload, resumeReloadPending, clearResumeReload } from './resu
 import { clearAdvance, complete, markAdvance, markAccountTried, nextButton } from './advance';
 import { waitFor } from '../fill/dom';
 import { setDetails } from './banner';
+import { companyFromPage } from '../tracker/company';
 
 const ERRORS: Record<string, string> = {
   rate_limited: 'Mapping service is busy. Try again in a minute.',
@@ -106,7 +107,10 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
   rememberAnswers([...report.attention, ...(report.answered ?? [])], (k, v) => { saveAnswer(k, v).catch((e) => console.warn('[workday-filler] could not save answer', e)); });
   if (report.filled) {
     // The referrer ties this page to the careers page whose Apply opened it (one application, two sites).
-    browser.runtime.sendMessage({ type: 'track', name: document.title, url: location.href, from: window.top === window ? document.referrer : undefined } satisfies BgMessage)
+    // The company only from the tab's own page: a framed form's address is the board's, not the tab's that is logged.
+    const top = window.top === window;
+    browser.runtime.sendMessage({ type: 'track', name: document.title, url: location.href, from: top ? document.referrer : undefined,
+      company: top ? companyFromPage(location.href, document.body.innerText) || undefined : undefined } satisfies BgMessage)
       .catch((e) => console.warn('[workday-filler] application not logged', e));
   }
   setDetails(details(adapter.id, !!stored, report));

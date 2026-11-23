@@ -36,6 +36,10 @@ describe('tracker store', () => {
     await removeApplication(copy!.id);
     expect(await getApplications()).toEqual([]);
   });
+  it("a copy takes the company as the page spelled it, when the log has it", async () => {
+    await fakeBrowser.storage.local.set({ applications: [{ name: 'Intern', url: 'https://cloudfitsoftware.applytojob.com/apply/1', date: '2026-11-23', company: 'CloudFit Software' }] });
+    expect((await getApplications())[0]!.company).toBe('CloudFit Software');
+  });
   it('today is a local YYYY-MM-DD date', () => {
     const d = new Date();
     expect(today()).toBe(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);

@@ -7,8 +7,9 @@ const IN_PATH: Array<[RegExp, number]> = [
   [/(^|\.)greenhouse\.io$/, 0], [/(^|\.)lever\.co$/, 0], [/^jobs\.ashbyhq\.com$/, 0], [/^jobs\.smartrecruiters\.com$/, 0],
   [/(^|\.)myworkday\.com$/, 0], [/(^|\.)myworkdaysite\.com$/, 1], [/^jobs\.dayforcehcm\.com$/, 1],
 ];
-// Hosts that are the company: cmegroup.wd1.myworkdayjobs.com, careers-acme.icims.com, acme.eightfold.ai.
-const IN_HOST = /^(?:careers-|jobs-)?([a-z0-9-]+)\.(?:wd\d+\.myworkdayjobs\.com|icims\.com|eightfold\.ai)$/;
+// Hosts that are the company: cmegroup.wd1.myworkdayjobs.com, careers-acme.icims.com, acme.eightfold.ai,
+// cloudfitsoftware.applytojob.com (JazzHR), and the other hosted boards named <company>.<board>.
+const IN_HOST = /^(?:careers-|jobs-)?([a-z0-9-]+)\.(?:wd\d+\.myworkdayjobs\.com|icims\.com|eightfold\.ai|applytojob\.com|breezy\.hr|recruitee\.com|teamtailor\.com|bamboohr\.com|pinpointhq\.com|freshteam\.com|homerun\.co|jobs\.personio\.(?:de|com))$/;
 const NOWHERE = /(^|\.)(oraclecloud\.com|adp\.com|successfactors\.(com|eu)|sapsf\.com)$/;
 
 // careers.tesla.com → tesla; careers.acme.co.uk → acme.
@@ -34,4 +35,28 @@ export function companyFromUrl(url: string): string {
   const sub = IN_HOST.exec(host)?.[1];
   if (sub) return pretty(sub);
   return NOWHERE.test(host) ? '' : pretty(ownDomain(host));
+}
+
+const squash = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+/**
+ * The company as the page spells it: a slug runs its words together ("Cloudfitsoftware"), the page's text has
+ * "CloudFit Software". Only a run of up to four words that squashes to the slug counts; else the address's reading.
+ */
+export function companyFromPage(url: string, text: string): string {
+  const fromUrl = companyFromUrl(url);
+  const target = squash(fromUrl);
+  if (!target) return fromUrl;
+  const words = text.match(/[\p{L}\p{N}&]+/gu) ?? [];
+  for (let i = 0; i < words.length; i++) {
+    let acc = '';
+    for (let j = i; j < Math.min(i + 4, words.length); j++) {
+      acc += squash(words[j]!);
+      if (!target.startsWith(acc)) break;
+      const name = words.slice(i, j + 1).join(' ');
+      // A heading in capitals or a lower-case slug in a link says nothing about how the name is written.
+      if (acc === target && name !== name.toUpperCase() && name !== name.toLowerCase()) return name;
+    }
+  }
+  return fromUrl;
 }

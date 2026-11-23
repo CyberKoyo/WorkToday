@@ -50,6 +50,11 @@ describe('trackApplication', () => {
     expect(f).toHaveBeenCalledTimes(2); // nothing waiting, nothing sent
   });
 
+  it('keeps the company the page named', async () => {
+    await trackApplication('Intern', 'https://cloudfitsoftware.applytojob.com/apply/1', day, undefined, 'CloudFit Software');
+    expect((await getApplications())[0]!.company).toBe('CloudFit Software');
+  });
+
   it('a sheet failure keeps the row for the next sync; a deleted sheet is forgotten', async () => {
     await connected();
     stubFetch(500);

@@ -21,7 +21,7 @@ describe('handleMessage', () => {
     const msg = { type: 'track' as const, name: 'Apply', url: 'https://boards.greenhouse.io/embed/job_app?token=1', from: 'https://acme.com/' };
     await handleMessage(msg, { track }, { title: 'Engineer - Acme', url: 'https://acme.com/careers/1' });
     await handleMessage(msg, { track }, {});
-    expect(track.mock.calls).toEqual([['Engineer - Acme', 'https://acme.com/careers/1', undefined, 'https://acme.com/'], ['Apply', msg.url, undefined, 'https://acme.com/']]);
+    expect(track.mock.calls).toEqual([['Engineer - Acme', 'https://acme.com/careers/1', undefined, 'https://acme.com/', undefined], ['Apply', msg.url, undefined, 'https://acme.com/', undefined]]);
   });
   it('sync-sheet ok and error -> message', async () => {
     const syncSheet = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Google sign-in expired. Connect again.'));

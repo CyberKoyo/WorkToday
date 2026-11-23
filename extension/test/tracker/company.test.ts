@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { companyFromUrl } from '../../src/tracker/company';
+import { companyFromPage, companyFromUrl } from '../../src/tracker/company';
 
 describe('companyFromUrl', () => {
   it('never throws on a malformed escape', () => {
@@ -20,7 +20,21 @@ describe('companyFromUrl', () => {
     ['https://jobs.dayforcehcm.com/en-US/tenet/CANDIDATEPORTAL/jobs/1', 'Tenet'],
     ['https://www.tesla.com/careers/search/job/apply/1', 'Tesla'],
     ['https://careers.acme.co.uk/apply', 'Acme'],
+    ['https://cloudfitsoftware.applytojob.com/apply/oaG5GcybAo/Future-Intern-2027', 'Cloudfitsoftware'],
+    ['https://victory.breezy.hr/p/72dd7a10bea3-staff-software-engineer/apply', 'Victory'],
     ['https://eofe.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/job/1/apply', ''],
     ['not a url', ''],
   ])('%s → %s', (url, company) => expect(companyFromUrl(url)).toBe(company));
+});
+
+describe('companyFromPage', () => {
+  const url = 'https://cloudfitsoftware.applytojob.com/apply/oaG5GcybAo/Future-Intern-2027';
+  it('spaces the run-together slug as the page writes it, skipping capitals and lower-case mentions', () => {
+    expect(companyFromPage(url, 'CLOUDFIT SOFTWARE careers · cloudfit software · Future Internship – CloudFit Software (Summer 2027)')).toBe('CloudFit Software');
+    expect(companyFromPage('https://cmegroup.wd1.myworkdayjobs.com/en-US/cme_careers/job/1', 'Join CME Group today')).toBe('CME Group');
+  });
+  it("keeps the address's reading when the page never names the company so", () => {
+    expect(companyFromPage(url, 'CloudFit is hiring. Software Engineers at Cloud Fit')).toBe('Cloudfitsoftware');
+    expect(companyFromPage('https://eofe.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/job/1', 'Acme')).toBe('');
+  });
 });

@@ -28,7 +28,7 @@ const SEEN_MAX = 20;
  * another address adds that address to its row: the same job (sameJob), or a page reached from a site where an
  * application was filled in the last two hours (`from`, the page's referrer: the careers page's Apply led here).
  */
-export const trackApplication = (name: string, url: string, now = new Date(), from?: string) => serial(async () => {
+export const trackApplication = (name: string, url: string, now = new Date(), from?: string, company?: string) => serial(async () => {
   const key = url.split('#')[0]!;
   if (!web(key)) return; // the dashboard links to it
   const apps = await getApplications();
@@ -42,7 +42,8 @@ export const trackApplication = (name: string, url: string, now = new Date(), fr
     i = recent.sort(([a], [b]) => b.at! - a.at!)[0]?.[1] ?? -1;
   }
   if (i < 0) {
-    apps.push({ name: clean(name).slice(0, 200) || new URL(key).hostname, url: key, date: now.toLocaleDateString('en-CA'), at: now.getTime() });
+    apps.push({ name: clean(name).slice(0, 200) || new URL(key).hostname, url: key, date: now.toLocaleDateString('en-CA'), at: now.getTime(),
+      ...(company ? { company: clean(company).slice(0, 200) } : {}) });
   } else {
     const a = apps[i]!;
     apps[i] = { ...a, at: now.getTime(), ...(addresses(a).includes(key) ? {} : { seen: [...(a.seen ?? []), key].slice(-SEEN_MAX) }) };
