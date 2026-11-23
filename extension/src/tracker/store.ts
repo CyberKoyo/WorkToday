@@ -25,7 +25,7 @@ const COPIED = 'trackerCopied'; // addresses already copied in: a row deleted fr
 
 /** Copy each application Auto-fill logged into this list once, where it can be edited. */
 export async function copyLogged(): Promise<void> {
-  const logged = ((await browser.storage.local.get(LOGGED))[LOGGED] as Array<{ name: string; url: string; date: string; company?: string }> | undefined) ?? [];
+  const logged = ((await browser.storage.local.get(LOGGED))[LOGGED] as Array<{ name: string; url: string; date: string; company?: string; location?: string }> | undefined) ?? [];
   const copied = new Set(((await browser.storage.local.get(COPIED))[COPIED] as string[] | undefined) ?? []);
   const fresh = logged.filter((a) => a.url && !copied.has(a.url));
   if (!fresh.length) return;
@@ -33,7 +33,7 @@ export async function copyLogged(): Promise<void> {
   const urls = new Set(have.map((a) => a.url));
   // Rows first: a run cut off before the second write is redone without duplicates (by url).
   await browser.storage.local.set({ [KEY]: [...have, ...fresh.filter((a) => !urls.has(a.url)).map((a) => ({
-    id: crypto.randomUUID(), title: a.name, company: a.company || companyFromUrl(a.url), date: a.date, salary: '', location: '', status: 'Applied', url: a.url }))] });
+    id: crypto.randomUUID(), title: a.name, company: a.company || companyFromUrl(a.url), date: a.date, salary: '', location: a.location ?? '', status: 'Applied', url: a.url }))] });
   await browser.storage.local.set({ [COPIED]: [...copied, ...fresh.map((a) => a.url)] });
 }
 

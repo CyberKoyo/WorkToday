@@ -77,7 +77,10 @@ confirmation), *filled*, *need you*, or *no form*.
 
 ### Application log and Google Sheets
 
-The first time you press Auto-fill on an application, the dashboard logs its page title, the date and the link.
+The first time you press Auto-fill on an application, the dashboard logs its page title, the date, the link and where
+the job is: from the site's public job API (Workday, Greenhouse, SmartRecruiters, Oracle, Dayforce, ADP Workforce Now),
+else the posting's schema.org data (Ashby, Eightfold, iCIMS, JazzHR, Lever, Phenom and most career sites), else, with a
+Gemini key, Gemini's reading of the page text, marked "(guessed)".
 Nothing detects that you submitted: the date is the day you filled it.
 
 Google Sheets sync is off until the build has a Google OAuth client ID (one-time, by whoever builds the extension; free):
@@ -122,7 +125,7 @@ text of the form's own page. Edit the draft: it is
 a starting point, not your words. Work authorization, sponsorship, demographic, consent and salary questions are never sent.
 A required consent checkbox (one the form will not continue without) is ticked for you and outlined blue, and the summary
 says how many: read what you are agreeing to before you submit. Optional checkboxes are left alone.
-The application log stays in the extension; with Google Sheets connected, each entry's name, date and link also go to your sheet.
+The application log stays in the extension; with Google Sheets connected, each entry's name, date, link and location also go to your sheet.
 Answers you type into highlighted fields are saved in the extension (this browser only) and reused when the same question comes up again,
 written answers included (except "why…" questions, which are about one employer); a saved written answer is used instead of a new draft.
 The account password is stored unencrypted in the extension (this browser only) and is typed only into a site's own password boxes; it never goes to Gemini or the mapping server. Use one made for job applications.

@@ -7,6 +7,7 @@ import type { AnswerReply, BgMessage, LoopReply, MapReply, SyncReply } from '../
 import { loopJob, loopStart } from './loop';
 import { greenhousePosting } from '../greenhouse/posting';
 import { companyFromUrl } from '../tracker/company';
+import { guessLocation } from '../gemini/guessLocation';
 
 const JOB_TEXT_MAX = 8000; // what an essay draft gets to read about the job
 
@@ -19,7 +20,7 @@ async function answerFields(fields: Parameters<typeof answerQuestions>[0], job =
 export async function handleMessage(
   msg: BgMessage,
   deps: { mapFields?: typeof realMapFields; answerFields?: typeof answerFields; openOptions?: () => Promise<void>;
-    track?: typeof trackApplication; syncSheet?: typeof realSync; posting?: (frameUrl: string) => Promise<string> } = {},
+    track?: typeof trackApplication; syncSheet?: typeof realSync; guess?: typeof guessLocation; posting?: (frameUrl: string) => Promise<string> } = {},
   tab?: { id?: number; title?: string; url?: string }, // the sender's tab: the job page itself when the form sits in a frame
   frameUrl?: string, // the address of the frame that asked: the form's own page
 ): Promise<MapReply | AnswerReply | SyncReply | LoopReply | undefined> {
@@ -35,7 +36,15 @@ export async function handleMessage(
     return undefined;
   }
   if (msg.type === 'track') {
-    await (deps.track ?? trackApplication)(tab?.title || msg.name, tab?.url || msg.url, undefined, msg.from, msg.company);
+    // No posting data on the page: Gemini reads its text, once, for a job not logged yet, when there is a key.
+    const text = msg.location ? '' : msg.text?.slice(0, JOB_TEXT_MAX);
+    const guess = text ? async () => {
+      const key = await getApiKey();
+      const loc = key ? await (deps.guess ?? guessLocation)(text, key) : '';
+      return loc && `${loc} (guessed)`;
+    } : undefined;
+    await (deps.track ?? trackApplication)(tab?.title || msg.name, tab?.url || msg.url, undefined, msg.from, msg.company,
+      { location: msg.location, guess });
     return undefined;
   }
   if (msg.type === 'sync-sheet') {

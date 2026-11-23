@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { trackApplication, syncSheet } from '../../src/sheets/track';
 import { getApplications, getSheet, saveSheet } from '../../src/storage/store';
+import { HEADER } from '../../src/sheets/sheets';
 
 const day = new Date(2026, 10, 13, 23, 30); // local time: late evening must still be the 13th
-const connected = () => saveSheet({ id: 'S1', url: 'https://docs.google.com/spreadsheets/d/S1', token: 'T', expires: Date.now() + 3_600_000 });
+const connected = () => saveSheet({ id: 'S1', url: 'https://docs.google.com/spreadsheets/d/S1', token: 'T', expires: Date.now() + 3_600_000, cols: 4 });
 const stubFetch = (status = 200) => {
   const f = vi.fn().mockImplementation(async () => new Response('{}', { status }));
   vi.stubGlobal('fetch', f);
@@ -43,8 +44,8 @@ describe('trackApplication', () => {
     const [url, init] = f.mock.calls[0]!;
     expect(url).toBe('https://sheets.googleapis.com/v4/spreadsheets/S1/values/A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS');
     expect(init.headers.authorization).toBe('Bearer T');
-    expect(JSON.parse(init.body)).toEqual({ values: [['=HYPERLINK("evil")', '2026-11-13', 'https://acme.com/jobs/1']] });
-    expect(JSON.parse(f.mock.calls[1]![1].body).values).toEqual([['Analyst', '2026-11-13', 'https://acme.com/jobs/2']]);
+    expect(JSON.parse(init.body)).toEqual({ values: [['=HYPERLINK("evil")', '2026-11-13', 'https://acme.com/jobs/1', '']] });
+    expect(JSON.parse(f.mock.calls[1]![1].body).values).toEqual([['Analyst', '2026-11-13', 'https://acme.com/jobs/2', '']]);
     expect((await getApplications()).every((a) => a.synced)).toBe(true);
     await syncSheet();
     expect(f).toHaveBeenCalledTimes(2); // nothing waiting, nothing sent
@@ -114,5 +115,40 @@ describe('one application at several addresses', () => {
     await trackApplication('E', 'https://apply.workable.com/acme/j/AAAA111111/apply/', day);
     await trackApplication('F', 'https://apply.workable.com/acme/j/BBBB222222/apply/', day, 'https://apply.workable.com/');
     expect((await getApplications()).map((a) => a.name)).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
+  });
+});
+
+describe('location', () => {
+  const at = (where: Parameters<typeof trackApplication>[5], url = 'https://a.com/jobs/1') => trackApplication('A', url, day, undefined, undefined, where);
+
+  it('keeps what the posting says; asks for a guess only for a new row without one', async () => {
+    const guess = vi.fn().mockResolvedValue('Austin, TX (guessed)');
+    await at({ location: ' Chicago,  IL ', guess });
+    await at({ guess }, 'https://b.com/jobs/1');
+    await at({ guess }, 'https://b.com/jobs/1');
+    expect(guess).toHaveBeenCalledTimes(1);
+    expect((await getApplications()).map((a) => a.location)).toEqual(['Chicago, IL', 'Austin, TX (guessed)']);
+  });
+
+  it('a row logged without one takes the first a later step finds; a failed guess still logs the row', async () => {
+    await at({ guess: () => Promise.reject(new Error('Gemini free-tier limit hit.')) });
+    expect((await getApplications())[0]!.location).toBeUndefined();
+    await at({ location: 'Remote' });
+    await at({ location: 'Elsewhere' });
+    expect((await getApplications()).map((a) => a.location)).toEqual(['Remote']);
+  });
+
+  it('a sheet made before the Location column gets the longer header once, then rows with it', async () => {
+    await saveSheet({ id: 'S1', token: 'T', expires: Date.now() + 3_600_000 });
+    const f = stubFetch();
+    await at({ location: 'Chicago, IL' });
+    await at({}, 'https://b.com/jobs/1');
+    const append = 'https://sheets.googleapis.com/v4/spreadsheets/S1/values/A1:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS';
+    expect(f.mock.calls.map(([u, i]) => `${i.method} ${u}`)).toEqual([
+      'PUT https://sheets.googleapis.com/v4/spreadsheets/S1/values/A1:D1?valueInputOption=RAW', `POST ${append}`, `POST ${append}`]);
+    expect(JSON.parse(f.mock.calls[0]![1].body)).toEqual({ values: [HEADER] });
+    expect(JSON.parse(f.mock.calls[1]![1].body).values).toEqual([['A', '2026-11-13', 'https://a.com/jobs/1', 'Chicago, IL']]);
+    expect(JSON.parse(f.mock.calls[2]![1].body).values).toEqual([['A', '2026-11-13', 'https://b.com/jobs/1', '']]);
+    expect((await getSheet()).cols).toBe(4);
   });
 });

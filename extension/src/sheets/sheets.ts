@@ -7,7 +7,7 @@ export const sheetsConfigured = !!CLIENT_ID;
 // drive.file: only spreadsheets this extension created. Non-sensitive, so no Google security review.
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
-export const HEADER = ['Job application', 'Date applied', 'Job posting URL'];
+export const HEADER = ['Job application', 'Date applied', 'Job posting URL', 'Location'];
 
 // shortcut: implicit-flow tokens last an hour and renew without a prompt only while the browser is signed in to Google;
 // rows wait locally until the next Sync. Move to a code flow with refresh tokens (needs a server secret) if that bites.
@@ -33,9 +33,9 @@ async function accessToken(interactive: boolean): Promise<string> {
   return s.token && (s.expires ?? 0) > Date.now() + 60_000 ? s.token : authorize(interactive);
 }
 
-async function post(path: string, body: unknown, interactive = false): Promise<{ spreadsheetId?: string; spreadsheetUrl?: string }> {
+async function post(path: string, body: unknown, interactive = false, method = 'POST'): Promise<{ spreadsheetId?: string; spreadsheetUrl?: string }> {
   const res = await fetch(`${API}${path}`, {
-    method: 'POST',
+    method,
     headers: { authorization: `Bearer ${await accessToken(interactive)}`, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
@@ -58,9 +58,19 @@ export async function connectSheet(): Promise<void> {
   if ((await getSheet()).id) return;
   const made = await post('', { properties: { title: 'Job Applications' } }, true);
   if (!made.spreadsheetId) throw new Error('Google did not create the spreadsheet.');
-  await saveSheet({ ...(await getSheet()), id: made.spreadsheetId, url: made.spreadsheetUrl });
+  await saveSheet({ ...(await getSheet()), id: made.spreadsheetId, url: made.spreadsheetUrl, cols: HEADER.length });
   await append(made.spreadsheetId, [HEADER], true);
 }
 
-export const appendRows = async (rows: Application[]) =>
-  append((await getSheet()).id!, rows.map((r) => [r.name, r.date, r.url]));
+/** A sheet made before a column was added gets the longer header row once (its first row is the header connectSheet wrote). */
+async function widenHeader(id: string): Promise<void> {
+  if (((await getSheet()).cols ?? 3) >= HEADER.length) return;
+  await post(`/${id}/values/A1:${String.fromCharCode(64 + HEADER.length)}1?valueInputOption=RAW`, { values: [HEADER] }, false, 'PUT');
+  await saveSheet({ ...(await getSheet()), cols: HEADER.length });
+}
+
+export async function appendRows(rows: Application[]) {
+  const id = (await getSheet()).id!;
+  await widenHeader(id);
+  await append(id, rows.map((r) => [r.name, r.date, r.url, r.location ?? '']));
+}

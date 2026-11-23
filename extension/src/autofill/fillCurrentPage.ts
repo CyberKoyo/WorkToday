@@ -11,6 +11,7 @@ import { clearAdvance, complete, markAdvance, markAccountTried, nextButton } fro
 import { waitFor } from '../fill/dom';
 import { setDetails } from './banner';
 import { companyFromPage } from '../tracker/company';
+import { jobLocation } from '../tracker/location';
 
 const ERRORS: Record<string, string> = {
   rate_limited: 'Mapping service is busy. Try again in a minute.',
@@ -108,9 +109,14 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
   if (report.filled) {
     // The referrer ties this page to the careers page whose Apply opened it (one application, two sites).
     // The company only from the tab's own page: a framed form's address is the board's, not the tab's that is logged.
+    // The location from this frame's own address: an embedded form's posting is the board's.
     const top = window.top === window;
-    browser.runtime.sendMessage({ type: 'track', name: document.title, url: location.href, from: top ? document.referrer : undefined,
-      company: top ? companyFromPage(location.href, document.body.innerText) || undefined : undefined } satisfies BgMessage)
+    // Read now: by the time the location comes back, Auto-fill may have moved on to the next step.
+    const text = document.body.innerText;
+    const track = { type: 'track', name: document.title, url: location.href, from: top ? document.referrer : undefined,
+      company: top ? companyFromPage(location.href, text) || undefined : undefined } satisfies BgMessage;
+    jobLocation(document, track.url).then((where) => browser.runtime.sendMessage({ ...track,
+      ...(where ? { location: where } : { text }) } satisfies BgMessage))
       .catch((e) => console.warn('[workday-filler] application not logged', e));
   }
   setDetails(details(adapter.id, !!stored, report));
