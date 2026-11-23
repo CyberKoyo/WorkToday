@@ -2,7 +2,6 @@ import '@/src/ui/page.css';
 import { getAccountPassword, saveAccountPassword, getApiKey, getApplications, getCertProofs, getLoopSettings, getProfile, getResume, getResumes, getSavedAnswers, getSheet, saveApiKey, saveCertProofs, saveLoopSettings, saveProfile, saveResumes } from '@/src/storage/store';
 import { fileToStored, type StoredFile } from '@/src/storage/fileCodec';
 import { getApplications as getTracked } from '@/src/tracker/store';
-import { companyFromUrl } from '@/src/tracker/company';
 import { keyWorks, parseResume, ResumeParseError } from '@/src/gemini/parseResume';
 import { connectSheet, sheetsConfigured } from '@/src/sheets/sheets';
 import { ALL_SITES, type BgMessage, type SyncReply } from '@/src/messages';
@@ -30,11 +29,8 @@ async function renderDashboard() {
   const apps = await getApplications(); // first and alone: it moves old tracker rows out, once
   const [tracked, answers, key, resume, profile, sheet] = await Promise.all(
     [getTracked(), getSavedAnswers(), getApiKey(), getResume(), getProfile(), getSheet()]);
-  // Both lists: what Auto-fill logged and what the Applications log holds (typed in or imported).
-  const all = [
-    ...apps.map((a) => ({ name: a.name, company: companyFromUrl(a.url), url: a.url, date: a.date, site: new URL(a.url).hostname, status: 'Applied' })), // logged as it was applied to
-    ...tracked.map((a) => ({ name: a.title, company: a.company, url: '', date: a.date, site: a.location, status: a.status ?? '' })),
-  ].reverse().sort((a, b) => b.date.localeCompare(a.date)); // newest first; same day, last added first
+  // The Applications log holds every application: typed in, imported, or copied from what Auto-fill logged (copyLogged).
+  const all = tracked.map((a, i) => ({ ...a, i })).sort((a, b) => b.date.localeCompare(a.date) || b.i - a.i); // newest first; same day, last added first
   const weekAgo = new Date(Date.now() - 7 * 864e5).toLocaleDateString('en-CA');
   $('statApps').textContent = String(all.length);
   $('statWeek').textContent = String(all.filter((a) => a.date > weekAgo).length);
@@ -56,8 +52,10 @@ async function renderDashboard() {
   // Newest first. Names come from page titles: text only, never markup.
   $('apps').replaceChildren(...all.map((a) => {
     const tr = document.createElement('tr');
-    const link = a.url ? Object.assign(document.createElement('a'), { href: a.url, textContent: a.name, target: '_blank', rel: 'noopener' }) : a.name;
-    tr.append(cell(link), cell(a.company), cell(a.date), cell(a.site), cell(a.status));
+    const link = a.url ? Object.assign(document.createElement('a'), { href: a.url, textContent: a.title, target: '_blank', rel: 'noopener' }) : a.title;
+    const edit = Object.assign(document.createElement('a'), { href: `/tracker.html?edit=${encodeURIComponent(a.id)}`, textContent: 'Edit' });
+    edit.setAttribute('aria-label', `Edit ${a.title}`);
+    tr.append(cell(link), cell(a.company), cell(a.date), cell(a.location || (a.url ? new URL(a.url).hostname : '')), cell(a.status ?? ''), cell(edit));
     return tr;
   }));
   $('appsEmpty').hidden = all.length > 0;

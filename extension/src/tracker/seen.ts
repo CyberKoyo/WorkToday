@@ -26,13 +26,18 @@ function sameCompany(a: string, b: string): boolean {
  */
 export function likelyApplied(pageTitle: string, url: string, today: string,
   logged: Array<{ name: string; url: string; date: string; seen?: string[] }>,
-  tracked: Array<{ title: string; company: string; date: string; status?: string }>): Seen[] {
+  tracked: Array<{ title: string; company: string; date: string; status?: string; url?: string }>): Seen[] {
   const here = url.split('#')[0]!;
   const company = companyFromUrl(here);
+  const visit = (a: { url: string; seen?: string[]; date: string }) => (a.url === here || !!a.seen?.includes(here)) && a.date === today;
+  const thisVisit = new Set(logged.filter(visit).map((a) => a.url));
+  const copied = new Set(tracked.map((a) => a.url));
   const past: Seen[] = [
-    ...logged.filter((a) => !((a.url === here || a.seen?.includes(here)) && a.date === today))
+    // A logged row copied into the log shows as its copy there, with the status typed in.
+    ...logged.filter((a) => !visit(a) && !copied.has(a.url))
       .map((a) => ({ title: a.name, company: companyFromUrl(a.url), date: a.date, status: 'Applied' })),
-    ...tracked.map((a) => ({ title: a.title, company: a.company, date: a.date, status: a.status ?? '' })),
+    ...tracked.filter((a) => !a.url || !thisVisit.has(a.url))
+      .map((a) => ({ title: a.title, company: a.company, date: a.date, status: a.status ?? '' })),
   ];
   return past
     .map((p) => ({ p, score: overlap(pageTitle, p.title), same: company ? sameCompany(company, p.company) : false }))

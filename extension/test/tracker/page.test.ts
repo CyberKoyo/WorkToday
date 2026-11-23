@@ -29,4 +29,12 @@ describe('Applications log page', () => {
     search.dispatchEvent(new Event('input'));
     await vi.waitFor(() => expect(titles()).toEqual(['Data Analyst', 'Cyber Defense Intern', 'SOC Analyst Intern']));
   });
+  it("opens the row the dashboard's Edit names in the form", async () => {
+    vi.stubGlobal('location', { search: '?edit=3' });
+    vi.resetModules();
+    await import('../../entrypoints/tracker/main');
+    await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('#title')!.value).toBe('Data Analyst'));
+    expect(document.querySelector('#submit')!.textContent).toBe('Save changes');
+    vi.unstubAllGlobals();
+  });
 });

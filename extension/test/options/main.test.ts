@@ -144,15 +144,16 @@ describe('options main', () => {
       ['✓ Add your Gemini API key (done)', '○ Upload your resume', '○ Review and save your profile']);
     const rows = [...$('apps').querySelectorAll('tr')];
     expect(rows.map((r) => [...r.children].map((c) => c.textContent))).toEqual([
-      ['<img src=x onerror=alert(1)>', 'Acme', today, 'acme.com', 'Applied'], ['Analyst', 'Globex', '2021-06-01', 'Chicago, IL', 'Interview Scheduled'],
-      ['Old job', 'Example', '2020-01-01', 'old.example.com', 'Applied']]);
+      ['<img src=x onerror=alert(1)>', 'Acme', today, 'acme.com', 'Applied', 'Edit'], ['Analyst', 'Globex', '2021-06-01', 'Chicago, IL', 'Interview Scheduled', 'Edit'],
+      ['Old job', 'Example', '2020-01-01', 'old.example.com', 'Applied', 'Edit']]);
+    expect(rows[1]!.querySelector<HTMLAnchorElement>('[aria-label="Edit Analyst"]')!.href).toMatch(/\/tracker\.html\?edit=t$/);
     expect($('apps').querySelector('img')).toBeNull();
     expect(rows[0]!.querySelector('a')!.href).toBe('https://acme.com/jobs/2');
     expect($('appsEmpty').hidden).toBe(true);
     expect($<HTMLButtonElement>('sheetBtn').disabled).toBe(true); // no Google client ID in this build
-    // An application logged from a job tab shows up without a reload.
+    // An application logged from a job tab shows up without a reload (copied into the log beside the others).
     await saveApplications([{ name: 'Only', url: 'https://acme.com/jobs/3', date: today }]);
-    await vi.waitFor(() => expect($('statApps').textContent).toBe('2'));
+    await vi.waitFor(() => expect($('statApps').textContent).toBe('4'));
   });
 
   it('keeps several resume versions: all are read together, one is attached, any can be removed', async () => {

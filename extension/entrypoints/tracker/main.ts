@@ -1,5 +1,5 @@
 import '@/src/ui/page.css';
-import { addApplication, addApplications, getApplications, removeApplication, saveApplications, today, updateApplication } from '@/src/tracker/store';
+import { addApplication, addApplications, getApplications, removeApplication, saveApplications, today, updateApplication, type Application } from '@/src/tracker/store';
 import { readImport } from '@/src/tracker/importFile';
 
 const FIELDS = ['title', 'company', 'date', 'salary', 'location', 'status'] as const;
@@ -30,13 +30,9 @@ async function render() {
   $('rows').replaceChildren(...apps.map((a) => {
     const tr = document.createElement('tr');
     for (const f of FIELDS) tr.insertCell().textContent = a[f] ?? ''; // rows saved before Status have none
+    if (a.url) tr.cells[0]!.replaceChildren(Object.assign(document.createElement('a'), { href: a.url, textContent: a.title, target: '_blank', rel: 'noopener' }));
     const name = `${a.title} at ${a.company}`;
-    tr.insertCell().append(
-      button('Edit', `Edit ${name}`, () => {
-        for (const f of FIELDS) input(f).value = a[f] ?? '';
-        setEditing(a.id);
-        input('title').focus();
-      }),
+    tr.insertCell().append(button('Edit', `Edit ${name}`, () => edit(a)),
       ' ',
       button('Delete', `Delete ${name}`, async () => {
         if (!confirm(`Delete ${name}?`)) return;
@@ -47,6 +43,12 @@ async function render() {
     );
     return tr;
   }));
+}
+
+function edit(a: Application) {
+  for (const f of FIELDS) input(f).value = a[f] ?? '';
+  setEditing(a.id);
+  input('title').focus();
 }
 
 function setEditing(id: string | null) {
@@ -102,6 +104,9 @@ input('import').onchange = async () => {
   input('import').value = '';
 };
 
-// The banner's "Log application" link opens this page with ?title=… from the job page.
-reset(new URLSearchParams(location.search));
+// The banner's "Log application" link opens this page with ?title=… from the job page; the dashboard's Edit, ?edit=<id>.
+const params = new URLSearchParams(location.search);
+reset(params);
 void render();
+const toEdit = params.get('edit');
+if (toEdit) void getApplications().then((all) => { const a = all.find((x) => x.id === toEdit); if (a) edit(a); });
