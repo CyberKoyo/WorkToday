@@ -3,8 +3,9 @@ import { handle, type Env } from '../src/handler';
 import type { MapResponse } from '@wf/shared';
 
 const body = { fields: [{ id: 'wf-0', label: 'Email', kind: 'text', required: true }] };
-const post = (b: unknown, path = '/v1/map-fields') =>
-  new Request(`https://x${path}`, { method: 'POST', body: typeof b === 'string' ? b : JSON.stringify(b), headers: { 'cf-connecting-ip': '1.2.3.4' } });
+const post = (b: unknown, path = '/v1/map-fields', origin: string | null = 'chrome-extension://gacapbfdlphgncbpcloffhblimnemnpl') =>
+  new Request(`https://x${path}`, { method: 'POST', body: typeof b === 'string' ? b : JSON.stringify(b),
+    headers: { 'cf-connecting-ip': '1.2.3.4', ...(origin ? { origin } : {}) } });
 const env = (over: Partial<Env> = {}): Env => ({
   AI: { run: vi.fn().mockResolvedValue({ response: { mappings: [{ id: 'wf-0', profileKey: 'email' }] } }) },
   LIMITER: { limit: vi.fn().mockResolvedValue({ success: true }) },
@@ -49,6 +50,39 @@ describe('handle', () => {
     ['model returns non-JSON string', () => handle(post(body), env({ AI: { run: vi.fn().mockResolvedValue({ response: 'hi' }) } })), 502],
   ])('%s', async (_n, call, status) => {
     expect((await call()).status).toBe(status);
+  });
+  it('answers only extensions: a web page or a bare script is refused before the model or the rate limit', async () => {
+    const e = env();
+    expect((await handle(post(body, undefined, 'moz-extension://22b13636-092a-4c86-bff7-fb8a5b5efe3c'), e)).status).toBe(200);
+    for (const origin of ['https://evil.example', 'null', null, 'chrome-extension://x/../https://evil.example']) {
+      expect((await handle(post(body, undefined, origin), e)).status).toBe(403);
+    }
+    expect(e.AI.run).toHaveBeenCalledTimes(1);
+    expect(e.LIMITER.limit).toHaveBeenCalledTimes(1);
+  });
+  it('refuses a body announced as too big without reading it', async () => {
+    const text = vi.fn();
+    const req = { url: 'https://x/v1/map-fields', method: 'POST', text,
+      headers: new Headers({ origin: 'chrome-extension://abc', 'content-length': '10000000' }) } as unknown as Request;
+    expect((await handle(req, env())).status).toBe(413);
+    expect(text).not.toHaveBeenCalled();
+  });
+  it('stops calling the model when every caller together is over the global limit', async () => {
+    const e = env({ GLOBAL_LIMITER: { limit: vi.fn().mockResolvedValue({ success: false }) } });
+    expect((await handle(post(body), e)).status).toBe(429);
+    expect(e.GLOBAL_LIMITER!.limit).toHaveBeenCalledWith({ key: 'all' });
+    expect(e.AI.run).not.toHaveBeenCalled();
+  });
+  it('with a cache bound, answers a form seen before without the model or the global limit', async () => {
+    const kv = new Map<string, string>();
+    const MAP_CACHE = { get: vi.fn(async (k: string) => (kv.has(k) ? JSON.parse(kv.get(k)!) : null)), put: vi.fn(async (k: string, v: string) => { kv.set(k, v); }) };
+    const e = env({ MAP_CACHE, GLOBAL_LIMITER: { limit: vi.fn().mockResolvedValue({ success: true }) } });
+    const first = await (await handle(post(body), e)).json();
+    const again = await (await handle(post(body), e)).json();
+    expect(again).toEqual(first);
+    expect(e.AI.run).toHaveBeenCalledTimes(1);
+    expect(e.GLOBAL_LIMITER!.limit).toHaveBeenCalledTimes(1);
+    expect(MAP_CACHE.put).toHaveBeenCalledWith(expect.stringMatching(/^[0-9a-f]{64}$/), JSON.stringify(first), { expirationTtl: 30 * 86_400 });
   });
   it('health', async () => {
     expect((await handle(new Request('https://x/health'), env())).status).toBe(200);
