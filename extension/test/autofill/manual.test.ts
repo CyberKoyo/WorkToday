@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { startManual } from '../../src/autofill/manual';
 import { mountBanner, mounted } from '../../src/autofill/mount';
+import { ARM_MS } from '../../src/autofill/banner';
 import { saveProfile } from '../../src/storage/store';
 import { emptyProfile } from '../../src/profile/profile';
 import type { AtsAdapter } from '../../src/ats/types';
@@ -50,6 +51,7 @@ describe('toolbar button', () => {
     document.body.innerHTML = '<p>Thanks for applying.</p>';
     startManual();
     await vi.waitFor(() => expect(banners()).toHaveLength(1));
+    await new Promise((r) => setTimeout(r, ARM_MS + 50)); // a press counts once the banner has settled
     press('.primary');
     // Auto-fill first waits up to 4s for a step still rendering its fields.
     await vi.waitFor(() => expect(msg()).toBe('Found nothing to fill on this page.'), 6000);

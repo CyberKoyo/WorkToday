@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { setDetails, showBanner } from '../../src/autofill/banner';
+import { ARM_MS, setDetails, showBanner } from '../../src/autofill/banner';
+
+// A press counts only once the banner has been on screen for ARM_MS (clickjacking guard).
+const armed = () => new Promise((r) => setTimeout(r, ARM_MS + 50));
 
 const btn = (host: HTMLElement, sel: string) => host.shadowRoot!.querySelector<HTMLButtonElement>(sel)!;
 const msg = (host: HTMLElement) => host.shadowRoot!.querySelector('.msg')!.textContent;
@@ -22,6 +25,7 @@ describe('banner', () => {
     const onFill = vi.fn().mockResolvedValue('Filled 3 fields.');
     const { host } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn() });
     expect(btn(host, '.primary').textContent).toBe('Auto-fill');
+    await armed();
     btn(host, '.primary').click();
     await vi.waitFor(() => expect(msg(host)).toBe('Filled 3 fields.'));
   });
@@ -30,6 +34,7 @@ describe('banner', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     const { host } = showBanner({ needsSetup: false, onFill: async () => { setDetails('wf-0 checkbox* key=null -> filled | I agree'); return 'Filled 1 fields.'; }, onSetup: vi.fn(), onDismiss: vi.fn() });
     expect(btn(host, '.copy').hidden).toBe(true);
+    await armed();
     btn(host, '.primary').click();
     await vi.waitFor(() => expect(btn(host, '.copy').hidden).toBe(false));
     btn(host, '.copy').click();
@@ -39,9 +44,36 @@ describe('banner', () => {
   });
   it('shows error message on failure and re-enables', async () => {
     const { host } = showBanner({ needsSetup: false, onFill: vi.fn().mockRejectedValue(new Error('Busy')), onSetup: vi.fn(), onDismiss: vi.fn() });
+    await armed();
     btn(host, '.primary').click();
     await vi.waitFor(() => expect(msg(host)).toBe('Busy'));
     expect(btn(host, '.primary').disabled).toBe(false);
+  });
+  it('ignores a press before the banner has settled, and one while the page fades it', async () => {
+    const onFill = vi.fn().mockResolvedValue('Filled 3 fields.');
+    const { host } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn() });
+    btn(host, '.primary').click(); // the box popped up under a click meant for the page
+    expect(onFill).not.toHaveBeenCalled();
+    expect(msg(host)).toMatch(/^Press again/);
+    await armed();
+    document.body.style.opacity = '0.1'; // a decoy shows through a faded banner
+    btn(host, '.primary').click();
+    expect(onFill).not.toHaveBeenCalled();
+    document.body.style.opacity = '';
+    await armed();
+    btn(host, '.primary').click();
+    await vi.waitFor(() => expect(msg(host)).toBe('Filled 3 fields.'));
+  });
+  // That page CSS cannot restyle the host (its inline !important wins) was checked in Chromium 157 and Firefox 160:
+  // happy-dom ranks a stylesheet's !important above it.
+  it('starts over when page script restyles the banner', async () => {
+    const onFill = vi.fn().mockResolvedValue('ok');
+    const { host } = showBanner({ needsSetup: false, onFill, onSetup: vi.fn(), onDismiss: vi.fn() });
+    await armed();
+    host.style.setProperty('transform', 'translateY(-40px)'); // slid under the cursor at the last moment
+    await Promise.resolve(); // the MutationObserver's turn
+    btn(host, '.primary').click();
+    expect(onFill).not.toHaveBeenCalled();
   });
   it('autoFill runs the fill without a click', async () => {
     const onFill = vi.fn().mockResolvedValue('Filled 3 fields.');
