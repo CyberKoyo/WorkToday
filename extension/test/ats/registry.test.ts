@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { pickAdapter } from '../../src/ats/registry';
-import { CONTENT_MATCHES } from '../../src/ats/matches';
+import { CONTENT_MATCHES, atsAt } from '../../src/ats/matches';
 
 describe('pickAdapter', () => {
   it('picks by host', () => {
@@ -50,5 +50,19 @@ describe('pickAdapter', () => {
     expect(pickAdapter(new URL('https://careers.steris.com/us/en/apply?jobSeqNo=SCZSCCUS56672EXTERNALENUS&step=1&stepname=personalInformation'))?.id).toBe('phenom');
     expect(pickAdapter(new URL('https://careers.steris.com/us/en/job/56672/Software-Engineering-Intern'))).toBeNull();
     expect(CONTENT_MATCHES).toContain('https://careers.steris.com/*/apply*');
+  });
+});
+
+describe('atsAt', () => {
+  it('reads a frame address the way the browser reads the match patterns', () => {
+    expect(atsAt('https://acme.wd5.myworkdayjobs.com/en-US/careers/job/x/apply')).toBe('workday');
+    expect(atsAt('https://career4.successfactors.com/career?company=acme')).toBe('successfactors');
+    expect(atsAt('https://jobs.lever.co/acme/1/apply')).toBe('lever');
+  });
+  it('never takes a look-alike, a cleartext page or another path', () => {
+    for (const address of [
+      'https://evil.example/x.myworkdayjobs.com/', 'https://myworkdayjobs.com.evil.example/', 'https://evilmyworkdayjobs.com/',
+      'http://acme.wd5.myworkdayjobs.com/', 'https://career4.successfactors.com/other', 'https://acme.example/careers', 'not a url', '',
+    ]) expect(atsAt(address)).toBe('');
   });
 });

@@ -77,7 +77,7 @@
       </div>
       <div class="card">
         <h2>Account password (optional)</h2>
-        <p class="notice">Workday makes you create an account for every employer. Save one password here and the extension creates the account (or signs in) with your profile's email and this password, and agrees to the account terms for you. It is stored unencrypted in this browser only. Use a password made for job applications, not one you use anywhere else.</p>
+        <p class="notice">Workday makes you create an account for every employer. Save one password here and the extension creates the account (or signs in) with your profile's email and this password, and agrees to the account terms for you. It stays in this browser only, unencrypted unless you lock your saved secrets below. Use a password made for job applications, not one you use anywhere else.</p>
         <div class="inline">
           <input id="accountPassword" type="password" aria-label="Account password" autocomplete="off" />
           <button id="savePassword" type="button">Save password</button>
@@ -93,10 +93,21 @@
         <p class="muted">Needs <b>All sites</b> above. On a job board, click the toolbar button and press <b>Loop jobs</b>: each listed job opens in its own tab (or inside the board, where the board applies in place), is auto-filled, and the loop returns to the board for the next, scrolling for more jobs as the list runs out. It pauses after 25 jobs.</p>
         <div class="row"><label for="loopEmail">Sign-in email</label><input id="loopEmail" type="text" autocomplete="off" /></div>
         <div class="row"><label for="loopPassword">Sign-in password</label><input id="loopPassword" type="password" autocomplete="new-password" /></div>
-        <p class="note">Used wherever an application asks you to sign in or create an account first. Stored unencrypted in this browser and sent only to the site that asks: pick a password you use nowhere else.</p>
+        <p class="note">Used wherever an application asks you to sign in or create an account first. Kept in this browser (unencrypted unless you lock your saved secrets below) and typed only on a supported application site that asks: pick a password you use nowhere else.</p>
         <div class="row"><label for="loopSubmit">Submit applications for me</label><input id="loopSubmit" type="checkbox" /></div>
         <p class="note">Off: the loop fills and leaves every tab for you. On: it also presses Next and Submit, but only on a step where nothing is left highlighted for you. Gemini's answers and essay drafts are sent as written, unread.</p>
         <p><button id="saveLoop" type="button">Save job loop settings</button></p>
+      </div>
+      <div class="card">
+        <h2>Lock your saved secrets (optional)</h2>
+        <p class="muted">Encrypts your Gemini key and both passwords above with a passphrase, and keeps the key to them where the extension's scripts on job sites cannot read it. Unlock once each time the browser starts. Until you do, Auto-fill still fills from your profile, but Gemini answers, Workday account creation and the job loop's sign-in wait.</p>
+        <p id="vaultState" class="note"></p>
+        <div class="inline">
+          <input id="passphrase" type="password" aria-label="Passphrase" autocomplete="new-password" />
+          <button id="vaultSet" type="button">Set passphrase</button>
+          <button id="vaultUnlock" type="button">Unlock</button>
+        </div>
+        <p class="inline"><button id="vaultLock" type="button">Lock now</button><button id="vaultOff" type="button">Remove passphrase</button><button id="vaultForget" type="button">Forgot it: clear the locked secrets</button></p>
       </div>
       <div class="card">
         <h2>Delete all my data</h2>

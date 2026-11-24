@@ -5,7 +5,10 @@ import type { Outcome } from './autofill/loop';
 export type BgMessage = { type: 'map-fields'; fields: FieldDescriptor[] } | { type: 'answer-fields'; fields: FieldDescriptor[]; job?: string } | { type: 'open-options' } | { type: 'open-tracker'; title: string }
   | { type: 'track'; name: string; url: string; from?: string; company?: string; location?: string; text?: string } | { type: 'sync-sheet' }
   // Job loop, sent by the board's tab. `known`: every tab open before this job's Apply was clicked; `url`: a link for the background to open.
-  | { type: 'loop-start' } | { type: 'loop-job'; known: number[]; url?: string };
+  | { type: 'loop-start' } | { type: 'loop-job'; known: number[]; url?: string }
+  // A saved password, for a content script about to type it: 'account' (Workday's account step), 'loop' (the loop's sign-in).
+  | { type: 'secret'; which: 'account' | 'loop' };
+export type SecretReply = { value: string };
 /** `outcome` is missing when the job opened no tab (and on `loop-start`). */
 export type LoopReply = { ok: true; known: number[]; outcome?: Outcome } | { ok: false; message: string };
 /** The loop fills job sites it cannot know ahead of time; asked for on the dashboard, never at install. */

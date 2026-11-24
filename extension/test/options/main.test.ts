@@ -14,6 +14,8 @@ function setDom() {
     <button id="loopAllow" type="button"></button>
     <input id="loopEmail" /><input id="loopPassword" type="password" /><input id="loopSubmit" type="checkbox" /><button id="saveLoop" type="button"></button>
     <button id="wipe" type="button"></button>
+    <p id="vaultState"></p><input id="passphrase" type="password" /><button id="vaultSet" type="button"></button><button id="vaultUnlock" type="button"></button>
+    <button id="vaultLock" type="button"></button><button id="vaultOff" type="button"></button><button id="vaultForget" type="button"></button>
     <input id="resume" type="file" />
     <button id="parse" type="button"></button>
     <ul id="resumes"></ul><p id="resumeName"></p>

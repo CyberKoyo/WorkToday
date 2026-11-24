@@ -1,6 +1,7 @@
 import { browser } from 'wxt/browser';
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
-import { addAccountRefused, getAccountPassword, getAccountRefused, getCertProofs, getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
+import { addAccountRefused, getAccountRefused, getCertProofs, getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
+import { askSecret } from './secret';
 import { rememberAnswers } from '../answers/remembered';
 import { storedToFile } from '../storage/fileCodec';
 import type { AtsAdapter } from '../ats/types';
@@ -46,7 +47,7 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
   const profile = await getProfile();
   if (!profile?.reviewed) throw new Error('Review your profile in setup first.');
   if (adapter.accountPage?.(document) && adapter.account) {
-    const password = await getAccountPassword();
+    const password = await askSecret('account');
     if (!password || !profile.email) return 'Sign in or create your account, or save an account password in setup to have it done for you.';
     if ((await getAccountRefused()).includes(location.host)) return 'Your saved account password was refused on this site before, so it is not tried again. Sign in yourself.';
     // The step re-renders (Create Account → Sign In) while this runs; the banner that brings must not start a second try.

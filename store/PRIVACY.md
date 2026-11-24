@@ -15,7 +15,8 @@ Everything you give the extension is kept in the browser's extension storage on 
 - your Google Gemini API key;
 - answers you type into highlighted fields, saved so the same question can be answered again;
 - the log of applications you filled (job title, company, date, link, and the status you set);
-- if you save them, a job-site account password and the job loop's sign-in email and password (stored unencrypted);
+- if you save them, a job-site account password and the job loop's sign-in email and password (stored unencrypted unless you
+  set a passphrase under Settings, which encrypts them and your Gemini API key);
 - a cache of which form labels map to which profile fields.
 
 None of this is sent to the developer. **Delete all my data** on the setup page, or uninstalling the extension, deletes it.

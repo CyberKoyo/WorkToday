@@ -42,3 +42,17 @@ export const MATCHES = {
 } as const;
 
 export const CONTENT_MATCHES: string[] = Object.values(MATCHES).flat();
+
+/** The supported ATS a frame's address belongs to, read the way the browser reads the patterns above (a "*." host is
+ * the domain or any subdomain; the path covers the query too). '' for none, or for a bad address. For the background,
+ * which has no adapters to ask. */
+export function atsAt(address: string): string {
+  let u: URL;
+  try { u = new URL(address); } catch { return ''; }
+  const fits = (pattern: string) => {
+    const [, scheme, any, host, path] = /^(\w+):\/\/(\*\.)?([^/]+)(\/.*)$/.exec(pattern)!;
+    const glob = new RegExp(`^${path!.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')}$`);
+    return u.protocol === `${scheme}:` && (u.hostname === host || (!!any && u.hostname.endsWith(`.${host}`))) && glob.test(u.pathname + u.search);
+  };
+  return Object.entries(MATCHES).find(([, patterns]) => patterns.some(fits))?.[0] ?? '';
+}

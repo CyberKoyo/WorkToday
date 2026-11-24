@@ -66,4 +66,29 @@ describe('handleMessage', () => {
     expect(await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields })).toEqual({ ok: true, answers: [['wf-0', ['Yes']]] });
     expect(await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields })).toEqual({ ok: false, message: 'Gemini rejected the API key.' });
   });
+  it('hands a saved password only to a supported site\'s own frame, and the account one only to its own site', async () => {
+    const { fakeBrowser } = await import('wxt/testing/fake-browser');
+    const { saveAccountPassword, saveLoopSettings } = await import('../../src/storage/store');
+    fakeBrowser.reset();
+    await saveAccountPassword('pw-acct');
+    await saveLoopSettings({ email: 'ada@x.com', password: 'pw-loop', submit: false });
+    const ask = (which: 'account' | 'loop', frameUrl?: string) => handleMessage({ type: 'secret', which }, {}, {}, frameUrl);
+    expect(await ask('account', 'https://acme.wd5.myworkdayjobs.com/en-US/careers/login')).toEqual({ value: 'pw-acct' });
+    expect(await ask('loop', 'https://acme.icims.com/jobs/1/login')).toEqual({ value: 'pw-loop' });
+    expect(await ask('account', 'https://acme.icims.com/jobs/1/login')).toEqual({ value: '' }); // not the site it is for
+    expect(await ask('loop', 'https://acme.example/careers/login')).toEqual({ value: '' }); // the generic reader's sites
+    expect(await ask('loop', 'http://acme.icims.com/jobs/1/login')).toEqual({ value: '' });
+    expect(await ask('loop')).toEqual({ value: '' });
+  });
+  it('says the Gemini key is locked instead of asking Gemini without it', async () => {
+    const { fakeBrowser } = await import('wxt/testing/fake-browser');
+    const { setPassphrase } = await import('../../src/storage/store');
+    const { lock } = await import('../../src/storage/vault');
+    fakeBrowser.reset();
+    await setPassphrase('correct horse battery');
+    await lock();
+    const answerFields = vi.fn();
+    expect(await handleMessage({ type: 'answer-fields', fields: [] }, { answerFields })).toEqual({ ok: false, message: expect.stringMatching(/locked/) });
+    expect(answerFields).not.toHaveBeenCalled();
+  });
 });
