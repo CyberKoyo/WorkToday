@@ -30,6 +30,8 @@ export interface Mounted {
 // The site content script and the toolbar script share the extension's isolated world in each frame,
 // so the toolbar script finds the banner a supported site already set up here instead of adding a second.
 const KEY = '__wfMounted';
+// Reading another origin's location throws, from a content script too.
+const crossOrigin = () => { try { return window.top!.location.origin !== location.origin; } catch { return true; } };
 const holder = globalThis as { [KEY]?: Mounted };
 export const mounted = (): Mounted | undefined => holder[KEY];
 
@@ -82,7 +84,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
   };
   const loopStep = async (clickApply: boolean) =>
     step({ adapter, settings: await getLoopSettings(), fill: loopFill, top, clickApply, inPage: looping, asksIdentity: () => asksIdentity(document),
-      signInHere: adapter.id !== 'generic' });
+      signInHere: adapter.id !== 'generic', foreign: adapter.id === 'generic' && !top && crossOrigin() });
   return { show: () => show(), loopStep };
 }
 
