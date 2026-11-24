@@ -10,15 +10,21 @@ const decode = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (_, e: 
  * An embedded form (a company's own careers page) sits alone in a frame, with no description for an essay draft to
  * draw on (live MongoDB). Runs in the background, which has no DOM: the HTML is reduced to text by hand.
  */
-export async function greenhousePosting(url: string, fetchImpl: typeof fetch = fetch): Promise<string> {
+/** The public API's address for the Greenhouse job at `url`, or '' for any other address. */
+export function greenhouseApi(url: string): string {
   let u: URL;
   try { u = new URL(url); } catch { return ''; }
   if (!/(^|\.)greenhouse\.io$/.test(u.hostname)) return '';
   // Embedded: /embed/job_app?for=<board>&token=<id>. Hosted: /<board>/jobs/<id>.
   const [board, id] = u.searchParams.get('for') ? [u.searchParams.get('for'), u.searchParams.get('token')]
     : u.pathname.match(/^\/([^/]+)\/jobs\/(\d+)/)?.slice(1) ?? [];
-  if (!board || !id) return '';
-  const res = await fetchImpl(`${API}/${encodeURIComponent(board)}/jobs/${encodeURIComponent(id)}`);
+  return board && id ? `${API}/${encodeURIComponent(board)}/jobs/${encodeURIComponent(id)}` : '';
+}
+
+export async function greenhousePosting(url: string, fetchImpl: typeof fetch = fetch): Promise<string> {
+  const api = greenhouseApi(url);
+  if (!api) return '';
+  const res = await fetchImpl(api);
   if (!res.ok) return '';
   const job = (await res.json()) as { title?: unknown; content?: unknown; location?: { name?: unknown } };
   const str = (v: unknown) => (typeof v === 'string' ? v : '');

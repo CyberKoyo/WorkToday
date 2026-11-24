@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { handleMessage } from '../../src/background/handleMessage';
 import { MapError } from '../../src/api/mapClient';
+import { saveApiKey } from '../../src/storage/store';
 
 describe('handleMessage', () => {
   it('map-fields ok', async () => {
@@ -21,7 +22,22 @@ describe('handleMessage', () => {
     const msg = { type: 'track' as const, name: 'Apply', url: 'https://boards.greenhouse.io/embed/job_app?token=1', from: 'https://acme.com/' };
     await handleMessage(msg, { track }, { title: 'Engineer - Acme', url: 'https://acme.com/careers/1' });
     await handleMessage(msg, { track }, {});
-    expect(track.mock.calls).toEqual([['Engineer - Acme', 'https://acme.com/careers/1', undefined, 'https://acme.com/', undefined], ['Apply', msg.url, undefined, 'https://acme.com/', undefined]]);
+    const where = { location: undefined, guess: undefined };
+    expect(track.mock.calls).toEqual([['Engineer - Acme', 'https://acme.com/careers/1', undefined, 'https://acme.com/', undefined, where], ['Apply', msg.url, undefined, 'https://acme.com/', undefined, where]]);
+  });
+  it('track asks Gemini only when the page found no location, and marks its answer guessed', async () => {
+    const track = vi.fn().mockResolvedValue(undefined);
+    const guess = vi.fn().mockResolvedValue('Austin, TX');
+    const base = { type: 'track' as const, name: 'x', url: 'https://acme.com/1' };
+    await handleMessage({ ...base, location: 'Chicago, IL', text: 'page' }, { track, guess });
+    expect(track.mock.calls[0]![5]).toEqual({ location: 'Chicago, IL', guess: undefined });
+    await handleMessage({ ...base, text: 'Join us in Austin' }, { track, guess });
+    const ask = track.mock.calls[1]![5].guess as () => Promise<string>;
+    expect(await ask()).toBe(''); // no key: no call
+    expect(guess).not.toHaveBeenCalled();
+    await saveApiKey('K');
+    expect(await ask()).toBe('Austin, TX (guessed)');
+    expect(guess).toHaveBeenCalledWith('Join us in Austin', 'K');
   });
   it('sync-sheet ok and error -> message', async () => {
     const syncSheet = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Google sign-in expired. Connect again.'));

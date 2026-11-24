@@ -27,8 +27,11 @@ const SEEN_MAX = 20;
  * Log an application once, then try the sheet. A sheet failure keeps the row for the next sync. Filling it again at
  * another address adds that address to its row: the same job (sameJob), or a page reached from a site where an
  * application was filled in the last two hours (`from`, the page's referrer: the careers page's Apply led here).
+ * `location`: what the posting says; `guess` is asked only for a new row without one. A row logged without a location
+ * takes one found on a later step (the Applications log only: a row already in the sheet stays as it was sent).
  */
-export const trackApplication = (name: string, url: string, now = new Date(), from?: string, company?: string) => serial(async () => {
+export const trackApplication = (name: string, url: string, now = new Date(), from?: string, company?: string,
+  where: { location?: string; guess?: () => Promise<string> } = {}) => serial(async () => {
   const key = url.split('#')[0]!;
   if (!web(key)) return; // the dashboard links to it
   const apps = await getApplications();
@@ -41,12 +44,15 @@ export const trackApplication = (name: string, url: string, now = new Date(), fr
       .filter(([a]) => a.at && now.getTime() - a.at < HOP_MS && addresses(a).some((k) => new URL(k).origin === fromOrigin));
     i = recent.sort(([a], [b]) => b.at! - a.at!)[0]?.[1] ?? -1;
   }
+  const found = clean(where.location ?? '').slice(0, 300);
   if (i < 0) {
+    const location = found || clean(await where.guess?.().catch(() => '') ?? '').slice(0, 300); // a Gemini failure only costs the guess
     apps.push({ name: clean(name).slice(0, 200) || new URL(key).hostname, url: key, date: now.toLocaleDateString('en-CA'), at: now.getTime(),
-      ...(company ? { company: clean(company).slice(0, 200) } : {}) });
+      ...(company ? { company: clean(company).slice(0, 200) } : {}), ...(location ? { location } : {}) });
   } else {
     const a = apps[i]!;
-    apps[i] = { ...a, at: now.getTime(), ...(addresses(a).includes(key) ? {} : { seen: [...(a.seen ?? []), key].slice(-SEEN_MAX) }) };
+    apps[i] = { ...a, at: now.getTime(), ...(addresses(a).includes(key) ? {} : { seen: [...(a.seen ?? []), key].slice(-SEEN_MAX) }),
+      ...(!a.location && found ? { location: found } : {}) };
   }
   await saveApplications(apps);
   await sync().catch((e) => console.warn('[workday-filler] sheet not updated:', e));

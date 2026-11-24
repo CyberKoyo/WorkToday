@@ -49,12 +49,12 @@ export const saveMapCache = (c: Record<string, ProfileKey>) =>
 // seen: the other addresses this application was filled at (its later steps, the ATS a careers page led to); at: when
 // it was last filled (ms), for telling a hop to another site apart from a new application.
 // company: as the page spelled it (companyFromPage), when it did.
-export interface Application { name: string; url: string; date: string; synced?: boolean; seen?: string[]; at?: number; company?: string }
+export interface Application { name: string; url: string; date: string; synced?: boolean; seen?: string[]; at?: number; company?: string; location?: string }
 export const getApplications = async () => { await moveTrackedRows(); return (await get<Application[]>(K.apps)) ?? []; };
 export const saveApplications = (a: Application[]) => set(K.apps, a);
 
 /** The connected spreadsheet and the Google access token for it (valid until `expires`, ms). */
-export interface Sheet { id?: string; url?: string; token?: string; expires?: number }
+export interface Sheet { id?: string; url?: string; token?: string; expires?: number; cols?: number }
 export const getSheet = async () => (await get<Sheet>(K.sheet)) ?? {};
 export const saveSheet = (s: Sheet) => set(K.sheet, s);
 

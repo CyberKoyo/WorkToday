@@ -26,7 +26,9 @@ None of this is sent to the developer. **Delete all my data** on the setup page,
 When a form asks a question no profile field covers, the question, its answer options and your profile are sent, except
 the answers you enter by hand for work authorization, sponsorship, salary, demographic/EEO questions and date of birth,
 which are never sent. To draft an answer to an open question ("Why do you want to work here?"), your profile, your
-stored resume files, the page title and up to 8,000 characters of the job page's text are sent. These requests go
+stored resume files, the page title and up to 8,000 characters of the job page's text are sent. When a job page says
+nowhere in its data where the job is, up to 8,000 characters of its text (nothing from your profile) are sent to ask
+for the location, which the application log marks "(guessed)". These requests go
 directly from your browser to Google under your key and are governed by Google's Gemini API terms. On Google's free tier,
 Google may use submitted content to improve its products.
 
@@ -38,6 +40,10 @@ written to the server's error log.
 
 **Greenhouse's public job API.** On Greenhouse application pages, the extension asks Greenhouse's public API for the job
 description. The request contains only the employer's board name and the job id from the page address.
+
+**Job locations, from the job sites' public APIs.** When it logs an application, the extension asks where the job is:
+the application site's own public job API (Workday, Oracle, Dayforce, ADP), Greenhouse's or SmartRecruiters' public
+API, or the job's posting page. Each request contains only the employer and job id from the page address.
 
 **The job sites you apply to.** When you press Auto-fill (and on the steps it moves to, or while the job loop runs), your profile
 values, the answers above and your selected resume file are entered into the application form on that site. A saved
