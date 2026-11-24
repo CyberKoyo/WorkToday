@@ -1,0 +1,58 @@
+# Push a tag matching extension/package.json's version (v1.0.1) to test, deploy the mapping server and submit both stores.
+# Run it by hand from the Actions tab with "dry run" ticked to check the store credentials without uploading.
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Check store credentials only; upload nothing, skip the server deploy
+        type: boolean
+        default: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+
+      # Both stores refuse a version they have seen, so a tag that disagrees with the manifest stops here.
+      - name: Tag matches extension version
+        if: github.event_name == 'push'
+        run: test "v$(node -p "require('./extension/package.json').version")" = "$GITHUB_REF_NAME"
+
+      - run: npm test
+      - run: npx tsc --noEmit -p extension
+      - run: npm run zip -w extension && npm run zip:firefox -w extension
+
+      # Before the stores: reviewers read the live /privacy, which is served from store/PRIVACY.md.
+      - name: Deploy mapping server
+        if: ${{ !inputs.dry_run }}
+        run: npm run deploy -w server
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Submit to Chrome Web Store and AMO
+        working-directory: extension
+        run: |
+          v=$(node -p "require('./package.json').version")
+          npx wxt submit \
+            --chrome-zip .output/extension-$v-chrome.zip \
+            --firefox-zip .output/extension-$v-firefox.zip \
+            --firefox-sources-zip .output/extension-$v-sources.zip
+        env:
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+          CHROME_API_VERSION: v2
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
+          CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL: ${{ secrets.CHROME_SERVICE_ACCOUNT_CLIENT_EMAIL }}
+          CHROME_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CHROME_SERVICE_ACCOUNT_PRIVATE_KEY }}
+          FIREFOX_EXTENSION_ID: job-application-filler@worktoday
+          FIREFOX_COMPATIBILITY: firefox,android
+          FIREFOX_JWT_ISSUER: ${{ secrets.FIREFOX_JWT_ISSUER }}
+          FIREFOX_JWT_SECRET: ${{ secrets.FIREFOX_JWT_SECRET }}
