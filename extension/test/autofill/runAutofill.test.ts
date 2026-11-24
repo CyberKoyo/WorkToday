@@ -28,6 +28,30 @@ function deps(over: Record<string, unknown> = {}) {
   };
 }
 
+describe('runAutofill city', () => {
+  // Live Greenhouse (Minitab): the city search finds nothing for "New York City", everything for "New York".
+  const city = (value: string, finds: (v: string) => boolean) => {
+    const fill = vi.fn(async (_f: unknown, v: unknown) => (finds(String(v)) ? 'filled' : 'no_match'));
+    const d = deps({ profile: { ...emptyProfile(), city: value, reviewed: true }, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'city']])), fill });
+    document.body.innerHTML = '<div data-automation-id="formField-a"><label>Location (City)*</label><input type="text"></div>'; // after deps(), which sets its own page
+    return { fill, run: runAutofill(d) };
+  };
+  it('tries again without a trailing "City" when the search finds nothing, and marks it for checking', async () => {
+    const { fill, run } = city('New York City', (v) => v === 'New York');
+    const r = await run;
+    expect(fill.mock.calls.map((c) => c[1])).toEqual(['New York City', 'New York']);
+    expect(r.attention).toHaveLength(0);
+    expect(r.answered!.map((f) => f.label)).toEqual(['Location (City)']);
+  });
+  it('leaves a city that fills as it is, or that has no "City" to drop', async () => {
+    for (const [value, finds] of [['Kansas City', () => true], ['Springfield', () => false]] as const) {
+      const { fill, run } = city(value, finds);
+      await run;
+      expect(fill.mock.calls.map((c) => c[1])).toEqual([value]);
+    }
+  });
+});
+
 describe('runAutofill certifications', () => {
   const page = (required = '') => `<div role="group" data-automation-id="certificationSection">
     <div role="group"><h4>Certification 1</h4>
