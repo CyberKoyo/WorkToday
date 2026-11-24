@@ -20,7 +20,7 @@ export default defineConfig({
         ? {
           optional_permissions: ['<all_urls>'],
           browser_specific_settings: { gecko: {
-            id: 'workday-filler@local',
+            id: 'job-application-filler@worktoday',
             strict_min_version: '140.0', // first version that reads data_collection_permissions
             // What leaves the browser (README, Privacy): the resume and profile go to Gemini; form labels go to the
             // mapping server, and job page text to Gemini for essay drafts and unlisted job locations. Sheets builds also send each application's link.
