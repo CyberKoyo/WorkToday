@@ -11,12 +11,18 @@ on:
         type: boolean
         default: true
 
+# Read-only token: npm ci runs dependency install scripts, which must not be able to push or tag.
+permissions:
+  contents: read
+
 jobs:
-  release:
+  # No secrets here: this is the job that runs the dependencies' install scripts, tests and builds.
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: 24, cache: npm }
       - run: npm ci
 
@@ -28,6 +34,23 @@ jobs:
       - run: npm test
       - run: npx tsc --noEmit -p extension
       - run: npm run zip -w extension && npm run zip:firefox -w extension
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: zips, path: extension/.output/*.zip, if-no-files-found: error, retention-days: 7 }
+
+  # The secrets live in the "release" environment, which waits for the owner's approval.
+  # Installed without install scripts: wrangler and publish-extension are plain JavaScript and need none.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with: { node-version: 24 }
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with: { name: zips, path: extension/.output }
 
       # Before the stores: reviewers read the live /privacy, which is served from store/PRIVACY.md.
       - name: Deploy mapping server
@@ -37,11 +60,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      # What `wxt submit` runs, called directly: wxt itself is not set up without its install script.
       - name: Submit to Chrome Web Store and AMO
         working-directory: extension
         run: |
           v=$(node -p "require('./package.json').version")
-          npx wxt submit \
+          npx publish-extension \
             --chrome-zip .output/extension-$v-chrome.zip \
             --firefox-zip .output/extension-$v-firefox.zip \
             --firefox-sources-zip .output/extension-$v-sources.zip
