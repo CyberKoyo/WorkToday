@@ -3,6 +3,7 @@ import type { ProfileKey } from '@wf/shared';
 import { normalizeProfile, type Profile, type ProfileValue } from '../profile/profile';
 import type { StoredFile } from './fileCodec';
 import { moveTrackedRows } from '../tracker/store';
+import { open, replaceVault, seal, vaultState, type Sealed } from './vault';
 
 const K = { profile: 'profile', apiKey: 'geminiApiKey', resume: 'resumeFile', certProofs: 'certProofs', mapCache: 'mapCache', answers: 'savedAnswers', accountPassword: 'accountPassword', accountRefused: 'accountRefused', apps: 'applications', sheet: 'sheet' } as const;
 export const MAP_CACHE_MAX = 2000;
@@ -19,13 +20,14 @@ export async function getProfile(): Promise<Profile | null> {
 }
 export const saveProfile = (p: Profile) => set(K.profile, p);
 
-export const getApiKey = async () => (await get<string>(K.apiKey)) ?? '';
-export const saveApiKey = (k: string) => set(K.apiKey, k.trim());
+// The Gemini key and both passwords: sealed when the applicant set a passphrase (vault.ts), and '' while it is locked.
+export const getApiKey = async () => open(await get(K.apiKey));
+export const saveApiKey = async (k: string) => set(K.apiKey, await seal(k.trim()));
 
 // Kept apart from the profile (which goes to Gemini whole); never leaves this browser except into a site's own password box.
-export const getAccountPassword = async () => (await get<string>(K.accountPassword)) ?? '';
+export const getAccountPassword = async () => open(await get(K.accountPassword));
 // A new password is a new chance everywhere, so the refusals go with the old one.
-export const saveAccountPassword = async (p: string) => { await set(K.accountPassword, p); await set(K.accountRefused, []); };
+export const saveAccountPassword = async (p: string) => { await set(K.accountPassword, await seal(p)); await set(K.accountRefused, []); };
 // Sites that refused the saved password. It is never sent there again: a few wrong tries lock the account (live Leidos).
 export const getAccountRefused = async () => (await get<string[]>(K.accountRefused)) ?? [];
 export const addAccountRefused = async (host: string) => set(K.accountRefused, [...new Set([...(await getAccountRefused()), host])]);
@@ -58,11 +60,32 @@ export interface Sheet { id?: string; url?: string; token?: string; expires?: nu
 export const getSheet = async () => (await get<Sheet>(K.sheet)) ?? {};
 export const saveSheet = (s: Sheet) => set(K.sheet, s);
 
-/** Job loop: the login to use wherever an application wants an account, and whether the loop presses Submit itself.
- * shortcut: the password is stored as typed, like the API key above; move it behind a passphrase if this ships to others. */
+/** Job loop: the login to use wherever an application wants an account, and whether the loop presses Submit itself. */
 export interface LoopSettings { email: string; password: string; submit: boolean }
-export const getLoopSettings = async (): Promise<LoopSettings> => ({ email: '', password: '', submit: false, ...(await get<LoopSettings>('loop')) });
-export const saveLoopSettings = (s: LoopSettings) => set('loop', s);
+export async function getLoopSettings(): Promise<LoopSettings> {
+  const s = { email: '', password: '' as string | Sealed, submit: false, ...(await get<Omit<LoopSettings, 'password'> & { password: string | Sealed }>('loop')) };
+  return { ...s, password: await open(s.password) };
+}
+export const saveLoopSettings = async (s: LoopSettings) => set('loop', { ...s, password: await seal(s.password) });
+
+/** Lock the saved secrets behind `passphrase` (a new one replaces the old), or with '' store them plainly again.
+ * They must be readable first: a locked vault would read as empty and the secrets be lost. */
+export async function setPassphrase(passphrase: string): Promise<void> {
+  if ((await vaultState()) === 'locked') throw new Error('Unlock your saved secrets first.');
+  const [api, account, loop] = [await getApiKey(), await getAccountPassword(), await getLoopSettings()];
+  await replaceVault(passphrase);
+  await set(K.apiKey, await seal(api));
+  await set(K.accountPassword, await seal(account));
+  await set('loop', { ...loop, password: await seal(loop.password) });
+}
+
+/** Forgotten passphrase: drop the lock and the secrets it held (the key and passwords are entered again). */
+export async function forgetSecrets(): Promise<void> {
+  await replaceVault('');
+  await set(K.apiKey, '');
+  await set(K.accountPassword, '');
+  await set('loop', { ...(await getLoopSettings()), password: '' });
+}
 
 export const getSavedAnswers = async () => (await get<Record<string, ProfileValue>>(K.answers)) ?? {};
 // One write at a time: two answers settling together would otherwise each overwrite the other's read.

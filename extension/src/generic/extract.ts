@@ -184,9 +184,27 @@ export function wrapperField(w: HTMLElement, rawLabel: string, optionText: (el: 
 // and the resume unseen. The container is tested, not the control: sites hide styled radios and file inputs behind a label.
 const rendered = (c: HTMLElement): boolean => {
   if (c.checkVisibility && !c.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false;
+  if (clippedAway(c)) return false;
   const r = c.getBoundingClientRect(); // page coordinates, so a field scrolled past still counts
-  return !(r.width || r.height) || (r.right + scrollX > 0 && r.bottom + scrollY > 0); // no box at all: no layout to judge (display: contents)
+  return !(r.width || r.height) // no box at all: no layout to judge (display: contents)
+    || (r.right + scrollX > 0 && r.bottom + scrollY > 0 && r.left + scrollX < innerWidth); // not pushed off either side
 };
+
+// What checkVisibility misses: the field or a box around it that clips its overflow at 0-1px (height: 0, max-height: 0,
+// the sr-only 1px box), or cuts it away with clip, clip-path or scale(0). A page can hide EEO questions that way.
+// shortcut: a field pushed far below the form, or faded to near-zero opacity, still counts; ask before filling
+// self-identification answers on unlisted sites if that is ever seen.
+const TINY = /^[01](\.\d+)?px$/;
+function clippedAway(el: Element): boolean {
+  for (let a: Element | null = el; a; a = a.parentElement ?? ((a.getRootNode() as Partial<ShadowRoot>).host ?? null)) {
+    const s = getComputedStyle(a);
+    if (s.overflowY !== 'visible' && (TINY.test(s.height) || TINY.test(s.maxHeight))) return true;
+    if (s.overflowX !== 'visible' && (TINY.test(s.width) || TINY.test(s.maxWidth))) return true;
+    if (/^rect\((\s*0(px)?\s*,?){4}\)$/.test(s.clip) || /inset\(\s*(50|[5-9]\d|100)(\.\d+)?%|circle\(\s*0(px|%)?\s*[)a]/.test(s.clipPath)) return true;
+    if (/^matrix\(\s*0,\s*0,\s*0,\s*0,|scale\(\s*0(\.0*)?\s*[,)]/.test(s.transform)) return true;
+  }
+  return false;
+}
 
 /** How much of what a page hides still counts as a field.
  *  `keepHidden`: for an adapter that reads hidden rows on purpose and checks them itself before filling (ADP's `asked`).

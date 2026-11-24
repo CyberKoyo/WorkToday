@@ -21,6 +21,52 @@ const CSS = `
   .link { background: none; border: 0; color: #2563eb; cursor: pointer; padding: 8px; font: inherit; }
   .close { position: absolute; top: 6px; right: 8px; background: none; border: 0; font-size: 18px; cursor: pointer; }`;
 
+// Clickjacking: a page decides when this box appears and owns everything around it, so it could pop the box up under
+// a click meant for something else, or fade it, filter it or (Chrome sees this) lay a decoy over it. Auto-fill and
+// Loop jobs count a press only once the box has sat unchanged and visible for ARM_MS.
+export const ARM_MS = 500;
+const WAIT = 'Press again: this box only works once it has been on screen, uncovered, for a moment.';
+const HIDES = /opacity\(|blur\(|(brightness|contrast)\(0(\.\d+)?\)/; // invert() (dark-mode add-ons) still shows the box
+
+function faded(host: HTMLElement): boolean {
+  if (!host.isConnected || (host.checkVisibility && !host.checkVisibility({ opacityProperty: true, visibilityProperty: true }))) return true;
+  let opacity = 1;
+  for (let a: Element | null = host; a; a = a.parentElement) {
+    const s = getComputedStyle(a);
+    opacity *= Number(s.opacity || 1);
+    if (HIDES.test(s.filter)) return true;
+  }
+  return opacity < 0.95;
+}
+
+function pressGuard(host: HTMLElement, box: Element) {
+  let armed = false, onScreen = true, timer: ReturnType<typeof setTimeout> | undefined;
+  const arm = () => { armed = false; clearTimeout(timer); timer = setTimeout(() => { armed = onScreen; }, ARM_MS); };
+  const watch = new MutationObserver(arm);
+  watch.observe(host, { attributes: true });
+  // Chrome only (IntersectionObserver v2): whether the box is really seen, uncovered and unfaded. Firefox reports nothing.
+  let seen: IntersectionObserver | undefined;
+  try {
+    seen = new IntersectionObserver((entries) => {
+      const v = (entries.at(-1) as IntersectionObserverEntry & { isVisible?: boolean }).isVisible;
+      if (v === undefined || v === onScreen) return;
+      onScreen = v;
+      if (v) arm(); else armed = false;
+    }, { threshold: [1], trackVisibility: true, delay: 100 } as IntersectionObserverInit);
+    seen.observe(box);
+  } catch { /* no IntersectionObserver: the delay and the fade check still apply */ }
+  arm();
+  return {
+    ok(say: (s: string) => void): boolean {
+      if (armed && !faded(host)) return true;
+      say(WAIT);
+      arm();
+      return false;
+    },
+    stop() { clearTimeout(timer); watch.disconnect(); seen?.disconnect(); },
+  };
+}
+
 export function showBanner(opts: BannerOptions): { host: HTMLElement; shadow: ShadowRoot; remove(): void } {
   const host = document.createElement('div');
   host.id = 'wf-banner-host';
@@ -41,6 +87,11 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; shadow: Sh
   seen.textContent = opts.notice ?? '';
   seen.hidden = !opts.notice;
   const primary = shadow.querySelector<HTMLButtonElement>('.primary')!;
+  const say = (s: string) => { msg.textContent = s; };
+  // The page cannot reach inside the shadow root, but it owns the host: page CSS (all a hosted ATS lets an employer add)
+  // gets nothing to restyle on it, and script that does restyle it re-arms the guard.
+  host.style.cssText = 'all: initial !important; display: block !important;';
+  const guard = pressGuard(host, shadow.querySelector('.box')!);
 
   // Something filled wrong: one press puts what the reader saw on the clipboard, to paste into a bug report.
   const copy = shadow.querySelector<HTMLButtonElement>('.copy')!;
@@ -56,14 +107,15 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; shadow: Sh
   } else {
     msg.textContent = 'Fill this page from your profile?';
     primary.textContent = 'Auto-fill';
-    primary.onclick = async () => {
+    const run = async () => {
       primary.disabled = true;
       msg.textContent = 'Filling…';
       try { msg.textContent = await opts.onFill(); }
       catch (e) { msg.textContent = e instanceof Error ? e.message : 'Auto-fill failed.'; }
       finally { primary.disabled = false; copy.hidden = !details; copy.textContent = 'Copy details'; }
     };
-    if (opts.autoFill) primary.click();
+    primary.onclick = () => { if (guard.ok(say)) void run(); };
+    if (opts.autoFill) void run(); // the extension's own decision (the loop, the step after Next): no press to guard
   }
   const log = shadow.querySelector<HTMLButtonElement>('.log')!;
   log.hidden = !opts.onLog;
@@ -76,13 +128,14 @@ export function showBanner(opts: BannerOptions): { host: HTMLElement; shadow: Sh
   loop.hidden = opts.needsSetup || !opts.onLoop;
   loop.onclick = async () => {
     if (looping) { looping = false; msg.textContent = 'Stopping after this job…'; return; }
+    if (!guard.ok(say)) return;
     looping = true;
     loop.textContent = 'Stop';
     try { msg.textContent = await opts.onLoop!((s) => { msg.textContent = s; }, () => !looping); }
     catch (e) { msg.textContent = e instanceof Error ? e.message : 'Loop failed.'; }
     finally { looping = false; loop.textContent = 'Loop jobs'; }
   };
-  const remove = () => { looping = false; host.remove(); }; // a banner that is gone cannot be told to stop, so it stops
+  const remove = () => { looping = false; guard.stop(); host.remove(); }; // a banner that is gone cannot be told to stop, so it stops
   shadow.querySelector<HTMLButtonElement>('.close')!.onclick = () => { remove(); opts.onDismiss(); };
   // An iframe sized to its content has no visible bottom edge; put the banner where the form starts.
   if (opts.framed) document.body.prepend(host); else document.body.append(host);

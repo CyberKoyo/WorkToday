@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser';
-import { getAccountPassword, getAccountRefused, getApplications, getLoopSettings, getProfile } from '../storage/store';
+import { getAccountRefused, getApplications, getLoopSettings, getProfile } from '../storage/store';
+import { askSecret } from './secret';
 import type { AtsAdapter } from '../ats/types';
 import { showBanner } from './banner';
 import { startWatcher } from './watcher';
@@ -30,6 +31,8 @@ export interface Mounted {
 // The site content script and the toolbar script share the extension's isolated world in each frame,
 // so the toolbar script finds the banner a supported site already set up here instead of adding a second.
 const KEY = '__wfMounted';
+// Reading another origin's location throws, from a content script too.
+const crossOrigin = () => { try { return window.top!.location.origin !== location.origin; } catch { return true; } };
 const holder = globalThis as { [KEY]?: Mounted };
 export const mounted = (): Mounted | undefined => holder[KEY];
 
@@ -46,7 +49,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     const profile = await getProfile();
     await Promise.all([advanceLoaded, resumeReloadLoaded]); // the self-fill notes this page was left
     // The account step does itself once per tab, and only with a saved password: a second try could lock the account.
-    const account = !!adapter.accountPage?.(document) && !accountTried() && !!(await getAccountPassword())
+    const account = !!adapter.accountPage?.(document) && !accountTried() && !!(await askSecret('account'))
       && !(await getAccountRefused()).includes(location.host);
     const seen = await (notice ??= seenNotice().catch(() => ''));
     banner?.remove(); // after the await, so two quick calls still leave one banner
@@ -81,8 +84,9 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     return !r.attention.length && !r.answerError ? 'clean' : 'attention';
   };
   const loopStep = async (clickApply: boolean) =>
-    step({ adapter, settings: await getLoopSettings(), fill: loopFill, top, clickApply, inPage: looping, asksIdentity: () => asksIdentity(document),
-      signInHere: adapter.id !== 'generic' });
+    // The loop's password comes from the background, and only when a supported site shows a password box to type it in.
+    step({ adapter, settings: { ...(await getLoopSettings()), password: adapter.id !== 'generic' && document.querySelector('input[type="password"]') ? await askSecret('loop') : '' }, fill: loopFill, top, clickApply, inPage: looping, asksIdentity: () => asksIdentity(document),
+      signInHere: adapter.id !== 'generic', foreign: adapter.id === 'generic' && !top && crossOrigin() });
   return { show: () => show(), loopStep };
 }
 

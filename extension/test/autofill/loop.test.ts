@@ -92,6 +92,14 @@ describe('loopStep', () => {
     expect(fill).not.toHaveBeenCalled();
     expect(await loopStep(deps({ inPage: true, fill, asksIdentity: () => true }))).toBe('acted');
   });
+  it('never fills or sends a third-party frame on an unlisted site', async () => {
+    document.body.innerHTML = FORM; // a chat widget's "name, email" box in a frame from another site
+    const go = clicks();
+    const fill = vi.fn().mockResolvedValue('clean');
+    expect(await loopStep(deps({ foreign: true, top: false, fill, asksIdentity: () => true }))).toBeNull();
+    expect(fill).not.toHaveBeenCalled();
+    expect(go).not.toHaveBeenCalled();
+  });
   it('signs in once per page with the saved login', async () => {
     document.body.innerHTML = '<form><input type="email"><input type="password"><button type="button" id="go">Sign In</button></form>';
     const go = clicks();

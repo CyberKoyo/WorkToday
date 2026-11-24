@@ -85,6 +85,9 @@ export interface StepDeps {
   asksIdentity: () => boolean;
   /** This frame is a supported ATS, matched by its own https URL: the only place the saved loop login is typed. */
   signInHere: boolean;
+  /** An unlisted site's frame from another origin than the tab (a chat widget's or an ad's name/email box): never the
+   * loop's to fill or send. Its banner still works by hand. */
+  foreign?: boolean;
 }
 
 /** One poll of the loop in this frame: sign in, or fill the step on screen and (if the applicant asked) press on. */
@@ -96,6 +99,7 @@ export async function loopStep(d: StepDeps, doc: Document = document): Promise<S
 
 async function decide(d: StepDeps, doc: Document): Promise<Step> {
   const { adapter, settings: s } = d;
+  if (d.foreign) return null;
   const path = `${location.pathname}${location.search}`;
   // Inside a board, a form is the application only if it opens like one (or the loop is already past its first step):
   // the board's own search, filter and chat boxes are forms too.

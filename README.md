@@ -69,6 +69,8 @@ Continue / Submit, but only on a step where Auto-fill left nothing highlighted f
 step. The closing line counts jobs as *sent* (Submit was pressed and the form went away: check the tab for the site's
 confirmation), *filled*, *need you*, or *no form*.
 
+- Forms in frames from another site than the page (chat widgets, ads) are never filled by the loop; a supported site's
+  own frame (an embedded Greenhouse form) still is.
 - The sign-in is tried once per page. It does not tick terms boxes, switch from "create account" to "sign in" when the
   account already exists, or handle logins that ask for the email and password on separate pages.
 - Sites that check for a human (CAPTCHA) may refuse a Submit pressed by the extension; those jobs end as *need you*.
@@ -128,13 +130,13 @@ says how many: read what you are agreeing to before you submit. Optional checkbo
 The application log stays in the extension; with Google Sheets connected, each entry's name, date, link and location also go to your sheet.
 Answers you type into highlighted fields are saved in the extension (this browser only) and reused when the same question comes up again,
 written answers included (except "why…" questions, which are about one employer); a saved written answer is used instead of a new draft.
-The account password is stored unencrypted in the extension (this browser only) and is typed only into a site's own password boxes; it never goes to Gemini or the mapping server. Use one made for job applications.
+The account password is stored in the extension (this browser only), unencrypted unless you set a passphrase under Settings → **Lock your saved secrets** (which encrypts it, the loop's password and the Gemini key; unlock once per browser session). It is typed only into a site's own password boxes; it never goes to Gemini or the mapping server. Use one made for job applications.
 Your date of birth stays in this browser and is used only for ADP's tax credit opt-out; it never goes to Gemini or the mapping server, and no other form gets it.
 **Delete all my data** (Settings) clears everything the extension stores in this browser. The full privacy policy is `store/PRIVACY.md`, served by the mapping server at `/privacy`.
 The extension never overwrites a field that already has a value, and never submits an application unless you turn on
 **Submit applications for me** for the job loop. On its own it moves to the next step only when every field on the current one
-was filled, and only through a button named Next or Continue (ADP: the pager arrow, never on the last step). The loop's sign-in email and password are stored unencrypted in the extension
-(this browser only) and typed only into the sign-in form of a supported application site (the table above), over https;
+was filled, and only through a button named Next or Continue (ADP: the pager arrow, never on the last step). The loop's sign-in email and password are stored in the extension
+(this browser only; the password encrypted once you set a passphrase) and typed only into the sign-in form of a supported application site (the table above), over https;
 they are never sent to Gemini or the mapping server. On other sites, sign in yourself.
 
 ## Known limitations

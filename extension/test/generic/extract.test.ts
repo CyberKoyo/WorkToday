@@ -36,6 +36,16 @@ describe('extractGeneric', () => {
       <div class=gone><label for=h7>Resume</label><input id=h7 type=file></div><div class=gone><label for=h8>A project you are proud of</label><textarea id=h8></textarea></div></form>`;
     expect(discoverFields(document.getElementById('apply')!).map((d) => d.label)).toEqual(['First Name', 'Email']);
   });
+  it('leaves out fields clipped away while still "visible"', () => {
+    document.body.innerHTML = `<form id=apply><label for=v1>First Name*</label><input id=v1>
+      <div style="height:0;overflow:hidden"><div><label for=h1>Gender</label><select id=h1><option>Female</option></select></div></div>
+      <div style="max-height:0px;overflow:hidden"><label for=h2>Ethnicity</label><input id=h2></div>
+      <div style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)"><label for=h3>Veteran status</label><input id=h3></div>
+      <div style="clip-path:inset(50%)"><label for=h4>Disability</label><input id=h4></div>
+      <div style="transform:scale(0)"><label for=h5>Street Address</label><input id=h5></div>
+      <div style="overflow:hidden;height:40px"><label for=v2>Email*</label><input id=v2></div></form>`;
+    expect(discoverFields(document.getElementById('apply')!).map((d) => d.label)).toEqual(['First Name', 'Email']);
+  });
   it('finds labelled controls, kinds, sections, groups', () => {
     document.body.innerHTML = FORM;
     const f = extractGeneric(document.getElementById('f')!);

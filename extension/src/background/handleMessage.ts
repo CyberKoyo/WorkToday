@@ -1,9 +1,14 @@
 import { browser } from 'wxt/browser';
 import { mapFields as realMapFields, MapError } from '../api/mapClient';
 import { answerQuestions } from '../gemini/answerQuestions';
-import { getApiKey, getProfile, getResumes } from '../storage/store';
+import { getAccountPassword, getApiKey, getLoopSettings, getProfile, getResumes } from '../storage/store';
+import { vaultState } from '../storage/vault';
+import { atsAt } from '../ats/matches';
 import { syncSheet as realSync, trackApplication } from '../sheets/track';
-import type { AnswerReply, BgMessage, LoopReply, MapReply, SyncReply } from '../messages';
+import type { AnswerReply, BgMessage, LoopReply, MapReply, SecretReply, SyncReply } from '../messages';
+
+// The ATS whose own account step the account password is for (the adapters with `account`).
+const ACCOUNT_SITES = ['workday'];
 import { loopJob, loopStart } from './loop';
 import { greenhousePosting } from '../greenhouse/posting';
 import { companyFromUrl } from '../tracker/company';
@@ -23,7 +28,14 @@ export async function handleMessage(
     track?: typeof trackApplication; syncSheet?: typeof realSync; guess?: typeof guessLocation; posting?: (frameUrl: string) => Promise<string> } = {},
   tab?: { id?: number; title?: string; url?: string }, // the sender's tab: the job page itself when the form sits in a frame
   frameUrl?: string, // the address of the frame that asked: the form's own page
-): Promise<MapReply | AnswerReply | SyncReply | LoopReply | undefined> {
+): Promise<MapReply | AnswerReply | SyncReply | LoopReply | SecretReply | undefined> {
+  if (msg.type === 'secret') {
+    // Only to a supported site's own frame, by the address the browser reports for it: never a page the generic reader
+    // fills, and never a frame inside one. The account password only to the site whose account step it is for.
+    const ats = atsAt(frameUrl ?? '');
+    if (!ats || (msg.which === 'account' && !ACCOUNT_SITES.includes(ats))) return { value: '' };
+    return { value: msg.which === 'account' ? await getAccountPassword() : (await getLoopSettings()).password };
+  }
   if (msg.type === 'loop-start') return loopStart();
   if (msg.type === 'loop-job') return tab?.id === undefined ? { ok: false, message: 'Loop failed.' } : loopJob(msg, tab.id);
   if (msg.type === 'open-options') {
@@ -56,6 +68,7 @@ export async function handleMessage(
     }
   }
   if (msg.type === 'answer-fields') {
+    if ((await vaultState()) === 'locked') return { ok: false, message: 'Your Gemini key is locked: unlock it in the dashboard (Settings).' };
     try {
       // `msg.job` is only what the form's own page shows. A form in a frame (an embedded Greenhouse application) has no
       // posting around it: the tab's title names the role, and the posting itself is fetched where the site offers it.

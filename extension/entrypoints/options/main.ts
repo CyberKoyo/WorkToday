@@ -1,5 +1,5 @@
 import '@/src/ui/page.css';
-import { getAccountPassword, saveAccountPassword, getApiKey, getApplications, getCertProofs, getLoopSettings, getProfile, getResume, getResumes, getSavedAnswers, getSheet, saveApiKey, saveCertProofs, saveLoopSettings, saveProfile, saveResumes } from '@/src/storage/store';
+import { forgetSecrets, setPassphrase, getAccountPassword, saveAccountPassword, getApiKey, getApplications, getCertProofs, getLoopSettings, getProfile, getResume, getResumes, getSavedAnswers, getSheet, saveApiKey, saveCertProofs, saveLoopSettings, saveProfile, saveResumes } from '@/src/storage/store';
 import { fileToStored, type StoredFile } from '@/src/storage/fileCodec';
 import { getApplications as getTracked } from '@/src/tracker/store';
 import { keyWorks, parseResume, ResumeParseError } from '@/src/gemini/parseResume';
@@ -8,6 +8,7 @@ import { ALL_SITES, type BgMessage, type SyncReply } from '@/src/messages';
 import { renderProfileForm, readProfileForm, readCertProofs } from '@/src/options/profileForm';
 import { keepManualAnswers } from '@/src/options/mergeManual';
 import { emptyProfile } from '@/src/profile/profile';
+import { lock, unlock, vaultState } from '@/src/storage/vault';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const status = (msg: string) => { $('status').textContent = msg; };
@@ -27,8 +28,8 @@ const cell = (...kids: Array<Node | string>) => { const td = document.createElem
 
 async function renderDashboard() {
   const apps = await getApplications(); // first and alone: it moves old tracker rows out, once
-  const [tracked, answers, key, resume, profile, sheet] = await Promise.all(
-    [getTracked(), getSavedAnswers(), getApiKey(), getResume(), getProfile(), getSheet()]);
+  const [tracked, answers, key, resume, profile, sheet, vault] = await Promise.all(
+    [getTracked(), getSavedAnswers(), getApiKey(), getResume(), getProfile(), getSheet(), vaultState()]);
   // The Applications log holds every application: typed in, imported, or copied from what Auto-fill logged (copyLogged).
   const all = tracked.map((a, i) => ({ ...a, i })).sort((a, b) => b.date.localeCompare(a.date) || b.i - a.i); // newest first; same day, last added first
   const weekAgo = new Date(Date.now() - 7 * 864e5).toLocaleDateString('en-CA');
@@ -38,7 +39,8 @@ async function renderDashboard() {
   $('statProfile').textContent = profile?.reviewed ? '✓ Reviewed' : profile ? '⚠ Needs review' : '○ Not set up';
 
   const steps: Array<[string, boolean, string]> = [
-    ['Add your Gemini API key', !!key, '#settings'],
+    ...(vault === 'locked' ? [['Unlock your saved secrets', false, '#settings'] as [string, boolean, string]] : []),
+    ['Add your Gemini API key', !!key || vault === 'locked', '#settings'], // locked reads as empty, not as missing
     ['Upload your resume', !!resume, '#profile'],
     ['Review and save your profile', !!profile?.reviewed, '#profile'],
   ];
@@ -87,18 +89,61 @@ async function init() {
   window.addEventListener('hashchange', route);
   await renderDashboard();
   browser.storage.onChanged.addListener(() => { void renderDashboard(); }); // an application logged in another tab shows up live
-  $<HTMLInputElement>('apiKey').value = await getApiKey();
-  $<HTMLInputElement>('accountPassword').value = await getAccountPassword();
+  await fillSecrets();
   await renderAllowed();
-  const loop = await getLoopSettings();
-  $<HTMLInputElement>('loopEmail').value = loop.email;
-  $<HTMLInputElement>('loopPassword').value = loop.password;
-  $<HTMLInputElement>('loopSubmit').checked = loop.submit;
+  await renderVault();
   await renderResumes();
   const profile = await getProfile();
   renderProfileForm($('form'), profile ?? emptyProfile(), await getCertProofs());
   if (profile && !profile.reviewed) status('Profile not reviewed yet — review and save.');
 }
+
+// The boxes that show saved secrets: empty while they are locked (and saving then refuses, so nothing is overwritten).
+async function fillSecrets() {
+  $<HTMLInputElement>('apiKey').value = await getApiKey();
+  $<HTMLInputElement>('accountPassword').value = await getAccountPassword();
+  const loop = await getLoopSettings();
+  $<HTMLInputElement>('loopEmail').value = loop.email;
+  $<HTMLInputElement>('loopPassword').value = loop.password;
+  $<HTMLInputElement>('loopSubmit').checked = loop.submit;
+}
+
+async function renderVault() {
+  const state = await vaultState();
+  $('vaultState').textContent = state === 'off' ? 'No passphrase: the key and passwords are stored unencrypted.'
+    : state === 'locked' ? 'Locked. Enter your passphrase and press Unlock.' : 'Locked with a passphrase, and unlocked until the browser closes.';
+  $('vaultSet').textContent = state === 'off' ? 'Set passphrase' : 'Change passphrase';
+  $('vaultSet').hidden = state === 'locked';
+  $('vaultUnlock').hidden = state !== 'locked';
+  $('vaultLock').hidden = $('vaultOff').hidden = state !== 'unlocked';
+  $('vaultForget').hidden = state !== 'locked';
+}
+
+const passphrase = () => $<HTMLInputElement>('passphrase');
+const vaultAction = (run: () => Promise<string | void>) => async () => {
+  try { const done = await run(); if (done) status(done); } catch (e) { status(errorMessage(e)); }
+  passphrase().value = '';
+  await fillSecrets();
+  await renderVault();
+  await renderDashboard();
+};
+$('vaultSet').onclick = vaultAction(async () => {
+  if (passphrase().value.length < 10) return 'Use a passphrase of at least 10 characters.';
+  await setPassphrase(passphrase().value);
+  return 'Passphrase set. Your key and passwords are stored encrypted.';
+});
+$('vaultUnlock').onclick = vaultAction(async () => ((await unlock(passphrase().value)) ? 'Unlocked.' : 'Wrong passphrase.'));
+$('vaultLock').onclick = vaultAction(async () => { await lock(); return 'Locked.'; });
+$('vaultOff').onclick = vaultAction(async () => {
+  if (!confirm('Remove the passphrase? Your key and passwords will be stored unencrypted again.')) return;
+  await setPassphrase('');
+  return 'Passphrase removed.';
+});
+$('vaultForget').onclick = vaultAction(async () => {
+  if (!confirm('Clear the locked Gemini key and passwords? Enter them again afterwards. Your profile, resumes and log stay.')) return;
+  await forgetSecrets();
+  return 'Cleared. Enter your Gemini key and passwords again.';
+});
 
 // The stored resume versions. The first is the file attached to applications; any other can take its place.
 async function renderResumes() {
@@ -166,7 +211,8 @@ $('saveLoop').onclick = async () => {
 $('wipe').onclick = async () => {
   if (!confirm('Delete your profile, resumes, API key, passwords, saved answers and applications log from this browser? This cannot be undone.')) return;
   try {
-    await browser.storage.local.clear(); // the extension keeps nothing anywhere else
+    await browser.storage.local.clear(); // the extension keeps nothing anywhere else but the unlocked key
+    await browser.storage.session.clear();
     location.reload(); // every box on this page still shows the old values
   } catch (e) {
     status(`Could not delete: ${errorMessage(e)}`);
