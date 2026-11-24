@@ -203,9 +203,12 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
       // A certification with no number or expiry has nothing to enter; flagging it would stop hands-free advance.
       else if (key.startsWith('cert.') && !f.required) result = 'skipped_nonempty';
       // People write "New York City"; city searches know "New York" (live Greenhouse: nothing at all for the longer
-      // name). One more try without the word, highlighted to check: "Kansas City" would get here only if its own search failed.
+      // name). One more try without the word. Highlighted to check unless the pick also names the applicant's state
+      // ("New York, New York, United States" for NY): "Kansas City" would get here only if its own search failed, and
+      // "Kansas" could then pick another state's town.
       const shorter = key === 'city' && result === 'no_match' && typeof value === 'string' ? value.trim().replace(/\s+city$/i, '') : '';
-      if (shorter && shorter !== (value as string).trim() && (result = await d.fill(f, shorter, undefined, missed)) === 'filled') {
+      if (shorter && shorter !== (value as string).trim() && (result = await d.fill(f, shorter, undefined, missed)) === 'filled'
+        && !(f.tieBreak && String(readAnswer(f) ?? '').toLowerCase().includes(f.tieBreak.toLowerCase()))) {
         report.answered!.push(f);
         flag(f, '#3b82f6');
       }

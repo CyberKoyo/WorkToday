@@ -30,18 +30,29 @@ function deps(over: Record<string, unknown> = {}) {
 
 describe('runAutofill city', () => {
   // Live Greenhouse (Minitab): the city search finds nothing for "New York City", everything for "New York".
-  const city = (value: string, finds: (v: string) => boolean) => {
-    const fill = vi.fn(async (_f: unknown, v: unknown) => (finds(String(v)) ? 'filled' : 'no_match'));
-    const d = deps({ profile: { ...emptyProfile(), city: value, reviewed: true }, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'city']])), fill });
+  // `picks`: what the search shows once filled (the site's own wording of the place).
+  const city = (value: string, finds: (v: string) => boolean, state = '', picks = 'New York, New York, United States') => {
+    const fill = vi.fn(async (f: { container: HTMLElement }, v: unknown) => {
+      if (!finds(String(v))) return 'no_match';
+      f.container.querySelector('input')!.value = picks;
+      return 'filled';
+    });
+    const d = deps({ profile: { ...emptyProfile(), city: value, state, reviewed: true }, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'city']])), fill });
     document.body.innerHTML = '<div data-automation-id="formField-a"><label>Location (City)*</label><input type="text"></div>'; // after deps(), which sets its own page
     return { fill, run: runAutofill(d) };
   };
-  it('tries again without a trailing "City" when the search finds nothing, and marks it for checking', async () => {
-    const { fill, run } = city('New York City', (v) => v === 'New York');
+  it('tries again without a trailing "City" when the search finds nothing', async () => {
+    const { fill, run } = city('New York City', (v) => v === 'New York', 'NY');
     const r = await run;
     expect(fill.mock.calls.map((c) => c[1])).toEqual(['New York City', 'New York']);
     expect(r.attention).toHaveLength(0);
-    expect(r.answered!.map((f) => f.label)).toEqual(['Location (City)']);
+    expect(r.answered).toHaveLength(0); // the pick names the applicant's state: nothing to check
+  });
+  it('marks the shorter pick for checking when it does not name the applicant\'s state, or there is none', async () => {
+    for (const [state, picks] of [['MO', 'Kansas, Illinois, United States'], ['', 'New York, New York, United States']]) {
+      const r = await city(state === 'MO' ? 'Kansas City' : 'New York City', (v) => !/city$/i.test(v), state, picks).run;
+      expect(r.answered!.map((f) => f.label)).toEqual(['Location (City)']);
+    }
   });
   it('leaves a city that fills as it is, or that has no "City" to drop', async () => {
     for (const [value, finds] of [['Kansas City', () => true], ['Springfield', () => false]] as const) {
