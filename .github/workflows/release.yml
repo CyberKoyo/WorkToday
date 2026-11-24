@@ -35,7 +35,8 @@ jobs:
       - run: npx tsc --noEmit -p extension
       - run: npm run zip -w extension && npm run zip:firefox -w extension
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with: { name: zips, path: extension/.output/*.zip, if-no-files-found: error, retention-days: 7 }
+        # .output is a dot folder, which upload-artifact skips unless told otherwise; the glob still takes only the zips.
+        with: { name: zips, path: extension/.output/*.zip, include-hidden-files: true, if-no-files-found: error, retention-days: 7 }
 
   # The secrets live in the "release" environment, which waits for the owner's approval.
   # Installed without install scripts: wrangler and publish-extension are plain JavaScript and need none.
