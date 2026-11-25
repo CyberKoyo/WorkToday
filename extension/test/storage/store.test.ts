@@ -49,6 +49,11 @@ describe('fileCodec', () => {
     expect(back.type).toBe('application/pdf');
     expect(new Uint8Array(await back.arrayBuffer())).toEqual(bytes);
   });
+  it('stamps the upload time', async () => {
+    const before = Date.now();
+    const s = await fileToStored(new File(['x'], 'r.pdf'));
+    expect(s.addedAt).toBeGreaterThanOrEqual(before);
+  });
   it('saved answers: answers saved together are all kept', async () => {
     expect(await getSavedAnswers()).toEqual({});
     await Promise.all([saveAnswer('radio|a', 'Yes'), saveAnswer('checkbox|b', ['LinkedIn']), saveAnswer('text|c', '4')]);

@@ -62,6 +62,8 @@ const onlyOne: Pick = (hits) => (hits.length === 1 ? hits[0]! : -1);
 export interface MatchOptions {
   /** 'shortest': among equally good options, take the one shortest without its parentheticals, if only one is. */
   ties?: 'none' | 'shortest';
+  /** The employer's name (from the page address), for picking its own site from a referral list ("NVIDIA.COM"). */
+  employer?: string;
 }
 
 // "3.6" (or "3.60/4.00", "3.6 GPA") is in the option "3.51-3.75".
@@ -81,13 +83,13 @@ function inRange(value: string, options: string[]): number {
   }));
 }
 
-export function matchOption(value: string, options: string[], { ties = 'none' }: MatchOptions = {}): number {
+export function matchOption(value: string, options: string[], { ties = 'none', employer = '' }: MatchOptions = {}): number {
   // The very wording first: "MA" in a list of state codes is Massachusetts, not a master's.
   const same = options.flatMap((o, i) => (norm(o) === norm(value) ? [i] : []));
   if (same.length === 1) return same[0]!;
   const degree = matchDegree(value, options);
   if (degree !== null) return degree;
-  const strict = matchWith(value, options, onlyOne);
+  const strict = matchWith(value, options, onlyOne, employer);
   if (strict !== -1) return strict;
   const ranged = inRange(value, options);
   if (ranged !== -1 || ties === 'none') return ranged;
@@ -100,10 +102,39 @@ export function matchOption(value: string, options: string[], { ties = 'none' }:
     const bases = new Set(shortest.map((i) => norm(options[i]!.replace(/\([^)]*\)/g, ' '))));
     const langTags = shortest.every((i) => /\([^)]*\blanguage\)\s*$/i.test(options[i]!));
     return shortest.length === 1 || (bases.size === 1 && langTags) ? shortest[0]! : -1;
-  });
+  }, employer);
 }
 
-function matchWith(value: string, rawOptions: string[], pick: Pick): number {
+// "Company career site" and the like: the employer's own site, however the list names it.
+const OWN_VALUE = (v: string) => (/\b(?:company|corporate|employer)\b/.test(v) && /\b(?:careers?|site|website|web|page)\b/.test(v))
+  || /\bcareers? (?:web ?site|site|page)\b/.test(v);
+const SITE_WORD = /\b(?:careers?|web ?site|site|page|com)\b/;
+// Someone else's site, or not a site: never the employer's own (live RTX: "Job Board - Indeed", "University Career Center").
+const NOT_OWN = /\b(?:job board|boards?|social|media|fairs?|events?|conference|universit(?:y|ies)|campus|college|school|agenc(?:y|ies)|recruiters?|referral|other|internet|search|diversity|linkedin|indeed|glassdoor|monster|dice|handshake|ziprecruiter|careerbuilder|google|facebook|twitter|instagram|youtube|reddit)\b/;
+
+/** Index of the employer's own site among `opts` (normalized), best tier first: named for the employer, "company" or
+ * "corporate", a careers page, then any website ("Website", live NVIDIA). -1 when a tier holds more than one. */
+function ownSite(opts: string[], employer: string): number {
+  const name = employer.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const site = opts.map((o) => SITE_WORD.test(o) && !NOT_OWN.test(o));
+  const tiers: Array<(o: string) => boolean> = [
+    (o) => !!name && o.replace(/ /g, '').includes(name),
+    (o) => /\b(?:company|corporate|employer|our)\b/.test(o),
+    (o) => /\bcareers?\b/.test(o),
+    () => true,
+  ];
+  for (const tier of tiers) {
+    const hits = opts.flatMap((o, i) => (site[i] && tier(o) ? [i] : []));
+    if (hits.length === 1) return hits[0]!;
+    // Two of the employer's sites: the careers one ("NVIDIA Careers" beside "NVIDIA.com").
+    const careers = hits.filter((i) => /\bcareers?\b/.test(opts[i]!));
+    if (careers.length === 1) return careers[0]!;
+    if (hits.length) return -1;
+  }
+  return -1;
+}
+
+function matchWith(value: string, rawOptions: string[], pick: Pick, employer = ''): number {
   // Phone country lists end each name in its dial code ("United States+1", live Greenhouse).
   const options = rawOptions.map((o) => o.replace(/\s*\+\d{1,4}\s*$/, ''));
   const uniqueIndex = (opts: string[], pred: (o: string, i: number) => boolean) => pick(opts.flatMap((o, i) => (pred(o, i) ? [i] : [])));
@@ -154,6 +185,7 @@ function matchWith(value: string, rawOptions: string[], pick: Pick): number {
       if (j !== -1) return j;
     }
   }
+  if (OWN_VALUE(cands[0]!)) { const i = ownSite(opts, employer); if (i !== -1) return i; }
   // Filler words would sink "Computer Science" vs "Computer and Information Science" below the cutoff.
   const words = (s: string) => new Set(s.split(' ').filter((t) => !FILLER.has(t)));
   const vt = words(cands[0]!);

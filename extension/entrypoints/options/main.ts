@@ -157,7 +157,8 @@ async function renderResumes() {
   };
   $('resumes').replaceChildren(...list.map((r, i) => {
     const li = document.createElement('li');
-    li.append(r.name, i ? ' ' : ' (attached to applications) ');
+    const added = r.addedAt ? `, uploaded ${new Date(r.addedAt).toLocaleDateString('en-CA')}` : '';
+    li.append(`${r.name}${added}`, i ? ' ' : ' (attached to applications) ');
     if (i) li.append(button('Attach this one', `Attach ${r.name} to applications`, () => [r, ...list.filter((x) => x !== r)], `${r.name} is now attached to applications.`), ' ');
     li.append(button('Remove', `Remove ${r.name}`, () => list.filter((x) => x !== r), `Removed ${r.name}. Press Read resumes to rebuild the profile without it.`));
     return li;

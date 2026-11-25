@@ -1,4 +1,5 @@
-export interface StoredFile { name: string; type: string; dataBase64: string }
+/** `addedAt`: when it was uploaded (ms); files stored before it was kept have none. */
+export interface StoredFile { name: string; type: string; dataBase64: string; addedAt?: number }
 
 export function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const bin = atob(b64);
@@ -14,7 +15,7 @@ export function bytesToBase64(bytes: Uint8Array): string {
 }
 
 export async function fileToStored(file: File): Promise<StoredFile> {
-  return { name: file.name, type: file.type, dataBase64: bytesToBase64(new Uint8Array(await file.arrayBuffer())) };
+  return { name: file.name, type: file.type, dataBase64: bytesToBase64(new Uint8Array(await file.arrayBuffer())), addedAt: Date.now() };
 }
 
 export function storedToFile(s: StoredFile): File {

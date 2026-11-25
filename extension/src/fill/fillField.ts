@@ -4,6 +4,7 @@ import { matchOption, norm } from './matchOption';
 import { asText, rawSet, setNativeValue, typeChars, waitFor, pressKey, setFilesViaDataTransfer } from './dom';
 import type { ProfileValue } from '../profile/profile';
 import { today } from './dateParts';
+import { companyFromUrl } from '../tracker/company';
 
 export type { FillResult } from '../ats/field';
 export { setNativeValue, typeChars, waitFor } from './dom';
@@ -18,6 +19,7 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
   const chips = () => c.querySelectorAll(SEL.multiSelectChip).length;
   if (chips()) return 'skipped_nonempty';
   const doc = c.ownerDocument;
+  const employer = companyFromUrl(doc.URL);
   // An earlier prompt's results list (e.g. Field of Study) can stay open; read only lists opened since this
   // prompt started, or the newest list when Workday reuses one.
   const stale = new Set(doc.querySelectorAll(SEL.promptList));
@@ -53,9 +55,13 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
       return outcome === 'entered';
     }
     const found = results();
-    const i = matchOption(value, found.map(labelOf), { ties: 'shortest' });
+    const i = matchOption(value, found.map(labelOf), { ties: 'shortest', employer });
     if (i === -1) { warnMissed(value, 'no single clear match among', found.slice(0, 10).map(labelOf)); return false; }
-    const row = found[i]!;
+    return pick(found[i]!, value, chipsBefore);
+  };
+  // Clicks a result row. `chipsBefore`: the count before this value's Enter, which may have added it already.
+  const pick = async (row: HTMLElement, value: string, chipsBefore = chips()): Promise<boolean> => {
+    const gained = () => (chips() > chipsBefore ? true : null);
     const leaf = row.querySelector<HTMLElement>(SEL.promptLeaf);
     // Already selected: clicking would uncheck it.
     if (leaf?.dataset.automationChecked === 'Checked') return !!(await waitFor(gained, Math.min(timeoutMs, 1000)));
@@ -65,10 +71,33 @@ async function fillMultiselect(c: HTMLElement, values: string[], timeoutMs: numb
     return ok;
   };
 
+  // Search reaches only the leaves, and a "How did you hear" prompt files its answers under categories: Website >
+  // NVIDIA.COM (live NVIDIA), Corporate Career Website > its one site. Open the category that fits and pick in it.
+  const isCategory = (r: HTMLElement) => !!r.querySelector(SEL.promptCategory);
+  const drill = async (value: string): Promise<boolean> => {
+    rawSet(box, '');
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    pressKey(box, 'Enter', 13); // an empty search brings back the top level
+    const cats = await waitFor(() => { const r = results(); return r.length && r.every(isCategory) ? r : null; }, Math.min(timeoutMs, 1500));
+    if (!cats) return false;
+    const names = cats.map(labelOf);
+    const i = matchOption(value, names, { employer });
+    if (i === -1) { warnMissed(value, 'no category fits among', names); return false; }
+    const before = listKey();
+    (cats[i]!.querySelector<HTMLElement>(SEL.promptLabel) ?? cats[i]!).click();
+    if (!(await waitFor(() => (results().length && listKey() !== before ? true : null), timeoutMs))) return false;
+    const kids = results().filter((r) => !isCategory(r));
+    const labels = kids.map(labelOf);
+    let k = matchOption(value, labels, { ties: 'shortest', employer });
+    if (k === -1 && kids.length === 1) k = 0; // "Corporate Career Website" holds just the one site
+    if (k === -1) { warnMissed(value, `no single clear match in "${names[i]}" among`, labels); return false; }
+    return pick(kids[k]!, value);
+  };
+
   let added = 0;
   const unique = [...new Set(values.map((v) => v.trim()).filter(Boolean))];
   for (const [n, value] of unique.entries()) {
-    if (await searchAndPick(value, n === 0)) added++;
+    if ((await searchAndPick(value, n === 0)) || (await drill(value))) added++;
     else missed.push(value);
   }
   rawSet(box, '');
@@ -90,7 +119,7 @@ async function fillSelect(c: HTMLElement, value: string, timeoutMs: number): Pro
   // The list can fill in stages (live CME Degree: matched against a partial list): match as it grows, until the timeout.
   await waitFor(() => {
     opts = [...doc.querySelectorAll<HTMLElement>(SEL.listboxOption)].filter((o) => !before.has(o));
-    i = opts.length ? matchOption(value, opts.map((o) => o.textContent ?? '')) : -1;
+    i = opts.length ? matchOption(value, opts.map((o) => o.textContent ?? ''), { employer: companyFromUrl(doc.URL) }) : -1;
     return i !== -1 ? true : null;
   }, timeoutMs);
   if (!opts.length) {

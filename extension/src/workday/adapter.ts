@@ -16,6 +16,6 @@ export const workday: AtsAdapter = {
   fill: fillField,
   fillFile: (f, file) => fillFile(f, file),
   ensureGroups: (doc, p) => ensureRepeatGroups(doc, p),
-  accountPage: (doc) => !!accountPage(doc),
+  accountPage,
   account: (doc, email, password, onAttempt) => fillAccount(doc, email, password, onAttempt),
 };
