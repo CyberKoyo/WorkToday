@@ -170,11 +170,12 @@ describe('options main', () => {
     await vi.waitFor(() => expect($('status').textContent).toBe('Parsed. Review below, then Save.'));
     expect(JSON.parse(fetchMock.mock.calls[0]![1].body).contents[0].parts).toHaveLength(3); // both files and the prompt
     const rows = () => [...$('resumes').children].map((li) => li.textContent);
-    expect(rows()).toEqual(['swe.pdf (attached to applications) Remove', 'data.pdf Attach this oneRemove'.replace('oneRemove', 'one Remove')]);
+    const up = `, uploaded ${new Date().toLocaleDateString('en-CA')}`; // each file shows the day it was added
+    expect(rows()).toEqual([`swe.pdf${up} (attached to applications) Remove`, `data.pdf${up} Attach this one Remove`]);
     expect((await getResume())!.name).toBe('swe.pdf');
     $('resumes').querySelector<HTMLButtonElement>('[aria-label="Attach data.pdf to applications"]')!.click();
     await vi.waitFor(async () => expect((await getResume())!.name).toBe('data.pdf'));
-    await vi.waitFor(() => expect(rows()[0]).toBe('data.pdf (attached to applications) Remove'));
+    await vi.waitFor(() => expect(rows()[0]).toBe(`data.pdf${up} (attached to applications) Remove`));
     // Adding a file again replaces its older copy; with nothing chosen, the stored ones are read again.
     Object.defineProperty(input, 'files', { configurable: true, value: [] });
     $('resumes').querySelector<HTMLButtonElement>('[aria-label="Remove swe.pdf"]')!.click();
