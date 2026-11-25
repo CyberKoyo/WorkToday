@@ -31,6 +31,7 @@ export const saveAccountPassword = async (p: string) => { await set(K.accountPas
 // Sites that refused the saved password. It is never sent there again: a few wrong tries lock the account (live Leidos).
 export const getAccountRefused = async () => (await get<string[]>(K.accountRefused)) ?? [];
 export const addAccountRefused = async (host: string) => set(K.accountRefused, [...new Set([...(await getAccountRefused()), host])]);
+export const clearAccountRefused = async (host: string) => set(K.accountRefused, (await getAccountRefused()).filter((h) => h !== host));
 
 /** Every version of the resume the applicant added: Gemini reads them all. The first is the one attached to applications.
  * A resume stored before there was a list (under K.resume) counts as the list's only entry. */

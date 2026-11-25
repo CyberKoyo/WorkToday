@@ -27,8 +27,8 @@ export interface AtsAdapter {
   autoStart?: boolean;
   /** On the site's create-account / sign-in step: fills it with the applicant's standard password and signs in (`onAttempt` fires before a sign-in is sent). Null once through it; otherwise what to tell the applicant. */
   account?(doc: Document, email: string, password: string, onAttempt: () => void): Promise<string | null>;
-  /** The create-account / sign-in step is on screen. */
-  accountPage?(doc: Document): boolean;
+  /** Which account step is on screen, or null. */
+  accountPage?(doc: Document): 'create' | 'signin' | null;
   /** Click "Add" until there is one work/education group per profile entry. */
   ensureGroups(doc: Document, profile: Profile): Promise<void>;
 }

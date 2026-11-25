@@ -49,8 +49,10 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     const profile = await getProfile();
     await Promise.all([advanceLoaded, resumeReloadLoaded]); // the self-fill notes this page was left
     // The account step does itself once per tab, and only with a saved password: a second try could lock the account.
-    const account = !!adapter.accountPage?.(document) && !accountTried() && !!(await askSecret('account'))
-      && !(await getAccountRefused()).includes(location.host);
+    // Create Account sends no password, so it fills even after a refused Sign In (no account yet, live NVIDIA).
+    const step = adapter.accountPage?.(document);
+    const account = !!step && !!(await askSecret('account'))
+      && (step === 'create' || (!accountTried() && !(await getAccountRefused()).includes(location.host)));
     const seen = await (notice ??= seenNotice().catch(() => ''));
     banner?.remove(); // after the await, so two quick calls still leave one banner
     banner = showBanner({

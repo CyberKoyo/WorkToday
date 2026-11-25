@@ -1,6 +1,6 @@
 import { browser } from 'wxt/browser';
 import type { FieldDescriptor, ProfileKey } from '@wf/shared';
-import { addAccountRefused, getAccountRefused, getCertProofs, getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
+import { addAccountRefused, clearAccountRefused, getAccountRefused, getCertProofs, getProfile, getResume, getSavedAnswers, saveAnswer } from '../storage/store';
 import { askSecret } from './secret';
 import { rememberAnswers } from '../answers/remembered';
 import { storedToFile } from '../storage/fileCodec';
@@ -46,10 +46,13 @@ export async function fillCurrentPage(adapter: AtsAdapter, onReport?: (r: Autofi
   clearAdvance();
   const profile = await getProfile();
   if (!profile?.reviewed) throw new Error('Review your profile in setup first.');
-  if (adapter.accountPage?.(document) && adapter.account) {
+  const accountStep = adapter.accountPage?.(document);
+  if (accountStep && adapter.account) {
     const password = await askSecret('account');
     if (!password || !profile.email) return 'Sign in or create your account, or save an account password in setup to have it done for you.';
-    if ((await getAccountRefused()).includes(location.host)) return 'Your saved account password was refused on this site before, so it is not tried again. Sign in yourself.';
+    // A refused Sign In here usually means no account yet (live NVIDIA); creating one sends no password, and the next Sign In uses the new account.
+    if (accountStep === 'create') await clearAccountRefused(location.host);
+    else if ((await getAccountRefused()).includes(location.host)) return 'Your saved account password was refused on this site before, so it is not tried again. No account here yet? Open Create Account and press Auto-fill. Otherwise sign in yourself.';
     // The step re-renders (Create Account → Sign In) while this runs; the banner that brings must not start a second try.
     if (accountRunning) return 'Signing in…';
     accountRunning = true;
