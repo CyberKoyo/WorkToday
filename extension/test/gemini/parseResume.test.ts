@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseResume, ResumeParseError, MAX_RESUME_BYTES } from '../../src/gemini/parseResume';
+import { generate, parseResume, ResumeParseError, MAX_RESUME_BYTES } from '../../src/gemini/parseResume';
 
 const pdf = { name: 'r.pdf', type: 'application/pdf', dataBase64: 'JVBERi0=' };
 const ok = (obj: unknown) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify(obj) }] } }] }), { status: 200 });
@@ -58,9 +58,19 @@ describe('parseResume', () => {
   it('rejects missing key', async () => {
     await expect(parseResume(pdf, '', vi.fn())).rejects.toMatchObject({ code: 'bad_key' });
   });
-  it.each([[403, 'bad_key'], [429, 'rate_limited'], [500, 'bad_response']])('HTTP %i -> %s', async (status, code) => {
+  it.each([[403, 'bad_key'], [429, 'rate_limited'], [501, 'bad_response']])('HTTP %i -> %s', async (status, code) => {
     const f = vi.fn().mockResolvedValue(new Response('{}', { status }));
     await expect(parseResume(pdf, 'K', f)).rejects.toMatchObject({ code });
+  });
+  it('an overloaded Gemini (503) is asked again, and the retry answers', async () => {
+    const f = vi.fn().mockResolvedValueOnce(new Response('{}', { status: 503 })).mockResolvedValueOnce(ok({ a: 1 }));
+    expect(await generate('K', [], {}, f, [0, 0])).toBe('{"a":1}');
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+  it('still overloaded after the retries -> says so', async () => {
+    const f = vi.fn().mockImplementation(async () => new Response('{}', { status: 503 }));
+    await expect(generate('K', [], {}, f, [0, 0])).rejects.toMatchObject({ code: 'bad_response', message: expect.stringContaining('overloaded') });
+    expect(f).toHaveBeenCalledTimes(3);
   });
   it('401 -> bad_key', async () => {
     const f = vi.fn().mockResolvedValue(new Response('{}', { status: 401 }));

@@ -116,22 +116,29 @@ export async function keyWorks(apiKey: string, fetchImpl: typeof fetch = fetch):
   }
 }
 
-/** One structured-output Gemini call; returns the reply's JSON text. */
-export async function generate(apiKey: string, parts: unknown[], schema: unknown, fetchImpl: typeof fetch = fetch): Promise<string> {
+/** One structured-output Gemini call; returns the reply's JSON text. `waits`: ms before each retry of an overloaded Gemini. */
+export async function generate(apiKey: string, parts: unknown[], schema: unknown, fetchImpl: typeof fetch = fetch, waits = [2000, 5000]): Promise<string> {
   if (!apiKey) throw new ResumeParseError('bad_key', 'Enter your Gemini API key first.');
+  const BUSY = [500, 502, 503, 504];
   let res: Response;
-  try {
-    res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify({
-        contents: [{ parts }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
-      }),
-    });
-  } catch {
-    throw new ResumeParseError('network', 'Could not reach Gemini. Check your connection.');
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0 },
+        }),
+      });
+    } catch {
+      throw new ResumeParseError('network', 'Could not reach Gemini. Check your connection.');
+    }
+    // 500/502/503/504: Gemini is busy (often "The model is overloaded"); it usually clears within seconds.
+    if (!BUSY.includes(res.status) || attempt >= waits.length) break;
+    await new Promise((r) => setTimeout(r, waits[attempt]));
   }
+  if (BUSY.includes(res.status)) throw new ResumeParseError('bad_response', `Gemini is overloaded right now (HTTP ${res.status}). Try again in a minute.`);
   if (res.status === 401 || res.status === 403) throw new ResumeParseError('bad_key', 'Gemini rejected the API key.');
   if (res.status === 400 || res.status === 404) {
     let body: { error?: { message?: string; details?: Array<{ reason?: string }> } } | null = null;
