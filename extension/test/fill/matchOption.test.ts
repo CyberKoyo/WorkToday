@@ -142,7 +142,7 @@ describe('matchOption', () => {
     const SRC = ['Ericsson Career Website', 'LinkedIn', 'Indeed', 'Employee Referral', 'Other'];
     expect(matchOption('Company Career Website', SRC)).toBe(0);
     expect(matchOption('Company Website', ['Acme Website', 'LinkedIn'])).toBe(0);
-    expect(matchOption('Company Career Website', ['Acme Career Website', 'Other Career Website'])).toBe(-1); // two employers' sites
+    expect(matchOption('Company Career Website', ['Acme Career Website', 'Globex Career Website'])).toBe(-1); // two employers' sites
   });
 
   it('US citizenship picks the demonym with its country code (live SuccessFactors)', () => {
@@ -181,5 +181,30 @@ describe('matchOption', () => {
   });
   it('"USD" reaches "US Dollar", not its settlement variants (live Oracle currency list)', () => {
     expect(matchOption('USD', ['UAE Dirham', 'US Dollar', 'US Dollar (next day)', 'US Dollar (same day)'])).toBe(1);
+  });
+});
+
+describe("matchOption: the employer's own site in a referral list", () => {
+  // Live RTX's flat list carries these beside its own site.
+  const OTHERS = ['Job Board - LinkedIn', 'Job Board - Indeed', 'Social Media - Facebook', 'Career Fair', 'University Career Center',
+    'Event - University/Campus Event', 'Employee Referral', 'Recruiter Outreach', 'Other'];
+  const OWN = ['Company Career Website', 'NVIDIA Career Website', 'NVIDIA Careers Website', 'Corporate Career Website', 'Corporate Website',
+    'Company Website', 'Careers Site', 'Career Site', 'Careers Page', 'Careers Website', 'Website', 'NVIDIA.com', 'NVIDIA Careers',
+    'NVIDIA Website', 'nvidia.com/careers', 'Company Careers Page', 'Our Website', 'Employer Website', 'NVIDIA Jobs Site', 'Careers',
+    'RTX Corporate Career Site'];
+  const VALUES = ['Company career site', 'Company Career Website', 'Company website', 'Career site', 'Corporate website'];
+  it.each(VALUES)('"%s" reaches every wording of it, never a job board', (value) => {
+    const wrong = OWN.filter((own) => { const opts = [...OTHERS, own]; return opts[matchOption(value, opts, { employer: 'Nvidia' })] !== own; });
+    expect(wrong).toEqual([]);
+  });
+  it('picks the site named for the employer among its other entries (live NVIDIA search for "NVIDIA")', () => {
+    const opts = ['NVIDIA Ignite 2025', 'NVIDIA Student Network', 'NVIDIA.COM', 'APAC Tech Women Connect at NVIDIA'];
+    expect(matchOption('Company career site', opts, { employer: 'Nvidia' })).toBe(2);
+  });
+  it("prefers the employer's careers site over its plain one", () => {
+    expect(matchOption('Company career site', [...OTHERS, 'NVIDIA.com', 'NVIDIA Careers'], { employer: 'Nvidia' })).toBe(OTHERS.length + 1);
+  });
+  it('takes nothing when only job boards and events are listed', () => {
+    expect(matchOption('Company career site', OTHERS, { employer: 'Nvidia' })).toBe(-1);
   });
 });

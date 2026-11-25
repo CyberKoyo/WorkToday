@@ -13,6 +13,8 @@ export const SEL = {
   promptResult: '[role="option"]', // inside promptList; virtualized: only visible rows exist
   promptLeaf: '[data-automation-id="promptLeafNode"]', // the click target that actually selects
   promptLabel: '[data-automation-id="promptOption"]',
+  // A row that opens a sublist instead of selecting (live NVIDIA "How Did You Hear": Website > NVIDIA.COM).
+  promptCategory: '[data-uxi-multiselectlistitem-hassidecharm="true"]',
   dateMonth: '[data-automation-id="dateSectionMonth-input"]',
   dateDay: '[data-automation-id="dateSectionDay-input"]',
   dateYear: '[data-automation-id="dateSectionYear-input"]',
