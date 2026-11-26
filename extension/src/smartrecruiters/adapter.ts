@@ -1,6 +1,7 @@
 import type { AtsAdapter } from '../ats/types';
 import { clean, type ExtractedField } from '../ats/field';
 import { fillGeneric, fillFileGeneric } from '../generic/fill';
+import { addEntries, deep } from './entries';
 
 // SmartRecruiters' "oneclick" apply page (live Wellmark, 2026-11-17). Every field is a web component in the page whose
 // real input sits in an open shadow root (the phone's is two roots down), so the generic reader sees none of them.
@@ -13,16 +14,6 @@ const SR = {
 
 const form = (doc: Document) => doc.querySelector<HTMLElement>(SR.form);
 
-/** First match inside the host's shadow tree, however many roots down. */
-function deep<T extends HTMLElement>(host: Element, sel: string): T | null {
-  const root = host.shadowRoot;
-  if (!root) return null;
-  const hit = root.querySelector<T>(sel);
-  if (hit) return hit;
-  for (const el of root.querySelectorAll('*')) { const d = deep<T>(el, sel); if (d) return d; }
-  return null;
-}
-
 const control = (host: HTMLElement) => deep<HTMLInputElement | HTMLTextAreaElement>(host, 'input:not([role="combobox"]),textarea');
 // The field stays the host (highlighting and its clean-up work in the page); the fill goes to the input inside.
 const inner = (f: ExtractedField): ExtractedField => ({ ...f, container: control(f.container) ?? f.container });
@@ -33,6 +24,7 @@ export const smartrecruiters: AtsAdapter = {
   isFormPage: (doc) => !!form(doc)?.querySelector(SR.field),
   stepKey: (doc) => `${doc.defaultView?.location.pathname ?? ''}|${clean(form(doc)?.querySelector(SR.title)?.textContent)}`,
   extract: (doc) => [...(form(doc)?.querySelectorAll<HTMLElement>(SR.field) ?? [])].flatMap((host, i): ExtractedField[] => {
+    if (host.closest('oc-experience,oc-education')) return []; // an Add editor's, filled by addEntries
     const el = control(host);
     if (!el) return [];
     const file = el.matches('input[type="file"]');
@@ -49,7 +41,6 @@ export const smartrecruiters: AtsAdapter = {
   }),
   fill: (f, value, timeoutMs, missed) => fillGeneric(inner(f), value, timeoutMs, missed),
   fillFile: (f, file) => fillFileGeneric(inner(f), file),
-  // shortcut: Experience/Education open an "Add" dialog and the screening step comes after Next; neither seen live
-  // (they need a real applicant). Read them once seen.
-  ensureGroups: async () => {},
+  // shortcut: the screening step after Next is not seen live (it needs a real applicant); read it once seen.
+  ensureGroups: (doc, p) => addEntries(doc, p),
 };
