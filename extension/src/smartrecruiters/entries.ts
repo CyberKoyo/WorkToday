@@ -23,9 +23,10 @@ function setText(ed: Editor, host: string, value: string) {
   if (el && value && !el.value.trim()) setNativeValue(el, value);
 }
 
-// An spl-autocomplete lists the typed text itself first ("#spl-custom-option"), then the site's suggestions; a
-// location lists suggestions only (live Wellmark, 2026-11-26). The typed text is kept as written; a location takes
-// the suggestion that matches, or is left empty.
+// An spl-autocomplete must have one of its options picked; typed text alone is not kept (live Wellmark, 2026-11-26).
+// Title and Institution list the site's suggestions; Company and Institution also list the typed text itself
+// ("#spl-custom-option"); a location lists suggestions only. Takes the suggestion named exactly this, else the typed
+// text, else (a location) the closest suggestion; with none the field is left empty.
 async function setAuto(ed: Editor, label: string, value: string, timeoutMs: number) {
   const host = ed.querySelector<HTMLElement>(`spl-autocomplete[label="${label}"]`);
   const el = deep<HTMLInputElement>(host, 'input');
@@ -35,26 +36,31 @@ async function setAuto(ed: Editor, label: string, value: string, timeoutMs: numb
   el.dispatchEvent(new Event('input', { bubbles: true }));
   const pick = () => {
     const opts = [...host.shadowRoot!.querySelectorAll<HTMLElement>('spl-select-option')].filter((o) => o.getAttribute('value') !== 'goToManualLocationMode');
+    const exact = opts.find((o) => norm(o.getAttribute('value') ?? '') === norm(value));
+    if (exact) return exact;
     const own = opts.find((o) => o.getAttribute('value') === '#spl-custom-option');
     if (own) return norm(clean(own.textContent)) === norm(value) ? own : null; // once it shows this text, not the last
     const i = matchOption(value, opts.map((o) => clean(o.textContent)));
     return i === -1 ? null : opts[i]!;
   };
   const hit = await waitFor(pick, timeoutMs);
-  if (hit) { hit.click(); return; }
+  // The option's click() is the page's own method, which a content script does not see; its item's spl-select event
+  // is what runs it.
+  if (hit) { (hit.shadowRoot?.querySelector('spl-dropdown-item') ?? hit).dispatchEvent(new Event('spl-select', { bubbles: true, composed: true })); return; }
   console.warn('[workday-filler] no option for', label, JSON.stringify(value));
   rawSet(el, '');
   el.dispatchEvent(new Event('input', { bubbles: true }));
   pressKey(el, 'Escape', 27);
 }
 
-// An spl-date-field is a month-and-year picker that takes "MM/YYYY" typed and Enter (live). A YYYY-MM or YYYY date.
+// An spl-date-field is a month-and-year picker that reads a typed date on Enter, YYYY-MM-DD only ("06/2024" is
+// January, live). A YYYY-MM or YYYY date.
 function setMonth(ed: Editor, label: string, value: string) {
   const m = value.match(/^(\d{4})(?:-(\d{2}))?/);
   const el = box(ed, `spl-date-field[label="${label}"]:not([disabled])`, 'input.flatpickr-input');
   if (!m || !el || el.value) return;
   el.focus();
-  setNativeValue(el, `${m[2] ?? '01'}/${m[1]!}`);
+  setNativeValue(el, `${m[1]!}-${m[2] ?? '01'}-01`);
   pressKey(el, 'Enter', 13);
 }
 

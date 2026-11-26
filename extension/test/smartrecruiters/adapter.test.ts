@@ -65,12 +65,16 @@ function section(name: 'experience' | 'education', fields: string) {
       input.addEventListener('input', () => {
         root.querySelectorAll('spl-select-option').forEach((o) => o.remove());
         const location = /location/i.test(h.getAttribute('label')!);
+        const label = h.getAttribute('label')!;
         const opts = location ? [['US_IA_CITY_des_moines', 'Des Moines, IA, US'], ['goToManualLocationMode', 'Cannot find your city?']]
+          : label === 'Title' ? [[`${input.value} II`, `${input.value} II`], [input.value, input.value]] // no typed-text option
           : [['#spl-custom-option', input.value], ['Other', `${input.value} Holdings Retail`]];
         for (const [value, text] of opts) {
+          // Picked by its item's spl-select event: click() is the page's own, out of a content script's reach.
           const o = document.createElement('spl-select-option');
           o.setAttribute('value', value!); o.textContent = text!;
-          o.addEventListener('click', () => { input.value = location ? text! : input.value; h.setAttribute('data-picked', text!); });
+          shadow(o, '<spl-dropdown-item></spl-dropdown-item>').querySelector('spl-dropdown-item')!
+            .addEventListener('spl-select', () => { input.value = location ? text! : input.value; h.setAttribute('data-picked', text!); });
           root.append(o);
         }
       });
@@ -85,7 +89,7 @@ function section(name: 'experience' | 'education', fields: string) {
       const picked = [...ed.querySelectorAll('spl-autocomplete')].map((a) => a.getAttribute('data-picked') ?? '');
       const card = document.createElement('div');
       card.setAttribute('data-test', `${name}-entry`);
-      card.textContent = [...picked, val('spl-input[label="Major"]'), val('spl-input[label="Degree"]')].join(' ');
+      card.textContent = [...picked, val('spl-input[label="Major"]'), val('spl-input[label="Degree"]'), val('spl-date-field[label="From"]')].join(' ');
       ed.replaceWith(card);
     });
   });
@@ -116,8 +120,8 @@ describe('smartrecruiters experience and education', () => {
   it('adds one saved card per entry, the typed text kept and a location picked from its suggestions', async () => {
     const { exp, edu } = load();
     await sr.ensureGroups(document, profile());
-    expect(cards(exp)).toEqual(['SOC Analyst Acme Des Moines, IA, US  ', 'Help Desk Initech   ']);
-    expect(cards(edu)).toEqual(["Iowa State University  Cybersecurity Bachelor's"]);
+    expect(cards(exp)).toEqual(['SOC Analyst Acme Des Moines, IA, US   2024-06-01', 'Help Desk Initech    2023-01-01']);
+    expect(cards(edu)).toEqual(["Iowa State University  Cybersecurity Bachelor's "]);
     expect(sr.extract(document)).toEqual([]); // no editor left behind to read as questions
   });
   it('adds nothing already on a card, and stops at an editor the site will not save', async () => {
