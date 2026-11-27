@@ -6,9 +6,9 @@ import { setNativeValue, TEXT_INPUT } from '../fill/dom';
  * What one poll of the job loop did in a frame.
  * `acted`: pressed the application's Next or Submit. `progress`: signed in, or the resume upload is reloading the page.
  * `waiting`: already pressed on this step and the page has not moved on. `filled`: filled, and submitting is off.
- * `stuck`: the applicant is needed. null: nothing to do here (yet).
+ * `stuck`: the applicant is needed. `applied`: applied to before, left unfilled. null: nothing to do here (yet).
  */
-export type Step = 'acted' | 'progress' | 'waiting' | 'filled' | 'stuck' | null;
+export type Step = 'acted' | 'progress' | 'waiting' | 'filled' | 'stuck' | 'applied' | null;
 /** How the Auto-fill went: nothing left for the applicant, something left, mid resume reload, no field it could fill,
  * or (null) profile not set up. */
 export type Filled = 'clean' | 'attention' | 'reloading' | 'nothing' | null;
@@ -76,6 +76,8 @@ export interface StepDeps {
   adapter: Pick<AtsAdapter, 'isFormPage' | 'stepKey' | 'extract'>;
   settings: LoopSettings;
   fill: () => Promise<Filled>;
+  /** The loop's job tabs: whether this job was applied to before it opened (tracker/seen alreadyApplied). */
+  applied?: () => Promise<boolean>;
   top: boolean;
   /** No form after a while: press the posting's own Apply button. */
   clickApply: boolean;
@@ -123,6 +125,7 @@ async function decide(d: StepDeps, doc: Document): Promise<Step> {
 
   const key = `form|${adapter.stepKey(doc)}`;
   if (acted() === key) return 'waiting';
+  if (!acted() && (await d.applied?.())) return 'applied'; // first step only: later ones are this application's own
   const filled = await d.fill();
   log('Auto-fill:', filled ?? 'profile not set up');
   if (filled === 'reloading') return 'progress';

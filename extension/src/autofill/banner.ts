@@ -9,7 +9,7 @@ let details = '';
 export const setDetails = (s: string) => { details = s; };
 
 const CSS = `
-  .box { position: fixed; right: 16px; bottom: 16px; z-index: 2147483647; width: 300px; padding: 12px 14px;
+  .box { position: fixed; right: 16px; top: 16px; z-index: 2147483647; width: 300px; padding: 12px 14px;
     background: #fff; color: #1f2937; border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18);
     font: 14px system-ui, sans-serif; }
   .box.framed { position: static; width: auto; margin: 8px 0; }

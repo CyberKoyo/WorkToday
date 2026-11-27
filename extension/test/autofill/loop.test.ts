@@ -79,6 +79,18 @@ describe('loopStep', () => {
     expect(await loopStep(deps({ filled: null }))).toBe('stuck');
     expect(go).not.toHaveBeenCalled();
   });
+  it('leaves a job applied to before unfilled, and checks only before the first step', async () => {
+    document.body.innerHTML = FORM;
+    const go = clicks();
+    const fill = vi.fn().mockResolvedValue('clean');
+    expect(await loopStep(deps({ fill, applied: async () => true }))).toBe('applied');
+    expect(fill).not.toHaveBeenCalled();
+    expect(go).not.toHaveBeenCalled();
+    expect(await loopStep(deps({ applied: async () => false }))).toBe('acted');
+    const applied = vi.fn().mockResolvedValue(true);
+    expect(await loopStep(deps({ adapter: { ...deps().adapter, stepKey: () => 'step-2' }, applied }))).toBe('acted');
+    expect(applied).not.toHaveBeenCalled(); // past Next: this application's own step
+  });
   it('does not count a form Auto-fill has nothing for', async () => {
     document.body.innerHTML = FORM;
     const go = clicks();
@@ -131,6 +143,7 @@ describe('drive', () => {
     expect(await drive(script(null, 'acted', 'acted'), now)).toBe('sent');       // stepped twice, then the form went away
     expect(await drive(script('acted', 'waiting', 'waiting', 'waiting', 'waiting'), now)).toBe('stuck'); // the site refused it
     expect(await drive(script('progress', 'filled'), now)).toBe('filled');
+    expect(await drive(script('applied'), now)).toBe('applied');
     expect(await drive(script(), now)).toBe('none');
     expect(await drive(async () => ['acted'], now)).toBe('stuck');               // going round in circles
   });
@@ -154,7 +167,7 @@ describe('runLoop', () => {
     const line = await runLoop(() => {}, () => stop, async () => null, ask, now);
     expect(clicked).toEqual(['a']);
     expect(sent.map((m) => (m.type === 'loop-job' ? m.url : m.type))).toEqual(['loop-start', undefined, 'https://acme.com/jobs/1']);
-    expect(line).toBe('2 jobs: 2 sent, 0 filled, 0 need you, 0 with no form. Check each tab.');
+    expect(line).toBe('2 jobs: 2 sent, 0 filled, 0 need you, 0 already applied, 0 with no form. Check each tab.');
   });
 
   it('scrolls for more jobs when the list runs out', async () => {

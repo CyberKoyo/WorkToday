@@ -62,7 +62,7 @@ Auto-fill: filled fields, the one left for you outlined), `3-dashboard.png` (das
 > Testing without a Gemini key: the setup page opens on install (later: about:addons → Job Application Filler →
 > Options, or press the toolbar button on any page and then "Open setup"). Click Profile in the sidebar, type a name and email and press "Save & mark reviewed". Then open any public
 > Greenhouse job application (a job-boards.greenhouse.io posting's application form) and press Auto-fill on the banner
-> at the bottom right. Please do not submit. A Gemini key (free, from Google AI Studio) is only needed to read a resume
+> at the top right. Please do not submit. A Gemini key (free, from Google AI Studio) is only needed to read a resume
 > and to answer or draft open questions.
 >
 > Remote services: generativelanguage.googleapis.com (the user's own Gemini key, entered on the setup page); the mapping

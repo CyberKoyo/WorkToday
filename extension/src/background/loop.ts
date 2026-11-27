@@ -10,9 +10,9 @@ const STEP_MAX_MS = 120_000; // a frame that navigates mid-fill may never answer
 
 // Runs inside each frame of the job tab, in the extension's isolated world, where mount.ts left `__wfMounted`.
 // Self-contained: executeScript sends its source, not its imports.
-function step(clickApply: boolean): Promise<Step> | 'inject' | null {
-  const m = (globalThis as { __wfMounted?: { loopStep(clickApply: boolean): Promise<Step> } }).__wfMounted;
-  return m ? m.loopStep(clickApply) : window === window.top ? 'inject' : null;
+function step(clickApply: boolean, since: number): Promise<Step> | 'inject' | null {
+  const m = (globalThis as { __wfMounted?: { loopStep(clickApply: boolean, since: number): Promise<Step> } }).__wfMounted;
+  return m ? m.loopStep(clickApply, since) : window === window.top ? 'inject' : null;
 }
 
 export async function loopStart(): Promise<LoopReply> {
@@ -22,6 +22,7 @@ export async function loopStart(): Promise<LoopReply> {
 
 /** One job: find the tab the board just opened (or open `url`), step its application to the end, return to the board. */
 export async function loopJob(msg: { known: number[]; url?: string }, boardId: number): Promise<LoopReply> {
+  const since = Date.now(); // rows logged from here on are this job's own, not a past application
   let tabId = msg.url ? (await browser.tabs.create({ url: msg.url })).id : undefined;
   for (let i = 0; tabId === undefined && i < 10; i++) { // a clicked button's tab takes a moment to exist
     await sleep(500);
@@ -32,7 +33,7 @@ export async function loopJob(msg: { known: number[]; url?: string }, boardId: n
   const job = tabId;
   const outcome = await drive(async (clickApply) => {
     const frames = await Promise.race([
-      browser.scripting.executeScript({ target: { tabId: job, allFrames: true }, func: step, args: [clickApply] }),
+      browser.scripting.executeScript({ target: { tabId: job, allFrames: true }, func: step, args: [clickApply, since] }),
       sleep(STEP_MAX_MS).then(() => []),
     ]).catch(() => []); // still loading, navigating, or a page extensions cannot touch
     const steps = frames.map((f) => f.result as Step | 'inject');

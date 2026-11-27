@@ -43,8 +43,8 @@ You need Node.js and a Gemini API key. No server setup is required.
    is the file attached to applications unless you pick another), press **Read resumes**, review every field (personal projects
    are read off the resume too, and you can add ones it does not list; Gemini uses them for answers and essay drafts) (work authorization, sponsorship and EEO answers are never inferred — enter them
    yourself), and save. Optional, under Settings: an **Account password** for the accounts Workday asks you to create.
-5. On a supported application, press **Auto-fill** in the banner. On any other site, click the extension's toolbar button
-   and press **Auto-fill this page** to bring up the banner first. When it fills every field on a step with nothing left for you, it presses Next and fills the
+5. On a supported application, press **Auto-fill** in the banner at the top right. On any other site, click the extension's toolbar button
+   and press **Auto-fill this page**: it fills the page at once, with progress in the same banner. When it fills every field on a step with nothing left for you, it presses Next and fills the
    following step too. It stops at any step with a highlighted field, and before the final submit. Gemini's answers (blue)
    count as filled, so check them on the site's review page before you submit.
 
@@ -58,16 +58,18 @@ Work down a whole list of jobs from a job board (jobright.ai, or any board whose
    presses the board's Apply buttons for you, and browsers block tabs opened without a real click.
 3. Optional, dashboard → Settings → **Job loop**: a sign-in email and password for applications that want an account first,
    and **Submit applications for me**.
-4. On the board, click the toolbar button, press **Auto-fill this page**, then **Loop jobs**. Each job opens in its own tab and is stepped there: sign in
+4. On the board, click the toolbar button and press **Loop jobs on this board**. The popup shows the loop's progress each time
+   you open it, and its button turns into **Stop loop**. Each job opens in its own tab and is stepped there: sign in
    if asked, press the posting's Apply button if the form is one click away, Auto-fill each step. When a board shows the
    application inside its own page instead of a new tab, it is filled there. Then the loop returns to the board for the next
-   job, scrolling the list for more when it runs out. **Stop** ends it after the job it is on; so does closing the banner or
+   job, scrolling the list for more when it runs out. **Stop loop** ends it after the job it is on; so does closing
    the board's tab. It pauses by itself after 25 jobs.
 
 With submitting off, every tab is left filled for you to review and send. With it on, the loop also presses Next / Save and
 Continue / Submit, but only on a step where Auto-fill left nothing highlighted for you; any other job is left open at that
 step. The closing line counts jobs as *sent* (Submit was pressed and the form went away: check the tab for the site's
-confirmation), *filled*, *need you*, or *no form*.
+confirmation), *filled*, *need you*, *already applied*, or *no form*. A job is *already applied* when your application log has
+its address, or the same company with nearly the same page title; its tab is left open and unfilled.
 
 - Forms in frames from another site than the page (chat widgets, ads) are never filled by the loop; a supported site's
   own frame (an embedded Greenhouse form) still is.

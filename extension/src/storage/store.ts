@@ -67,6 +67,12 @@ export async function getLoopSettings(): Promise<LoopSettings> {
   const s = { email: '', password: '' as string | Sealed, submit: false, ...(await get<Omit<LoopSettings, 'password'> & { password: string | Sealed }>('loop')) };
   return { ...s, password: await open(s.password) };
 }
+/** The job loop started from the toolbar popup, which shows `text` and can set `stop`. `at`: the loop's last heartbeat. */
+export interface LoopStatus { running: boolean; text: string; at: number; stop?: boolean }
+export const LOOP_STATUS = 'loopStatus';
+export const LOOP_BEAT_MS = 5000;
+export const getLoopStatus = () => get<LoopStatus>(LOOP_STATUS);
+export const saveLoopStatus = (s: LoopStatus) => set(LOOP_STATUS, s);
 export const saveLoopSettings = async (s: LoopSettings) => set('loop', { ...s, password: await seal(s.password) });
 
 /** Lock the saved secrets behind `passphrase` (a new one replaces the old), or with '' store them plainly again.

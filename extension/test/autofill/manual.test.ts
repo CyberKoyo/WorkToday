@@ -3,7 +3,7 @@ import { fakeBrowser } from 'wxt/testing/fake-browser';
 import { startManual } from '../../src/autofill/manual';
 import { mountBanner, mounted } from '../../src/autofill/mount';
 import { ARM_MS } from '../../src/autofill/banner';
-import { saveProfile } from '../../src/storage/store';
+import { getLoopStatus, saveProfile } from '../../src/storage/store';
 import { emptyProfile } from '../../src/profile/profile';
 import type { AtsAdapter } from '../../src/ats/types';
 
@@ -37,6 +37,22 @@ describe('toolbar button', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(banners()).toHaveLength(1);
   });
+
+  it("fills at once from the popup's Auto-fill button, in one banner", async () => {
+    document.body.innerHTML = '<p>Thanks for applying.</p>';
+    startManual('fill');
+    await vi.waitFor(() => expect(msg()).toBe('Found nothing to fill on this page.'), 6000);
+    expect(banners()).toHaveLength(1);
+  }, 10000);
+
+  it("runs the popup's loop on a page with filter boxes, with no banner, reporting to the popup", async () => {
+    await new Promise((r) => setTimeout(r, 600)); // the last test's watcher (debounced 500ms) reads document.body too
+    vi.spyOn(fakeBrowser.runtime, 'sendMessage').mockResolvedValue({ ok: true, known: [] } as never); // loop-start: allowed
+    document.body.innerHTML = '<label for="q">Search jobs</label><input id="q"><label for="l">Location</label><input id="l">';
+    startManual('loop');
+    await vi.waitFor(async () => expect(await getLoopStatus()).toMatchObject({ running: false, text: 'No Apply buttons found on this page.' }), 6000);
+    expect(banners()).toHaveLength(0);
+  }, 10000);
 
   it('stays out of a frame whose lone form is not an application (newsletter, chat)', async () => {
     vi.spyOn(window, 'top', 'get').mockReturnValue({} as Window);

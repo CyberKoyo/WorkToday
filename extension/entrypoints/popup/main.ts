@@ -1,6 +1,6 @@
 import './style.css';
 import { getApplications, updateApplication, type Application } from '@/src/tracker/store';
-import { getProfile } from '@/src/storage/store';
+import { getLoopStatus, getProfile, LOOP_BEAT_MS, LOOP_STATUS, saveLoopStatus, type LoopStatus } from '@/src/storage/store';
 import { pickAdapter } from '@/src/ats/registry';
 import { injectManual } from '@/src/background/injectManual';
 import { BUCKETS, countThisWeek, perDay, recent, statusCounts } from '@/src/popup/stats';
@@ -63,13 +63,32 @@ async function init() {
   const name = adapter && adapter.id !== 'generic' ? adapter.id[0]!.toUpperCase() + adapter.id.slice(1) : null;
   $('site').textContent = url?.protocol.startsWith('http') ? `${name ? `${name} detected` : 'Any form'} · ${url.hostname}` : 'Open a job application to auto-fill it';
 
+  // Auto-fill runs in the page's banner (top right), which shows progress and the summary.
   const fill = $('fill') as HTMLButtonElement;
   fill.disabled = tab?.id === undefined;
   fill.onclick = async () => {
     fill.disabled = true;
-    $('fill-text').textContent = 'Opening Auto-fill…';
-    await injectManual(tab!.id!); // the banner it shows on the page runs Auto-fill and Loop jobs, as the toolbar button did
+    fill.querySelector('span')!.textContent = 'Filling…';
+    await injectManual(tab!.id!, 'fill');
     window.close();
+  };
+
+  // The loop runs in the board's tab with no banner; its progress shows here, live while the popup is open.
+  const loop = $('loop') as HTMLButtonElement;
+  let status: LoopStatus | undefined;
+  const running = () => !!status?.running && Date.now() - status.at < 3 * LOOP_BEAT_MS; // no heartbeat: its tab was closed
+  const showLoop = (s: LoopStatus | undefined) => {
+    status = s;
+    loop.querySelector('span')!.textContent = running() ? 'Stop loop' : 'Loop jobs on this board';
+    $('loop-status').textContent = s?.stop && running() ? 'Stopping after this job…' : s?.running && !running() ? 'The loop ended: its tab was closed.' : s?.text ?? '';
+  };
+  showLoop(await getLoopStatus());
+  browser.storage.onChanged.addListener((c) => { if (c[LOOP_STATUS]) showLoop(c[LOOP_STATUS].newValue as LoopStatus | undefined); });
+  loop.disabled = tab?.id === undefined;
+  loop.onclick = async () => {
+    if (running()) { await saveLoopStatus({ ...status!, stop: true }); return; }
+    $('loop-status').textContent = 'Starting…';
+    await injectManual(tab!.id!, 'loop');
   };
 
   if (!(await getProfile())) {

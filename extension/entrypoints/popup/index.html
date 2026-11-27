@@ -19,8 +19,13 @@
     <div>
       <button id="fill" class="primary" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
-        <span id="fill-text">Auto-fill this page</span>
+        <span>Auto-fill this page</span>
       </button>
+      <button id="loop" class="secondary" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        <span>Loop jobs on this board</span>
+      </button>
+      <p id="loop-status" class="hint" aria-live="polite"></p>
       <p id="site" class="hint"></p>
     </div>
 

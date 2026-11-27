@@ -2,8 +2,9 @@ import { browser } from 'wxt/browser';
 import type { BgMessage, LoopReply } from '../messages';
 import { applyTargets, log, resetActed, type Step } from './loopPage';
 
-/** How one job ended. `sent`: Next/Submit was pressed and the form went away. `stuck`: left for the applicant. `none`: no form showed. */
-export type Outcome = 'sent' | 'filled' | 'stuck' | 'none';
+/** How one job ended. `sent`: Next/Submit was pressed and the form went away. `stuck`: left for the applicant.
+ * `applied`: applied to before, left unfilled. `none`: no form showed. */
+export type Outcome = 'sent' | 'filled' | 'stuck' | 'applied' | 'none';
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const POLL_MS = 2000;
@@ -22,6 +23,7 @@ export async function drive(poll: (clickApply: boolean) => Promise<Array<Step | 
   for (let i = 0; i < MAX_POLLS; i++) {
     await wait(POLL_MS);
     const steps = await poll(!acted && idle === APPLY_AT);
+    if (steps.includes('applied')) return 'applied';
     if (steps.includes('stuck')) return 'stuck';
     if (steps.includes('filled')) return 'filled';
     if (steps.includes('acted')) acted = true;
@@ -43,7 +45,7 @@ const samePage = (a: string, b: string) => a.split('#')[0] === b.split('#')[0];
 export async function runLoop(say: (s: string) => void, stopped: () => boolean, inPage: () => Promise<Step>, ask = send, wait = sleep): Promise<string> {
   const seen = new Set<HTMLElement>();
   const next = () => applyTargets(document).find((el) => !seen.has(el));
-  const tally: Record<Outcome, number> = { sent: 0, filled: 0, stuck: 0, none: 0 };
+  const tally: Record<Outcome, number> = { sent: 0, filled: 0, stuck: 0, applied: 0, none: 0 };
   let last: HTMLElement | undefined;
   let jobs = 0;
   let misses = 0;
@@ -80,5 +82,5 @@ export async function runLoop(say: (s: string) => void, stopped: () => boolean, 
   const why = !reply?.ok ? `${reply?.message ?? 'Loop failed.'} `
     : misses >= MAX_MISSES ? 'Apply buttons stopped opening anything. If the browser is blocking pop-ups (address bar), allow them for this site and start again. '
     : jobs >= MAX_JOBS ? `Paused at ${MAX_JOBS} jobs; press Loop jobs to go on. ` : '';
-  return `${why}${jobs} jobs: ${tally.sent} sent, ${tally.filled} filled, ${tally.stuck} need you, ${tally.none} with no form. Check each tab.`;
+  return `${why}${jobs} jobs: ${tally.sent} sent, ${tally.filled} filled, ${tally.stuck} need you, ${tally.applied} already applied, ${tally.none} with no form. Check each tab.`;
 }
