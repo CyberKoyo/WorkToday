@@ -1,5 +1,4 @@
 import { handleMessage } from '@/src/background/handleMessage';
-import { injectManual } from '@/src/background/injectManual';
 import { ALL_SITES, type BgMessage } from '@/src/messages';
 import { CONTENT_MATCHES } from '@/src/ats/matches';
 
@@ -19,9 +18,5 @@ export default defineBackground(() => {
     // A reply always goes back: every sender reads a missing reply as a failure, but a lost one leaves it waiting.
     handleMessage(msg, {}, sender.tab, sender.url).then(sendResponse, (e) => { console.warn('[workday-filler]', msg.type, 'failed', e); sendResponse(undefined); });
     return true; // keep channel open for async reply (works in Chrome and Firefox)
-  });
-  // Toolbar button: `action` in MV3, `browserAction` in Firefox MV2.
-  (browser.action ?? browser.browserAction).onClicked.addListener((tab) => {
-    if (tab.id !== undefined) void injectManual(tab.id);
   });
 });

@@ -9,10 +9,10 @@ export default defineConfig({
     return {
       name: 'Job Application Filler',
       description: 'Auto-fill job applications from your reviewed resume profile and keep a log of where you applied.',
-      // activeTab + scripting: the toolbar button runs Auto-fill on sites not listed below, with no install-time host access.
+      // activeTab + scripting: the popup's Auto-fill button (entrypoints/popup) runs on sites not listed below, with no install-time host access.
       // identity + the Sheets host only in builds with a Google client ID (application tracking to Google Sheets).
       permissions: ['storage', 'unlimitedStorage', 'activeTab', 'scripting', ...(env.WXT_GOOGLE_CLIENT_ID ? ['identity'] : [])],
-      action: { default_title: 'Auto-fill this job application' },
+      action: { default_title: 'Job Application Filler' }, // WXT adds default_popup from entrypoints/popup
       host_permissions: [`${env.WXT_API_BASE || DEFAULT_API_BASE}/*`, 'https://generativelanguage.googleapis.com/*',
         ...(env.WXT_GOOGLE_CLIENT_ID ? ['https://sheets.googleapis.com/*'] : [])],
       // The job loop fills whatever site a board's Apply button opens. Optional: granted from the dashboard, not at install.

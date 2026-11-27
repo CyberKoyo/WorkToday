@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Job Application Filler</title>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <strong>WorkToday</strong>
+      <span id="ready" class="ready"><span class="dot"></span> <span id="ready-text">Ready</span></span>
+    </div>
+    <button id="settings" class="icon" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <div>
+      <button id="fill" class="primary" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+        <span id="fill-text">Auto-fill this page</span>
+      </button>
+      <p id="site" class="hint"></p>
+    </div>
+
+    <div id="tiles" class="tiles"></div>
+
+    <section>
+      <h3>Last 14 days</h3>
+      <div id="bars" class="bars"></div>
+    </section>
+
+    <section>
+      <div id="split" class="split"></div>
+      <div id="legend" class="legend"></div>
+    </section>
+
+    <section>
+      <h3>Recent</h3>
+      <ul id="recent" class="recent"></ul>
+      <p id="empty" class="hint" hidden>No applications logged yet.</p>
+    </section>
+  </main>
+
+  <footer>
+    <button id="tracker" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
+      Open full tracker
+    </button>
+    <button id="profile" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Profile
+    </button>
+  </footer>
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
