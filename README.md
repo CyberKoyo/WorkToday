@@ -25,7 +25,7 @@ once connected, in a Google Sheet, and drafts answers to essay questions for you
 | Dayforce | `jobs.dayforcehcm.com` ("Apply without an Account") | Fills Candidate Info, its dropdowns, and the open education and employment entry, and attaches the resume. State/Province unlocks after Country, so it needs another press of Auto-fill. Saving each entry (Update), further entries and the privacy statement are yours. |
 | Tesla | `www.tesla.com/careers/search/job/apply/…` | Fills the "Personal Information" step and attaches the resume. Later steps go through the same reader but were not seen live. |
 | Workable, JazzHR, Recruitee, Paylocity, Gem, Breezy HR, Pinpoint, Rippling, Teamtailor, BambooHR, Personio, Jobvite, UKG Pro (UltiPro), ADP Workforce Now, Paycom, Freshteam, JobScore, Homerun, Manatal, Comeet | `apply.workable.com`, `*.applytojob.com`, `*.recruitee.com`, `recruiting.paylocity.com`, `jobs.gem.com`, `*.breezy.hr`, `*.pinpointhq.com`, `ats.rippling.com`, `*.teamtailor.com`, `*.bamboohr.com/careers`, `*.jobs.personio.de`/`.com`, `jobs.jobvite.com`, `recruiting(2).ultipro.com`, `workforcenow.adp.com/mascsr`, `paycomonline.net/v4/ats`, `*.freshteam.com`, `careers.jobscore.com`, `*.homerun.co`, `*.careers-page.com`, `www.comeet.co/jobs` (the iframe in a comeet.com job page) | The generic reader, checked against a live capture of each site's form (`extension/test/platforms`). The banner shows once the form asks for your name or email. Fills text boxes, dropdowns, radio and checkbox questions and attaches the resume; work/education rows are not added, and site-specific widgets (Rippling's and Personio's custom dropdowns, Jobvite's resume menu) are yours. Paycom and ADP Workforce Now: the guest step that opens the application. |
-| Any other site, including employers' own careers sites (Meta, Amazon, Microsoft) | Click the toolbar button on the application page. With **Allow on all sites** (dashboard → Settings) the banner shows by itself when a careers page has a form asking for your name, email, phone or resume | Uses the generic form reader. Same as iCIMS for extra rows. Without the permission, click the button again after moving to a new site. |
+| Any other site, including employers' own careers sites (Meta, Amazon, Microsoft) | Click the toolbar button on the application page and press **Auto-fill this page**. With **Allow on all sites** (dashboard → Settings) the banner shows by itself when a careers page has a form asking for your name, email, phone or resume | Uses the generic form reader. Same as iCIMS for extra rows. Without the permission, click the button again after moving to a new site. |
 
 ## Setup
 
@@ -44,7 +44,7 @@ You need Node.js and a Gemini API key. No server setup is required.
    are read off the resume too, and you can add ones it does not list; Gemini uses them for answers and essay drafts) (work authorization, sponsorship and EEO answers are never inferred — enter them
    yourself), and save. Optional, under Settings: an **Account password** for the accounts Workday asks you to create.
 5. On a supported application, press **Auto-fill** in the banner. On any other site, click the extension's toolbar button
-   to bring up the banner first. When it fills every field on a step with nothing left for you, it presses Next and fills the
+   and press **Auto-fill this page** to bring up the banner first. When it fills every field on a step with nothing left for you, it presses Next and fills the
    following step too. It stops at any step with a highlighted field, and before the final submit. Gemini's answers (blue)
    count as filled, so check them on the site's review page before you submit.
 
@@ -58,7 +58,7 @@ Work down a whole list of jobs from a job board (jobright.ai, or any board whose
    presses the board's Apply buttons for you, and browsers block tabs opened without a real click.
 3. Optional, dashboard → Settings → **Job loop**: a sign-in email and password for applications that want an account first,
    and **Submit applications for me**.
-4. On the board, click the toolbar button and press **Loop jobs**. Each job opens in its own tab and is stepped there: sign in
+4. On the board, click the toolbar button, press **Auto-fill this page**, then **Loop jobs**. Each job opens in its own tab and is stepped there: sign in
    if asked, press the posting's Apply button if the form is one click away, Auto-fill each step. When a board shows the
    application inside its own page instead of a new tab, it is filled there. Then the loop returns to the board for the next
    job, scrolling the list for more when it runs out. **Stop** ends it after the job it is on; so does closing the banner or
