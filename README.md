@@ -46,7 +46,9 @@ You need Node.js and a Gemini API key. No server setup is required.
 5. On a supported application, press **Auto-fill** in the banner. On any other site, click the extension's toolbar button
    and press **Auto-fill this page** to bring up the banner first. When it fills every field on a step with nothing left for you, it presses Next and fills the
    following step too. It stops at any step with a highlighted field, and before the final submit. Gemini's answers (blue)
-   count as filled, so check them on the site's review page before you submit.
+   count as filled, so check them on the site's review page before you submit. **Alt+Shift+F** runs Auto-fill on the
+   page you are on, any site, with no clicks (change it at `chrome://extensions/shortcuts`, or in Firefox under
+   Add-ons → ⚙ → Manage Extension Shortcuts).
 
 ### Job loop
 
@@ -141,9 +143,6 @@ they are never sent to Gemini or the mapping server. On other sites, sign in you
 
 ## Known limitations
 
-- Forms drawn inside shadow DOM (some company-built career sites) are not seen by the generic reader.
-- The application log has one row per page address, so an application whose steps change the address can log more than one row.
-- Essay drafts ignore a box's character limit; trim them if the site complains.
 - Outside Greenhouse, an essay draft sees the job description only when it is on the same page as the form. Systems that
   move the form to its own page (Workday, iCIMS, Oracle, SuccessFactors, Ashby's application tab) give the draft the title only.
 - Searchable prompts (Skills, Field of Study) are filled by searching each value. Values with no clear result are

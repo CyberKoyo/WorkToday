@@ -57,6 +57,14 @@ describe('toolbar button', () => {
     await vi.waitFor(() => expect(msg()).toBe('Found nothing to fill on this page.'), 6000);
   }, 10000);
 
+  it('runs Auto-fill without a press when the shortcut set the flag, and only once', async () => {
+    document.body.innerHTML = '<p>Thanks for applying.</p>';
+    (globalThis as { __wfAutoFill?: boolean }).__wfAutoFill = true;
+    startManual();
+    expect((globalThis as { __wfAutoFill?: boolean }).__wfAutoFill).toBeUndefined();
+    await vi.waitFor(() => expect(msg()).toBe('Found nothing to fill on this page.'), 6000);
+  }, 10000);
+
   it('brings back a dismissed banner on a supported site instead of adding a generic one', async () => {
     document.body.innerHTML = FORM;
     const site: AtsAdapter = {
