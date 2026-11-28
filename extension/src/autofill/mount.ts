@@ -23,7 +23,7 @@ async function seenNotice(): Promise<string> {
 
 export interface Mounted {
   adapter: AtsAdapter;
-  show: () => Promise<void>;
+  show: (auto?: boolean) => Promise<void>;
   /** The job loop's poll of this frame (background/loop.ts, or the board itself for an application in its own page). */
   loopStep: (clickApply: boolean) => Promise<Step>;
 }
@@ -89,7 +89,7 @@ function bannerFor(adapter: AtsAdapter): Pick<Mounted, 'show' | 'loopStep'> {
     // The loop's password comes from the background, and only when a supported site shows a password box to type it in.
     step({ adapter, settings: { ...(await getLoopSettings()), password: adapter.id !== 'generic' && document.querySelector('input[type="password"]') ? await askSecret('loop') : '' }, fill: loopFill, top, clickApply, inPage: looping, asksIdentity: () => asksIdentity(document),
       signInHere: adapter.id !== 'generic', foreign: adapter.id === 'generic' && !top && crossOrigin() });
-  return { show: () => show(), loopStep };
+  return { show: (auto?: boolean) => show(auto), loopStep };
 }
 
 /** Show the banner now (if a form is on screen) and on each later step of the application. */

@@ -23,6 +23,7 @@ export interface FieldDescriptor {
   options?: string[];    // radio labels (dropdown options are not known until opened)
   section?: string;      // e.g. "Work Experience 2"
   required: boolean;
+  maxLength?: number;    // the box's character limit, for Gemini's answers only (validateMapRequest drops it)
 }
 export interface MapRequest { fields: FieldDescriptor[] }
 export interface FieldMapping { id: string; profileKey: ProfileKey | null }

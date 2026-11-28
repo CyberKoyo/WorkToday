@@ -257,7 +257,7 @@ describe('runAutofill', () => {
   });
   it('asks Gemini to draft an empty essay box (blue); one already written or about pay is left alone', async () => {
     const base = deps();
-    document.body.innerHTML = '<div id="a"><textarea></textarea></div><div id="b"><textarea>My own words</textarea></div><div id="c"><textarea></textarea></div>';
+    document.body.innerHTML = '<div id="a"><textarea maxlength="300"></textarea></div><div id="b"><textarea>My own words</textarea></div><div id="c"><textarea></textarea></div>';
     const box = (id: string) => document.getElementById(id)!;
     const fields = [
       { id: 'wf-0', label: 'Why do you want to work here?', kind: 'textarea', required: true, groupIndex: 0, container: box('a') },
@@ -268,7 +268,7 @@ describe('runAutofill', () => {
     const answer = vi.fn().mockResolvedValue(new Map([['wf-0', ['Because of my work on data tools.']]]));
     // A profile key the mapper guessed for the question (and cached) must not stand in the draft's way.
     const r = await runAutofill({ ...base, extract: () => fields, fill, answer, map: vi.fn().mockResolvedValue(new Map([['wf-0', 'work.description']])) } as never);
-    expect(answer.mock.calls[0]![0].map((f: { id: string }) => f.id)).toEqual(['wf-0']);
+    expect(answer.mock.calls[0]![0].map((f: { id: string; maxLength?: number }) => [f.id, f.maxLength])).toEqual([['wf-0', 300]]); // the box's limit goes along
     expect(fill.mock.calls.map((c) => [c[0].id, c[1]])).toEqual([['wf-0', 'Because of my work on data tools.']]);
     expect(r.answered!.map((f) => f.id)).toEqual(['wf-0']);
     expect(box('a').style.outline).toContain('#3b82f6');

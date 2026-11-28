@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { answerQuestions } from '../../src/gemini/answerQuestions';
+import { answerQuestions, fit } from '../../src/gemini/answerQuestions';
 import { emptyProfile } from '../../src/profile/profile';
 
 const reply = (answers: unknown) => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ answers }) }] } }] }), { status: 200 });
@@ -37,6 +37,19 @@ describe('answerQuestions', () => {
   it('leaves out empty answers and answers matching no option', async () => {
     const f = vi.fn().mockResolvedValue(reply([{ id: 'wf-0', answer: ['Maybe'] }, { id: 'wf-2', answer: [''] }]));
     expect(await answerQuestions(fields, emptyProfile(), 'K', f)).toEqual(new Map());
+  });
+  it('tells Gemini a box\'s character limit and cuts a longer draft at a sentence end', async () => {
+    const essay = { id: 'wf-3', label: 'Why us?', kind: 'textarea' as const, required: true, maxLength: 30 };
+    const f = vi.fn().mockResolvedValue(reply([{ id: 'wf-3', answer: ['I build data tools. I want to build them at Acme for years to come.'] }]));
+    expect(await answerQuestions([essay], emptyProfile(), 'K', f)).toEqual(new Map([['wf-3', ['I build data tools.']]]));
+    expect(JSON.parse(f.mock.calls[0]![1].body).contents[0].parts[0].text).toContain('"maxLength":30');
+  });
+  it('fit keeps text within the limit, at a sentence that keeps half, else at a whole word', () => {
+    expect(fit('Short.', 60)).toBe('Short.');
+    expect(fit('Long text.', undefined)).toBe('Long text.');
+    expect(fit('One. Two three four five six.', 28)).toBe('One. Two three four five'); // "One." is under half
+    expect(fit('Exactly ten. More', 12)).toBe('Exactly ten.'); // the sentence ends right at the limit
+    expect(fit('Supercalifragilistic', 5)).toBe('Super');
   });
   it('a prose question gets its draft, and the job page goes along as reference', async () => {
     const essay = { id: 'wf-3', label: 'Why do you want to work here?', kind: 'textarea' as const, required: true };

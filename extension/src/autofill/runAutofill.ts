@@ -2,7 +2,7 @@ import type { FieldDescriptor, ProfileKey } from '@wf/shared';
 import { toDescriptor, type ExtractedField, type FillResult } from '../ats/field';
 import { resolveProfileValue, asksHispanicYesNo, asksRaces, hispanicAnswer, racesAnswer, standardKey, plausibleKey, type Profile, type ProfileValue } from '../profile/profile';
 import type { AtsAdapter } from '../ats/types';
-import { setNativeValue } from '../fill/dom';
+import { setNativeValue, TEXT_INPUT } from '../fill/dom';
 import { US_STATES } from '../fill/usStates';
 import { today } from '../fill/dateParts';
 import { answerKey, answerable, essay, readAnswer, rememberable } from '../answers/remembered';
@@ -249,6 +249,13 @@ export async function runAutofill(d: AutofillDeps): Promise<AutofillReport> {
   return report;
 }
 
+// The box's own character limit: a value set by script is not held to it, so Gemini's answer is cut to fit.
+function limitOf(f: ExtractedField): { maxLength?: number } {
+  const el = f.container.matches(`textarea, ${TEXT_INPUT}`) ? f.container as HTMLInputElement
+    : f.container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`textarea, ${TEXT_INPUT}`);
+  return el && el.maxLength > 0 ? { maxLength: el.maxLength } : {};
+}
+
 async function answerLeftovers(d: AutofillDeps, fields: Map<ExtractedField, Leftover>, report: AutofillReport) {
   // Gemini picks from a dropdown's own choices; most pages list them only once the dropdown is opened.
   for (const [f, how] of fields) {
@@ -262,7 +269,7 @@ async function answerLeftovers(d: AutofillDeps, fields: Map<ExtractedField, Left
   let answers = new Map<string, string[]>();
   try {
     // A dropdown that takes several choices is asked like a checkbox list: every option that applies.
-    answers = await d.answer!([...fields.keys()].map((f) => ({ ...toDescriptor(f), ...(f.multi ? { kind: 'checkbox' as const } : {}) })));
+    answers = await d.answer!([...fields.keys()].map((f) => ({ ...toDescriptor(f), ...limitOf(f), ...(f.multi ? { kind: 'checkbox' as const } : {}) })));
   } catch (e) {
     report.answerError = e instanceof Error ? e.message : String(e);
     report.log!.push(`gemini failed: ${report.answerError}`);
