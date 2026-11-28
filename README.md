@@ -46,7 +46,7 @@ You need Node.js and a Gemini API key. No server setup is required.
 5. On a supported application, press **Auto-fill** in the banner. On any other site, click the extension's toolbar button
    and press **Auto-fill this page** to bring up the banner first. When it fills every field on a step with nothing left for you, it presses Next and fills the
    following step too. It stops at any step with a highlighted field, and before the final submit. Gemini's answers (blue)
-   count as filled, so check them on the site's review page before you submit. **Alt+Shift+F** runs Auto-fill on the
+   count as filled, so check them on the site's review page before you submit. **Alt+Shift+J** runs Auto-fill on the
    page you are on, any site, with no clicks (change it at `chrome://extensions/shortcuts`, or in Firefox under
    Add-ons → ⚙ → Manage Extension Shortcuts).
 

@@ -14,7 +14,7 @@ export default defineConfig({
       permissions: ['storage', 'unlimitedStorage', 'activeTab', 'scripting', ...(env.WXT_GOOGLE_CLIENT_ID ? ['identity'] : [])],
       action: { default_title: 'Job Application Filler' }, // WXT adds default_popup from entrypoints/popup
       // Pressing it grants activeTab like the toolbar button; the applicant can rebind it in the browser's shortcut settings.
-      commands: { autofill: { suggested_key: { default: 'Alt+Shift+F' }, description: 'Auto-fill this page' } },
+      commands: { autofill: { suggested_key: { default: 'Alt+Shift+J' }, description: 'Auto-fill this page' } },
       host_permissions: [`${env.WXT_API_BASE || DEFAULT_API_BASE}/*`, 'https://generativelanguage.googleapis.com/*',
         ...(env.WXT_GOOGLE_CLIENT_ID ? ['https://sheets.googleapis.com/*'] : [])],
       // The job loop fills whatever site a board's Apply button opens. Optional: granted from the dashboard, not at install.
