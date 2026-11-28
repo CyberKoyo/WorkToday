@@ -25,6 +25,12 @@ describe('handleMessage', () => {
     const where = { location: undefined, guess: undefined };
     expect(track.mock.calls).toEqual([['Engineer - Acme', 'https://acme.com/careers/1', undefined, 'https://acme.com/', undefined, where], ['Apply', msg.url, undefined, 'https://acme.com/', undefined, where]]);
   });
+  it('track prefers the job title the site read off the page over the tab title', async () => {
+    const track = vi.fn().mockResolvedValue(undefined);
+    await handleMessage({ type: 'track', name: 'x', url: 'https://recruiting.ultipro.com/A/JobBoard/1', title: 'Intern - Summer 2027' },
+      { track }, { title: 'Intern - Summer 2027 - Search Jobs - INL Interns Careers', url: 'https://recruiting.ultipro.com/A/JobBoard/1' });
+    expect(track.mock.calls[0]![0]).toBe('Intern - Summer 2027');
+  });
   it('track asks Gemini only when the page found no location, and marks its answer guessed', async () => {
     const track = vi.fn().mockResolvedValue(undefined);
     const guess = vi.fn().mockResolvedValue('Austin, TX');

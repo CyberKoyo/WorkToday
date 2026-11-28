@@ -55,7 +55,8 @@ export async function handleMessage(
       const loc = key ? await (deps.guess ?? guessLocation)(text, key) : '';
       return loc && `${loc} (guessed)`;
     } : undefined;
-    await (deps.track ?? trackApplication)(tab?.title || msg.name, tab?.url || msg.url, undefined, msg.from, msg.company,
+    // The site's own job title beats the tab's, which can carry the board's name too (UKG).
+    await (deps.track ?? trackApplication)(msg.title || tab?.title || msg.name, tab?.url || msg.url, undefined, msg.from, msg.company,
       { location: msg.location, guess });
     return undefined;
   }
